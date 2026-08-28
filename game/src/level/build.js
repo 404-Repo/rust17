@@ -1,0 +1,469 @@
+/**
+ * DERRICK level builder: turns level/placements.js into scenery, colliders, walkables,
+ * links, movers and interior lamps, baked per 20 x 20 m block.
+ *
+ *   const level = await buildLevel(THREE, { scene, world, terrain, quality, onProgress });
+ *   level.blocks      Map<'bx_bz', THREE.Group>  baked static groups, already in the scene
+ *   level.movers      [{ asset, object, update(dt) }]  pump jacks, driven here
+ *   level.colliders   number registered on world
+ *   level.assetNames  Set of asset names actually placed
+ *   level.missing     asset names whose file was not there (placements skipped, never boxed)
+ *   level.sightlines  the MAP-PLAN section 5 ray checks, one { name, expect, got, ok } each
+ *
+ * Rules honoured here (docs/ARCHITECTURE.md): every prop goes through ASSET() with surfaces,
+ * nothing is ever replaced by a box, static scenery is baked per block with bakeStatic(),
+ * movers load with keepHierarchy per instance and are never cloned, colliders are registered
+ * before the bake because the bake leaves no individual objects behind.
+ */
+import * as THREE from 'three';
+import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js';
+import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js';
+import { vertexiseMaterials } from '../game/bake.js';
+import { collapsePerJoint } from '../ai/animation.js';
+
+const EYE = 1.65;
+const DEG = Math.PI / 180;
+const CYLINDER_ASSETS = new Set(['oil_drum', 'tyre_stack', 'palm_tree', 'floodlight_mast', 'wellhead_christmas_tree']);
+const NO_COLLIDER = new Set(['dead_shrub', 'debris_scatter', 'ammo_crate', 'external_steel_stair', 'caged_ladder']);
+const SIZE_TOLERANCE = 0.25;
+// integrator: scatter and wire fences are baked into a second group per block that casts no shadow (render notes lever)
+const NO_SHADOW = new Set(['dead_shrub', 'debris_scatter', 'barbed_wire_fence_section']);
+// integrator: big silhouettes are baked apart from the clutter so the game can stop drawing
+// clutter (drums, crates, sandbags, pipes) past ~90 m in the haze while every landmark stays
+// to the map edge. Nothing is decimated; a far block just loses its small props.
+const LANDMARK = new Set(['derrick_base_module', 'derrick_mid_module', 'derrick_crown_module', 'oil_storage_tank', 'oil_storage_tank_open',
+  'bullet_tank_horizontal', 'pump_house_building', 'bunkhouse_building', 'mud_pump_shed', 'watchtower_gantry', 'culvert_crossing',
+  'floodlight_mast', 'shipping_container_rust_red', 'shipping_container_blue', 'shipping_container_tan', 'shipping_container_open',
+  'fuel_truck_wreck', 'pickup_wreck', 'rock_outcrop_large', 'palm_tree', 'large_pipe_section', 'compound_wall_panel', 'corrugated_wall_panel',
+  'tank_catwalk_bridge', 'catwalk_section', 'external_steel_stair', 'caged_ladder', 'generator_set', 'pipe_run_elbow', 'pipe_run_straight']);   // warn when a loaded asset is this far (fraction) from its TSV size
+
+// ---------------------------------------------------------------------------------------------
+// Collider specs in the object's own frame (base at y 0, centred, front +Z), from the sizes in
+// docs/OBJECTS.tsv. Anything not listed gets a box (or a cylinder) from its measured size.
+//   box  { c:[x,y,z], s:[w,h,d] }        cyl { c:[x,y,z], r, h }   (c is the geometric centre)
+//   all y relative to the object's base. Walkable surfaces come from WALKABLES, not from here.
+function box(cx, cy, cz, sx, sy, sz) { return { type: 'box', c: [cx, cy, cz], s: [sx, sy, sz] }; }
+function cyl(cx, cy, cz, r, h) { return { type: 'cyl', c: [cx, cy, cz], r, h }; }
+
+/** A run of rail boxes along one edge, with gaps. axis 'x' means the rail runs along X at z = at. */
+function rail(axis, at, from, to, y0, h, gaps = [], thick = 0.08) {
+  const out = [];
+  const cuts = [from, ...gaps.flatMap((g) => [g[0] - g[1] / 2, g[0] + g[1] / 2]), to].sort((a, b) => a - b);
+  for (let i = 0; i < cuts.length - 1; i += 2) {
+    const a = cuts[i], b = cuts[i + 1];
+    if (b - a < 0.05) continue;
+    const mid = (a + b) / 2, len = b - a;
+    out.push(axis === 'x' ? box(mid, y0 + h / 2, at, len, h, thick) : box(at, y0 + h / 2, mid, thick, h, len));
+  }
+  return out;
+}
+
+/** A wall with openings: { at, w, y0, y1 } along its run; returns the solid pieces. */
+function wall(axis, at, from, to, height, thick, openings = []) {
+  const out = [];
+  const sorted = [...openings].sort((a, b) => a.at - b.at);
+  let cursor = from;
+  const piece = (a, b, y0, y1) => {
+    if (b - a < 0.02 || y1 - y0 < 0.02) return;
+    const mid = (a + b) / 2, len = b - a, cy = (y0 + y1) / 2, h = y1 - y0;
+    out.push(axis === 'x' ? box(mid, cy, at, len, h, thick) : box(at, cy, mid, thick, h, len));
+  };
+  for (const o of sorted) {
+    const a = o.at - o.w / 2, b = o.at + o.w / 2;
+    piece(cursor, a, 0, height);
+    piece(a, b, 0, o.y0 ?? 0);
+    piece(a, b, o.y1 ?? height, height);
+    cursor = b;
+  }
+  piece(cursor, to, 0, height);
+  return out;
+}
+
+/** Ring of short boxes around a circle (tank rails, the open tank's shell). Gaps in degrees. */
+function ring(r, y0, h, thick, segments, gaps = []) {
+  const out = [];
+  for (let i = 0; i < segments; i++) {
+    const a = (i + 0.5) * (360 / segments);
+    if (gaps.some((g) => Math.abs(((a - g.at + 540) % 360) - 180) < g.w / 2)) continue;
+    const rad = a * DEG, len = (2 * Math.PI * r) / segments + 0.05;
+    out.push({ type: 'box', c: [r * Math.cos(rad), y0 + h / 2, r * Math.sin(rad)], s: [thick, h, len], yaw: -rad });
+  }
+  return out;
+}
+
+function tankSpec(p, open) {
+  const gaps = (p.railGaps || []).map((at) => ({ at, w: 22 }));
+  const out = [];
+  if (open) {
+    out.push(...ring(4.0, 0, 4.6, 0.15, 24, [{ at: 90, w: 36 }, { at: 315, w: 20 }]));
+    out.push(cyl(0, 4.5, 0, 4.0, 0.2));            // roof slab, top at 4.6
+  } else {
+    out.push(cyl(0, 2.3, 0, 4.0, 4.6));
+  }
+  out.push(cyl(0, 4.9, 0, 3.3, 0.6));              // cone roof: the centre of the ring is not walkable
+  out.push(...ring(4.5, 4.6, 1.1, 0.08, 24, gaps));
+  return out;
+}
+
+function buildingSpec(w, d, opts) {
+  const H = 4.6 + 0.6;      // wall plus parapet as one piece
+  const hx = w / 2, hz = d / 2, t = 0.3;
+  const out = [];
+  out.push(...wall('x', -hz + t / 2, -hx, hx, H, t, opts.north || []));
+  out.push(...wall('x', hz - t / 2, -hx, hx, H, t, opts.south || []));
+  out.push(...wall('z', -hx + t / 2, -hz, hz, H, t, opts.west || []));
+  out.push(...wall('z', hx - t / 2, -hz, hz, H, t, opts.east || []));
+  out.push(box(0, 4.5, 0, w, 0.2, d));                 // roof slab, ceiling at 4.4, top at 4.6
+  for (const extra of opts.extra || []) out.push(extra);
+  return out;
+}
+
+const SPECS = {
+  derrick_base_module: () => [
+    box(0, 2.3, 0, 8, 4.6, 8),
+    box(0, 4.475, 0, 10, 0.25, 10),
+    ...rail('x', -5, -5, 5, 4.6, 1.1),
+    ...rail('x', 5, -5, 5, 4.6, 1.1, [[0, 1.2]]),
+    ...rail('z', 5, -5, 5, 4.6, 1.1),
+    ...rail('z', -5, -5, 5, 4.6, 1.1, [[0, 1.2], [-3.8, 1.4]]),
+  ],
+  derrick_mid_module: () => [
+    ...[[-3.7, -3.7], [3.7, -3.7], [3.7, 3.7], [-3.7, 3.7]].map(([x, z]) => box(x, 2.3, z, 0.35, 4.6, 0.35)),
+    box(0, 4.475, 0, 8, 0.25, 8),
+    ...rail('x', -4, -4, 4, 4.6, 1.1),
+    ...rail('x', 4, -4, 4, 4.6, 1.1),
+    ...rail('z', -4, -4, 4, 4.6, 1.1),
+    ...rail('z', 4, -4, 4, 4.6, 1.1, [[0, 0.8]]),
+  ],
+  derrick_crown_module: () => [[-3.1, -3.1], [3.1, -3.1], [3.1, 3.1], [-3.1, 3.1]].map(([x, z]) => box(x, 4.4, z, 0.3, 8.8, 0.3)),
+  oil_storage_tank: (p) => tankSpec(p, false),
+  oil_storage_tank_open: (p) => tankSpec(p, true),
+  tank_catwalk_bridge: () => [
+    box(0, 0.1, 0, 5, 0.2, 1.2),
+    box(0, 0.75, -0.56, 5, 1.1, 0.08), box(0, 0.75, 0.56, 5, 1.1, 0.08),
+  ],
+  catwalk_section: (p) => [
+    box(0, 0.075, 0, 3, 0.15, 1.2),
+    ...(p.bridge ? [box(0, 0.7, -0.56, 3, 1.1, 0.08), box(0, 0.7, 0.56, 3, 1.1, 0.08)] : []),
+  ],
+  pump_house_building: () => buildingSpec(12, 8, {
+    north: [{ at: 0, w: 3.0, y0: 0, y1: 1.8 }],
+    east: [{ at: 2, w: 0.9, y0: 0, y1: 2.1 }],
+    south: [{ at: -3, w: 1.2, y0: 1.5, y1: 2.4 }, { at: 3, w: 1.2, y0: 1.5, y1: 2.4 }, { at: -1.4, w: 1.2, y0: 4.6, y1: 5.2 }],
+  }),
+  bunkhouse_building: () => buildingSpec(14, 8, {
+    west: [{ at: -2, w: 0.9, y0: 0, y1: 2.1 }],
+    north: [{ at: 3, w: 0.9, y0: 0, y1: 2.1 }],
+    east: [{ at: 0, w: 1.2, y0: 1.5, y1: 2.4 }],
+    south: [{ at: -4, w: 1.2, y0: 1.5, y1: 2.4 }, { at: 3, w: 1.2, y0: 1.5, y1: 2.4 }, { at: 2.6, w: 1.2, y0: 4.6, y1: 5.2 }],
+    extra: [...wall('z', -1, -3.7, 3.7, 4.4, 0.2, [{ at: 0, w: 0.9, y0: 0, y1: 2.1 }]), box(5.6, 5.4, 0, 1.2, 1.6, 1.2)],
+  }),
+  mud_pump_shed: () => [
+    ...[-4.9, 0, 4.9].flatMap((x) => [box(x, 2.3, -2.9, 0.2, 4.6, 0.2), box(x, 2.3, 2.9, 0.2, 4.6, 0.2)]),
+    box(0, 1.2, -2.925, 10, 2.4, 0.15), box(-4.925, 1.2, 0, 0.15, 2.4, 6), box(4.925, 1.2, 0, 0.15, 2.4, 6),
+    box(0, 4.525, 0, 10, 0.15, 6),
+    ...rail('x', 2.95, -5, 5, 4.6, 0.3, [[0, 1.4]], 0.1), ...rail('x', -2.95, -5, 5, 4.6, 0.3, [[0, 1.2]], 0.1),
+    ...rail('z', -4.95, -3, 3, 4.6, 0.3, [], 0.1), ...rail('z', 4.95, -3, 3, 4.6, 0.3, [], 0.1),
+  ],
+  watchtower_gantry: () => [
+    ...[[-1.35, -1.35], [1.35, -1.35], [1.35, 1.35], [-1.35, 1.35]].map(([x, z]) => box(x, 2.3, z, 0.15, 4.6, 0.15)),
+    box(0, 4.5, 0, 3, 0.2, 3),
+    ...rail('x', -1.5, -1.5, 1.5, 4.6, 1.1), ...rail('z', -1.5, -1.5, 1.5, 4.6, 1.1), ...rail('z', 1.5, -1.5, 1.5, 4.6, 1.1),
+    ...rail('x', 1.5, -1.5, 1.5, 4.6, 1.1, [[0, 0.9]]),
+    box(0, 7.05, 0, 3.4, 0.1, 3.4),
+  ],
+  culvert_crossing: () => [box(-1.45, 1.3, 0, 0.5, 2.6, 8), box(1.45, 1.3, 0, 0.5, 2.6, 8), box(0, 2.3, 0, 3.4, 0.6, 8)],
+  shipping_container_open: () => [box(0, 1.295, -1.17, 6.06, 2.59, 0.1), box(0, 1.295, 1.17, 6.06, 2.59, 0.1), box(0, 2.545, 0, 6.06, 0.09, 2.44)],
+  pipe_run_elbow: () => [box(0, 0.75, -1.05, 3, 1.5, 0.9), box(-1.05, 0.75, 0, 0.9, 1.5, 3)],
+  pump_jack: () => [box(0, 0.15, 0, 9, 0.3, 2.6), box(-2.5, 2.4, 0, 3.6, 4.5, 2.6), box(3.8, 0.7, 0, 0.5, 1.1, 0.5)],
+  floodlight_mast: () => [box(0, 0.2, 0, 0.8, 0.4, 0.8), cyl(0, 4.5, 0, 0.16, 9)],
+  palm_tree: () => [cyl(0, 3, 0, 0.28, 6)],
+  wellhead_christmas_tree: () => [cyl(0, 1.2, 0, 0.55, 2.4)],
+};
+
+// ---------------------------------------------------------------------------------------------
+/** Quantise material values so the per block bake can merge across assets. 1/24 sRGB steps. */
+const _c = new THREE.Color();
+function quantiseMaterials(obj) {
+  obj.traverse((o) => {
+    if (!o.isMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) {
+      if (!m || m.userData.__q) continue;
+      if (m.color) {
+        _c.copy(m.color).convertLinearToSRGB();
+        _c.setRGB(Math.round(_c.r * 24) / 24, Math.round(_c.g * 24) / 24, Math.round(_c.b * 24) / 24);
+        m.color.copy(_c.convertSRGBToLinear());
+      }
+      if (typeof m.roughness === 'number') m.roughness = Math.round(m.roughness * 10) / 10;
+      if (typeof m.metalness === 'number') m.metalness = Math.round(m.metalness * 10) / 10;
+      m.userData.__q = true;
+    }
+  });
+}
+
+const _v = new THREE.Vector3();
+function toWorld(p, yaw, lx, ly, lz, baseY) {
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  return new THREE.Vector3(p.x + lx * c + lz * s, baseY + ly, p.z - lx * s + lz * c);
+}
+
+function registerColliders(world, p, yaw, baseY, size) {
+  const specFn = SPECS[p.asset];
+  let specs;
+  if (specFn) specs = specFn(p);
+  else if (NO_COLLIDER.has(p.asset)) specs = [];
+  else if (CYLINDER_ASSETS.has(p.asset)) specs = [cyl(0, size.y / 2, 0, Math.max(size.x, size.z) / 2, size.y)];
+  else specs = [box(0, size.y / 2, 0, size.x, size.y, size.z)];
+  let n = 0;
+  for (const s of specs) {
+    if (s.type === 'box') {
+      const c = toWorld(p, yaw, s.c[0], s.c[1], s.c[2], baseY);
+      world.addBox(c, new THREE.Vector3(s.s[0], s.s[1], s.s[2]), yaw + (s.yaw || 0), p.tag);
+    } else if (s.type === 'cyl') {
+      const c = toWorld(p, yaw, s.c[0], s.c[1], s.c[2], baseY);
+      world.addCylinder(c, s.r, s.h, p.tag);
+    }
+    n++;
+  }
+  return n;
+}
+
+/** Pump jack: walking beam nods, crank turns, pitman follows. Joints per docs/OBJECTS.tsv. */
+function pumpJackMover(p, object) {
+  const j = object.userData.joints || {};
+  if (!j.walkingBeam || !j.crank) console.warn('[level] pump_jack has no joints (walkingBeam, crank), it will stand still:', p.tag);
+  let t = Math.random() * 6;
+  const rate = 0.55 * Math.PI * 2 / 6;   // one stroke every six seconds
+  return {
+    asset: p.asset, object, tag: p.tag,
+    update(dt) {
+      t += dt * rate;
+      if (j.crank) j.crank.rotation.x = t;
+      if (j.walkingBeam) j.walkingBeam.rotation.x = Math.sin(t) * 8 * DEG;
+      if (j.pitman) j.pitman.rotation.x = -Math.sin(t) * 6 * DEG;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+export async function buildLevel(THREE_, { scene, world, terrain, quality, onProgress, assetBase = './assets/' } = {}) {
+  const progress = (t, label) => { try { onProgress && onProgress(t, label); } catch {} };
+  const density = quality && typeof quality.density === 'number' ? quality.density : 1;
+  const pointLights = !!(quality && quality.pointLights);
+  const heightAt = (x, z) => (terrain && terrain.heightAt ? terrain.heightAt(x, z) : 0);
+  const url = (name) => `${assetBase}${name}.js`;
+
+  // 1. thin the two scatter assets by the tier's density, deterministically
+  const counts = {};
+  const placements = PLACEMENTS.filter((p) => {
+    if (!p.density) return true;
+    const k = (counts[p.asset] = (counts[p.asset] || 0) + 1);
+    return (k * density) % 1 < density - 1e-9 || density >= 1;
+  });
+
+  // 2. which asset files exist. A missing one skips its placements with a warning, never a box.
+  const names = [...new Set(placements.map((p) => p.asset))];
+  const present = new Set(), missing = [];
+  await Promise.all(names.map(async (n) => {
+    try {
+      const r = await fetch(url(n), { method: 'HEAD' });
+      if (r.ok) present.add(n); else missing.push(n);
+    } catch { missing.push(n); }
+  }));
+  for (const n of missing) {
+    const k = placements.filter((p) => p.asset === n).length;
+    console.warn(`[level] missing asset ${n}: ${k} placement(s) skipped`);
+  }
+  progress(0.05, 'checking assets');
+
+  // 3. preload in chunks so the loading bar moves
+  const toLoad = names.filter((n) => present.has(n));
+  for (let i = 0; i < toLoad.length; i += 6) {
+    await preloadAssets(toLoad.slice(i, i + 6).map(url));
+    progress(0.05 + 0.5 * ((i + 6) / Math.max(1, toLoad.length)), 'loading assets');
+  }
+  const sizes = new Map();
+  for (const n of toLoad) {
+    try { sizes.set(n, await assetSize(url(n))); } catch (e) { console.warn('[level] assetSize failed', n, e.message); }
+  }
+
+  // 4. place
+  const blockGroups = new Map();
+  const movers = [];
+  const assetNames = new Set();
+  const stats = { placed: 0, skipped: 0, empty: 0, colliders: 0 };
+  const baseYOf = (p) => {
+    let y;
+    if (typeof p.y === 'number') y = p.y;
+    else if (p.wadiBed) y = Math.min(heightAt(p.x, p.z - 5), heightAt(p.x, p.z + 5), heightAt(p.x, p.z));
+    else if (p.ySample) y = heightAt(p.ySample[0], p.ySample[1]);
+    else y = heightAt(p.x, p.z);
+    return y + (p.dy || 0);
+  };
+
+  let i = 0;
+  for (const p of placements) {
+    i++;
+    if (i % 40 === 0) progress(0.55 + 0.3 * (i / placements.length), 'placing');
+    if (!present.has(p.asset)) { stats.skipped++; continue; }
+    const obj = await ASSET(url(p.asset), p.moving ? { keepHierarchy: true, surfaces: true } : { surfaces: true });
+    let meshes = 0;
+    obj.traverse((o) => { if (o.isMesh) meshes++; });
+    if (!meshes) { console.warn(`[level] asset ${p.asset} loaded empty, placement ${p.tag} skipped`); stats.empty++; continue; }
+    const size = sizes.get(p.asset) || new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+    const yaw = p.rot * DEG;
+    const baseY = baseYOf(p);
+    obj.position.set(p.x, baseY, p.z);
+    obj.rotation.y = yaw;
+    if (p.tilt) {
+      const dir = (p.tiltDir || 0) * DEG;
+      const axis = new THREE.Vector3(Math.cos(dir), 0, -Math.sin(dir)).normalize();   // lean toward tiltDir
+      obj.rotateOnWorldAxis(axis, p.tilt * DEG);
+    }
+    obj.name = p.tag;
+    obj.userData.asset = p.asset;
+    obj.userData.block = p.block;
+    obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    assetNames.add(p.asset);
+    stats.placed++;
+    if (world) stats.colliders += registerColliders(world, p, yaw, baseY, size);
+
+    if (p.moving) {
+      // integrator: colour and roughness into vertices, then one mesh per joint (the pump jack was ~250 meshes)
+      vertexiseMaterials(obj, { unify: true });
+      const joints = obj.userData.joints || {};
+      collapsePerJoint(obj, Object.values(joints).filter((j) => j && j.isObject3D), { bakeColors: false });
+      obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      scene.add(obj);
+      movers.push(p.asset === 'pump_jack' ? pumpJackMover(p, obj) : { asset: p.asset, object: obj, tag: p.tag, update() {} });
+      continue;
+    }
+    vertexiseMaterials(obj);   // integrator: replaces quantiseMaterials so bakeStatic merges per surface, not per colour
+    const gkey = NO_SHADOW.has(p.asset) ? p.block + '#nocast' : LANDMARK.has(p.asset) ? p.block : p.block + '#clutter';
+    let g = blockGroups.get(gkey);
+    if (!g) { g = new THREE.Group(); g.name = 'block_' + gkey; blockGroups.set(gkey, g); }
+    g.add(obj);
+  }
+  // size sanity against the TSV numbers carried in the collider specs (a wrong size is a
+  // collider that does not match what you see)
+  for (const [n, s] of sizes) {
+    const p = placements.find((q) => q.asset === n);
+    if (!p) continue;
+    const tsv = TSV_SIZES[n];
+    if (!tsv) continue;
+    const off = Math.max(Math.abs(s.x - tsv[0]) / tsv[0], Math.abs(s.z - tsv[1]) / tsv[1], Math.abs(s.y - tsv[2]) / tsv[2]);
+    if (off > SIZE_TOLERANCE) console.warn(`[level] ${n} measures ${s.x.toFixed(2)} x ${s.z.toFixed(2)} x ${s.y.toFixed(2)} m, TSV says ${tsv.join(' x ')}`);
+  }
+
+  // 5. walkables and links (absolute y, corrected against the terrain where a pad height differs)
+  if (world) {
+    for (const w of WALKABLES) {
+      const poly = w.polygon.map(([x, z]) => new THREE.Vector3(x, w.y, z));
+      world.addWalkable(poly, w.y, w.name);
+      stats.colliders++;
+    }
+    for (const l of LINKS) {
+      if (l.terrainY) {
+        l.from[1] = heightAt(l.from[0], l.from[2]);
+        l.to[1] = heightAt(l.to[0], l.to[2]);
+      }
+      if (l.type === 'catwalk') continue;   // bridges are walkables; the navgrid reads LINKS for the island joins
+      world.addLink({ type: l.type, from: new THREE.Vector3(...l.from), to: new THREE.Vector3(...l.to), width: l.width, name: l.name });
+      stats.colliders++;
+    }
+    // the invisible wall at the map extent, 4 m high, every edge
+    world.addBox(new THREE.Vector3(-70.5, 2, 0), new THREE.Vector3(1, 4, 112), 0, 'boundary');
+    world.addBox(new THREE.Vector3(70.5, 2, 0), new THREE.Vector3(1, 4, 112), 0, 'boundary');
+    world.addBox(new THREE.Vector3(0, 2, -55.5), new THREE.Vector3(142, 4, 1), 0, 'boundary');
+    world.addBox(new THREE.Vector3(0, 2, 55.5), new THREE.Vector3(142, 4, 1), 0, 'boundary');
+    stats.colliders += 4;
+  }
+
+  // 6. bake per block
+  const blocks = new Map();
+  let staticMeshes = 0;
+  for (const [gkey, g] of blockGroups) {
+    const noCast = gkey.endsWith('#nocast');
+    const key = gkey.split('#')[0];
+    const names = new Set();
+    for (const child of g.children) if (child.userData && child.userData.asset) names.add(child.userData.asset);
+    const baked = bakeStatic(g);
+    baked.name = 'block_' + gkey;
+    baked.userData.block = key;
+    baked.userData.assets = [...names];
+    baked.traverse((o) => { if (o.isMesh) { o.castShadow = !noCast; o.receiveShadow = true; staticMeshes++; } });
+    scene.add(baked);
+    if (blocks.has(key)) { const prev = blocks.get(key); prev.add(baked); prev.userData.assets = [...new Set([...prev.userData.assets, ...names])]; }
+    else if (gkey === key) blocks.set(key, baked);
+    else { const holder = new THREE.Group(); holder.name = 'block_' + key; holder.userData.block = key; holder.userData.assets = [...names]; holder.add(baked); scene.add(holder); blocks.set(key, holder); }
+  }
+  progress(0.9, 'baking');
+
+  // 7. interior lamps: warm lens plus a small point light on the high tier
+  const lamps = [];
+  for (const it of INTERIORS) {
+    if (!it.lamp) continue;
+    const [x, y, z] = it.lamp;
+    const lens = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.14, 0.05, 10),
+      new THREE.MeshStandardMaterial({ color: 0x3a3d40, emissive: 0xffd9a0, emissiveIntensity: 2.2, roughness: 0.6 }),
+    );
+    lens.position.set(x, y, z);
+    lens.name = 'lamp_' + it.name;
+    scene.add(lens);
+    lamps.push(lens);
+    if (pointLights) {
+      const light = new THREE.PointLight(0xffd9a0, 6, 9, 2);
+      light.position.set(x, y - 0.1, z);
+      light.castShadow = false;
+      light.name = 'lamplight_' + it.name;
+      scene.add(light);
+      lamps.push(light);
+    }
+  }
+
+  // 8. sightline check (MAP-PLAN section 5) at eye height
+  const sightlines = [];
+  if (world && world.lineOfSight) {
+    const pt = ([x, y, z]) => new THREE.Vector3(x, (y == null ? heightAt(x, z) : y) + EYE, z);
+    for (const s of SIGHTLINES) {
+      const a = pt(s.a), b = pt(s.b);
+      let got = null;
+      try { got = !!world.lineOfSight(a, b); } catch (e) { console.warn('[level] lineOfSight threw', s.name, e.message); }
+      const ok = got === s.expect;
+      sightlines.push({ name: s.name, expect: s.expect, got, ok, dist: +a.distanceTo(b).toFixed(1) });
+      if (!ok) console.warn(`[level] sightline check failed: "${s.name}" expected ${s.expect ? 'open' : 'blocked'} (${a.distanceTo(b).toFixed(0)} m)`);
+    }
+  }
+  progress(1, 'level ready');
+  console.log(`[level] placed ${stats.placed}, skipped ${stats.skipped} (missing files), empty ${stats.empty}, colliders ${stats.colliders}, blocks ${blocks.size}, static meshes ${staticMeshes}, movers ${movers.length}, sightlines ${sightlines.filter((s) => s.ok).length}/${sightlines.length} ok`);
+
+  return {
+    blocks, movers, colliders: stats.colliders, assetNames, missing, sightlines, lamps, staticMeshes, stats,
+    update(dt) { for (const m of movers) m.update(dt); },
+  };
+}
+
+// w, d, h from docs/OBJECTS.tsv, for the size sanity warning only
+const TSV_SIZES = {
+  derrick_base_module: [10, 10, 5.7], derrick_mid_module: [8, 8, 5.7], derrick_crown_module: [6.5, 6.5, 8.8],
+  oil_storage_tank: [8, 8, 5.2], oil_storage_tank_open: [8, 8, 5.2], tank_catwalk_bridge: [5, 1.2, 1.1],
+  bullet_tank_horizontal: [8, 2.6, 3.2], pump_house_building: [12, 8, 5.2], bunkhouse_building: [14, 8, 5.2],
+  mud_pump_shed: [10, 6, 4.9], watchtower_gantry: [3, 3, 7], culvert_crossing: [3.4, 8, 2.6],
+  compound_wall_panel: [4, 0.4, 2.4], corrugated_wall_panel: [3, 0.15, 2.4], pipe_run_straight: [6, 0.9, 1.5],
+  pipe_run_elbow: [3, 3, 1.5], pipe_rack_stack: [6, 2, 1.6], large_pipe_section: [8, 1.5, 1.6],
+  external_steel_stair: [1.2, 3.6, 2.3], catwalk_section: [3, 1.2, 1.1], caged_ladder: [0.8, 0.5, 4.6],
+  floodlight_mast: [1.4, 1.4, 9], barbed_wire_fence_section: [3, 0.3, 2.6], pump_jack: [9, 2.6, 6],
+  sandbag_wall: [2, 0.6, 1], jersey_barrier: [3, 0.6, 0.82], crate_stack: [1.2, 1, 1.3], ammo_crate: [0.6, 0.35, 0.3],
+  oil_drum: [0.585, 0.585, 0.88], ibc_tote: [1.2, 1, 1.16], tyre_stack: [1, 1, 1.2],
+  shipping_container_rust_red: [6.06, 2.44, 2.59], shipping_container_blue: [6.06, 2.44, 2.59],
+  shipping_container_tan: [6.06, 2.44, 2.59], shipping_container_open: [6.06, 2.44, 2.59],
+  rock_outcrop_large: [8, 5, 3], rock_outcrop_small: [2, 1.5, 1], generator_set: [3.2, 1.2, 1.9],
+  fuel_truck_wreck: [8, 2.5, 3.2], pickup_wreck: [5.2, 2, 1.8], wooden_pallet_stack: [1.2, 0.8, 0.6],
+  valve_manifold: [2.4, 1, 1.6], wellhead_christmas_tree: [1.2, 1.2, 2.4], palm_tree: [6, 6, 9],
+  dead_shrub: [1.2, 1.2, 0.8], debris_scatter: [2, 2, 0.3], bunk_bed: [2, 0.9, 1.7], locker_bank: [1.2, 0.5, 1.8],
+  office_desk: [1.4, 1.3, 0.9], mess_table: [2.4, 1.4, 0.76], steel_shelving: [1, 0.45, 1.8], control_cabinet: [0.8, 0.4, 1.9],
+};
+
+export { SPECS as COLLIDER_SPECS, PADS, padAt };
