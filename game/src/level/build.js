@@ -20,6 +20,7 @@ import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js';
 import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js';
 import { applyMaterials } from '../render/materials.js';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
 import { collapsePerJoint } from '../ai/animation.js';
+import { buildDecals } from '../render/decals.js';   // decals r6: near field decals, built after the bake
 
 const EYE = 1.65;
 const DEG = Math.PI / 180;
@@ -532,11 +533,14 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
       if (!ok) console.warn(`[level] sightline check failed: "${s.name}" expected ${s.expect ? 'open' : 'blocked'} (${a.distanceTo(b).toFixed(0)} m)`);
     }
   }
+  // decals r6: ground and wall decals after the bake (the wall snap needs the colliders and the block meshes)
+  let decals = null;
+  try { decals = await buildDecals(THREE, { scene, terrain, world, blocks, tier: quality }); } catch (e) { console.warn('[level] decals failed', e && e.message); }
   progress(1, 'level ready');
   console.log(`[level] placed ${stats.placed}, skipped ${stats.skipped} (missing files), sloped ${stats.sloped || 0} (foliage on a bank), empty ${stats.empty}, colliders ${stats.colliders}, blocks ${blocks.size}, static meshes ${staticMeshes}, movers ${movers.length}, sightlines ${sightlines.filter((s) => s.ok).length}/${sightlines.length} ok`);
 
   return {
-    blocks, movers, colliders: stats.colliders, assetNames, missing, sightlines, lamps, staticMeshes, stats,
+    blocks, movers, colliders: stats.colliders, assetNames, missing, sightlines, lamps, staticMeshes, stats, decals,   // decals r6
     update(dt) { for (const m of movers) m.update(dt); },
   };
 }

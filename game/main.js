@@ -40,7 +40,7 @@ import { ASSET } from './assetlib.js';
 import { vertexiseMaterials } from './src/game/bake.js';
 import { preloadMaterials, applyTerrainMaterial } from './src/render/materials.js';   // materials r3
 
-const ROUND = 'r5';
+const ROUND = 'r6';
 const DEG = Math.PI / 180;
 const params = new URLSearchParams(location.search);
 
@@ -462,6 +462,7 @@ function frame() {
   }
   level.update(dt);
   updateShadowCasters();
+  if (level.decals) level.decals.update(camera.position, FAR_CULL);   // decals r6: same block cull as the clutter
   fx.update(dt);
   sky.update(camera, dt);
   rig.update(camera, dt);

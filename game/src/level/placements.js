@@ -997,3 +997,200 @@ export const SIGHTLINES = [
   { name: 'pump house roof to bunkhouse roof', a: [-27, PADS.pumpHouse + 4.6, 32], b: [36, PADS.compound + 4.6, 36], expect: false, fix: 'south_mound_rack' },
   { name: 'south lane end to end along z 32', a: [-58, null, 32], b: [58, null, 32], expect: false },
 ];
+
+// ---------------------------------------------------------------------------
+// 4.11 Near field decals (round 6, decals). Every entry is derived from PLACEMENTS, SPAWNS and
+// COVER_POINTS by a seeded generator plus a few hand rules (the road, the doorways, the culvert
+// arrows), so it is deterministic and follows the props if they move. render/decals.js turns
+// the list into two merged meshes per 20 m block (alpha cut, soft blended).
+//   ground  { k: 'g', d, x, z, rot, w, h, p }   d the atlas sprite, rot degrees about +Y in the
+//           placement convention (0 = image top faces north), w across, h along the image's
+//           vertical, p = 1 keeps it on the phone tier (the rest are halved by index)
+//   wall    { k: 'w', d, x, z, ax, az, h0, nx, nz, w, h, snap, tag }   (x, z) the face point on
+//           the collider face, (ax, az) where the terrain is sampled for the base height, h0 the
+//           centre height above that base, (nx, nz) the outward face normal, snap 'need' skips
+//           the decal unless world.raycast finds the surface, 'try' falls back to the plane
+export const DECALS = (() => {
+  let seed = 60620261;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const rr = (a, b) => a + rnd() * (b - a);
+  const pick = (arr) => arr[Math.floor(rnd() * arr.length) % arr.length];
+  const out = [];
+  const G = (d, x, z, rot, w, h, p = 0, o = {}) => out.push({ k: 'g', d, x: +x.toFixed(2), z: +z.toFixed(2), rot: ((Math.round(rot) % 360) + 360) % 360, w: +w.toFixed(2), h: +h.toFixed(2), p, ...o });
+  const Wd = (d, x, z, ax, az, h0, nx, nz, w, h, snap, tag, p = 0) => out.push({ k: 'w', d, x: +x.toFixed(3), z: +z.toFixed(3), ax: +ax.toFixed(2), az: +az.toFixed(2), h0: +h0.toFixed(2), nx: +nx.toFixed(3), nz: +nz.toFixed(3), w: +w.toFixed(2), h: +h.toFixed(2), snap, tag, p });
+  const SZ = { ...SIZES, control_cabinet: [0.8, 0.4], oil_drum: [0.585, 0.585], oil_storage_tank: [8, 8], oil_storage_tank_open: [8, 8],
+    pump_house_building: [12, 8], bunkhouse_building: [14, 8], external_steel_stair: [1.2, 3.6] };
+  const ROUND = new Set(['oil_storage_tank', 'oil_storage_tank_open', 'oil_drum']);
+  const frame = (e) => { const a = (e.rot * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a); return { c, s, toWorld: (lx, lz) => [e.x + lx * c + lz * s, e.z - lx * s + lz * c] }; };
+  /** The four box faces of a placement in world space: { px, pz, nx, nz, len } (px, pz the face centre). */
+  const faces = (e) => {
+    const [w, d] = SZ[e.asset]; const F = frame(e); const outF = [];
+    for (const [lx, lz, len] of [[0, 1, w], [0, -1, w], [1, 0, d], [-1, 0, d]]) {
+      const half = lx !== 0 ? w / 2 : d / 2;
+      const [px, pz] = F.toWorld(lx * half, lz * half);
+      const [qx, qz] = F.toWorld(lx, lz);
+      outF.push({ px, pz, nx: qx - e.x, nz: qz - e.z, len, lx, lz });
+    }
+    return outF;
+  };
+  /** The face whose outward normal points most toward (tx, tz). */
+  const faceToward = (e, tx, tz) => { let best = null, bs = -9; for (const f of faces(e)) { const dx = tx - e.x, dz = tz - e.z, L = Math.hypot(dx, dz) || 1; const sc = (f.nx * dx + f.nz * dz) / L; if (sc > bs) { bs = sc; best = f; } } return best; };
+  /** A point on a face: u in -1..1 along the face, returns [x, z] on the face plane. */
+  const alongFace = (e, f, u) => { const F = frame(e); const tx = -f.lz, tz = f.lx; const [x, z] = F.toWorld(f.lx * (f.lx !== 0 ? SZ[e.asset][0] / 2 : SZ[e.asset][1] / 2) + tx * u * f.len / 2, f.lz * (f.lz !== 0 ? SZ[e.asset][1] / 2 : SZ[e.asset][0] / 2) + tz * u * f.len / 2); return [x, z]; };
+  /** A point on a round object's side at world angle a (radians, atan2(z, x)). */
+  const onRound = (e, a, r) => [e.x + Math.cos(a) * r, e.z + Math.sin(a) * r, Math.cos(a), Math.sin(a)];
+  const wallOn = (d, e, f, u, h0, w, h, snap = 'need', p = 0) => { const [x, z] = alongFace(e, f, u); Wd(d, x, z, e.x, e.z, (e.dy || 0) + h0, f.nx, f.nz, w, h, snap, e.tag, p); };
+  const wallRound = (d, e, a, r, h0, w, h, p = 0) => { const [x, z, nx, nz] = onRound(e, a, r); Wd(d, x, z, e.x, e.z, (e.dy || 0) + h0, nx, nz, w, h, 'round', e.tag, p); out[out.length - 1].r = +r.toFixed(3); };   // round: decals.js wraps the quad on the known radius (the cylinder colliders sit half a height too high, see NOTES)
+  const ground = (e) => !e.dy;
+  const by = (asset) => list.filter((e) => e.asset === asset && ground(e));
+  const inRect = (x, z, x0, x1, z0, z1) => x >= x0 && x <= x1 && z >= z0 && z <= z1;
+  const nearAny = (x, z, r) => list.some((e) => e.dy === 0 && !/dead_shrub|grass_tuft|debris_scatter/.test(e.asset) && Math.hypot(e.x - x, e.z - z) < r);
+  const roadCentre = (x) => 6;
+
+  // ---- ground: tyre tracks. The terrain carries one pair of ruts the whole road length (z 6, wandering)
+  // and along nine service branches (world/terrain.js TERRAIN_SPEC.tracks); the tread decals chain
+  // along those lines at 3 m pitch (the feathered ends overlap) and decals.js slides each piece
+  // sideways into the two rut hollows it finds in heightAt, so the tread lies IN the rut, not beside it.
+  const trackAlong = (pts, pitch = 3.0) => {
+    let acc = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const [x0, z0] = pts[i - 1], [x1, z1] = pts[i], L = Math.hypot(x1 - x0, z1 - z0);
+      if (L < 1e-6) continue;
+      const tx = (x1 - x0) / L, tz = (z1 - z0) / L;
+      while (acc < L) { G('tyre_track_straight', x0 + tx * acc, z0 + tz * acc, (Math.atan2(-tx, -tz) * 180) / Math.PI, 2.5, 3.2, 1, { rut: 1 }); acc += pitch; }
+      acc -= L;
+    }
+  };
+  trackAlong([[-56, 6], [56, 6]]);
+  const bez = (a, c, b, n = 24) => { const o = []; for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t; o.push([u * u * a[0] + 2 * u * t * c[0] + t * t * b[0], u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]]); } return o; };
+  for (const br of [   // TERRAIN_SPEC.tracks.branches, verbatim
+    { from: [-58, -2], ctrl: [-45, -0.2], to: [-36, -4] }, { from: [-36, -4], ctrl: [-28, -3], to: [-20.5, -6] }, { from: [58, -2], ctrl: [46, -1.5], to: [36, -4] },
+    { from: [-40, 9], ctrl: [-35, 17], to: [-30, 27] }, { from: [40, 9], ctrl: [45, 15], to: [47, 24] }, { from: [-52, 4], ctrl: [-46, -8], to: [-40, -22] },
+    { from: [-32, 4], ctrl: [-26, -6], to: [-20, -16] }, { from: [24, 4], ctrl: [28, -8], to: [26, -22] }, { from: [52, 4], ctrl: [46, -6], to: [38, -14] },
+  ]) trackAlong(bez(br.from, br.ctrl, br.to), 3.0);
+  // loose verge pieces, sparse, and the swerves at the wreck, the chicane and the pickup
+  for (const z0 of [3.9, 8.1]) for (let x = -54 + rr(0, 6); x < 54; x += rr(12, 18)) { if ((x > -33 && x < -19) || (x > 15 && x < 33)) continue; G('tyre_track_straight', x, z0 + rr(-0.3, 0.3), 90 + rr(-6, 6), 2.5, 3.2); }
+  G('tyre_track_curve', -31, 5.3, 90, 4.2, 4.2, 1); G('tyre_track_curve', -21, 5.0, 270, 4.2, 4.2, 1);
+  G('tyre_track_curve', 17.5, 6.8, 270, 4.2, 4.2, 1); G('tyre_track_curve', 31.5, 7.0, 90, 4.2, 4.2, 1);
+  G('tyre_track_curve', 39, 8.6, 180, 4.0, 4.0, 1);
+  // around the wrecks and the pickup (short broken pieces, the mud they churned)
+  for (const e of [...by('fuel_truck_wreck'), ...by('pickup_wreck')]) {
+    for (let i = 0; i < 2; i++) { const a = rr(0, 6.28), r = rr(3, 5); G('tyre_track_straight', e.x + Math.cos(a) * r, e.z + Math.sin(a) * r, e.rot + rr(-25, 25), 2.3, 3.0); }
+  }
+  // arrows on the road at the culvert, pointing along the road
+  G('stencil_arrow', 12, 5.2, 270, 1.1, 1.55, 1); G('stencil_arrow', 16.5, 7.0, 90, 1.1, 1.55, 1);
+
+  // ---- oil: under the machines that leak
+  const bigLeak = (e, dx, dz, n = 2) => { G('oil_stain_large', e.x + dx, e.z + dz, rr(0, 360), rr(1.8, 2.4), rr(1.8, 2.4)); for (let i = 0; i < n; i++) G('oil_stain_small', e.x + dx + rr(-1.6, 1.6), e.z + dz + rr(-1.6, 1.6), rr(0, 360), rr(0.55, 0.8), rr(0.55, 0.8)); };
+  for (const e of by('generator_set')) bigLeak(e, 0, 0, 2);
+  for (const e of by('pump_jack')) { const F = frame(e); const [x, z] = F.toWorld(-2.5, 0); bigLeak({ x, z }, 0, 0, 3); }
+  for (const e of by('fuel_truck_wreck')) { const F = frame(e); const [x, z] = F.toWorld(2.4, 0); bigLeak({ x, z }, 0, 0, 3); const [x2, z2] = F.toWorld(-1.5, 0.6); G('oil_stain_large', x2, z2, rr(0, 360), 1.6, 1.6); }
+  for (const e of by('pickup_wreck')) { const F = frame(e); const [x, z] = F.toWorld(1.4, 0); bigLeak({ x, z }, 0, 0, 2); }
+  for (const e of by('valve_manifold')) { if (rnd() < 0.6) G('oil_stain_large', e.x + rr(-0.4, 0.4), e.z + rr(-0.4, 0.4), rr(0, 360), 1.5, 1.5); for (let i = 0; i < 2; i++) G('oil_stain_small', e.x + rr(-1.4, 1.4), e.z + rr(-1.2, 1.2), rr(0, 360), rr(0.5, 0.75), rr(0.5, 0.75)); }
+  for (const e of by('wellhead_christmas_tree')) bigLeak(e, 0, 0, 2);
+  for (const e of by('oil_drum')) if (rnd() < 0.3) G('oil_stain_small', e.x + rr(-0.55, 0.55), e.z + rr(-0.55, 0.55), rr(0, 360), rr(0.45, 0.7), rr(0.45, 0.7));
+
+  // ---- sand drifts at the foot of every wall panel, container and tank on the downwind (east) side
+  const DRIFT_ASSETS = ['compound_wall_panel', 'corrugated_wall_panel', 'shipping_container_blue', 'shipping_container_rust_red', 'shipping_container_tan', 'shipping_container_open', 'bullet_tank_horizontal'];
+  for (const e of list) {
+    if (!ground(e)) continue;
+    if (DRIFT_ASSETS.includes(e.asset)) {
+      const f = faceToward(e, e.x + 10, e.z);   // the face that looks east
+      if (f.nx < 0.3) continue;                  // a panel end on, no lee
+      const n = f.len > 5 ? 2 : 1;
+      for (let i = 0; i < n; i++) {
+        const u = n === 1 ? rr(-0.35, 0.35) : (i === 0 ? rr(-0.7, -0.3) : rr(0.3, 0.7));
+        const [x, z] = alongFace(e, f, u);
+        const w = rr(1.9, 2.4);
+        G('sand_drift', x + f.nx * (w * 0.42), z + f.nz * (w * 0.42), (Math.atan2(f.nx, f.nz) * 180) / Math.PI, w, w * 0.95);
+      }
+    } else if (e.asset === 'oil_storage_tank' || e.asset === 'oil_storage_tank_open') {
+      const r = 4 * (e.scale || 1);
+      for (const a of [rr(-0.5, -0.15), rr(0.15, 0.5)]) { const [x, z, nx, nz] = onRound(e, a, r); const w = rr(2.0, 2.4); G('sand_drift', x + nx * w * 0.42, z + nz * w * 0.42, (Math.atan2(nx, nz) * 180) / Math.PI, w, w * 0.95); }
+    }
+  }
+
+  // ---- footprints: clusters at every spawn, doorway and cover point
+  for (const team of Object.values(SPAWNS)) for (const [x, z] of team) { G('footprints', x + rr(-0.6, 0.6), z + rr(-0.6, 0.6), rr(0, 360), rr(1.6, 2.0), rr(1.6, 2.0)); if (rnd() < 0.5) G('footprints', x + rr(1, 2.5), z + rr(-1.5, 1.5), rr(0, 360), 1.5, 1.5); }
+  const DOORS = [[-23.2, 34], [-30, 27.2], [30.2, 34], [41, 31.2], [25.2, 31], [47, 23.2], [33, 50.8], [-30, -23.4], [-27.2, -25.2], [14, 1.4], [14, 10.6], [-8.2, -3.0], [-19.9, -10], [-2, -3.9]];
+  for (const e of by('shipping_container_open')) { const F = frame(e); for (const lx of [-3.6, 3.6]) DOORS.push(F.toWorld(lx, 0)); }
+  for (const [x, z] of DOORS) { G('footprints', x, z, rr(0, 360), rr(1.7, 2.1), rr(1.7, 2.1), 1); if (rnd() < 0.6) G('footprints', x + rr(-1.8, 1.8), z + rr(-1.8, 1.8), rr(0, 360), 1.5, 1.5); }
+  let coverN = 0;
+  for (const c of COVER_POINTS) {
+    if (rnd() > 0.16) continue;
+    G('footprints', c.x + rr(-0.3, 0.3), c.z + rr(-0.3, 0.3), rr(0, 360), rr(1.3, 1.7), rr(1.3, 1.7)); coverN++;
+    if (rnd() < 0.1) G('litter_patch', c.x + c.nx * -0.8 + rr(-0.5, 0.5), c.z + c.nz * -0.8 + rr(-0.5, 0.5), rr(0, 360), rr(0.8, 1.1), rr(0.8, 1.1));
+  }
+
+  // ---- litter and gravel around the compound, the pump house, the tank farm, the derrick pad and the pipe yard
+  const scatter = (d, x0, x1, z0, z1, n, s0, s1, avoid) => {
+    let tries = 0;
+    for (let i = 0; i < n && tries < n * 12; tries++) {
+      const x = rr(x0, x1), z = rr(z0, z1);
+      if (avoid && avoid(x, z)) continue;
+      if (nearAny(x, z, 1.0)) continue;
+      G(d, x, z, rr(0, 360), rr(s0, s1), rr(s0, s1)); i++;
+    }
+  };
+  const bunk = (x, z) => inRect(x, z, 30, 46, 31.5, 40.5), pumpH = (x, z) => inRect(x, z, -36.5, -23.5, 27.5, 36.5), tanks = (x, z) => [[-40, -40], [-27, -40], [-30, -28]].some(([tx, tz]) => Math.hypot(tx - x, tz - z) < 4.6);
+  scatter('litter_patch', 27.5, 55, 25, 49, 5, 0.9, 1.3, bunk); scatter('gravel_patch', 27.5, 55, 25, 49, 6, 2.0, 3.0, bunk);
+  scatter('litter_patch', -38, -22, 26, 38, 3, 0.9, 1.3, pumpH); scatter('gravel_patch', -38, -22, 26, 38, 4, 2.0, 2.8, pumpH);
+  scatter('litter_patch', -47, -17, -47, -23, 4, 0.9, 1.3, tanks); scatter('gravel_patch', -47, -17, -47, -23, 8, 2.2, 3.2, tanks);
+  scatter('litter_patch', -8, 4, -16, -4, 2, 0.9, 1.2); scatter('gravel_patch', -8, 4, -16, -4, 2, 2.0, 2.6);
+  scatter('gravel_patch', -12, 30, -48, -22, 5, 2.2, 3.2); scatter('litter_patch', -12, 30, -48, -22, 2, 0.9, 1.3);
+  scatter('gravel_patch', -56, 56, 0, 12, 14, 2.0, 2.8, (x, z) => z > 2.5 && z < 9.5);   // verges
+  scatter('gravel_patch', -60, 60, -50, 50, 16, 2.2, 3.4, (x, z) => (z > 2.5 && z < 9.5) || padAt(x, z));   // open sand between the lanes
+
+  // ---- cable on the ground: generators to the nearest floodlight mast, and along the pipe racks
+  const masts = by('floodlight_mast');
+  for (const e of by('generator_set')) {
+    let best = null, bd = 1e9;
+    for (const m of masts) { const d = Math.hypot(m.x - e.x, m.z - e.z); if (d < bd) { bd = d; best = m; } }
+    if (!best || bd > 16) continue;   // a generator inside a building feeds through the wall, no cable on the sand
+    const dx = best.x - e.x, dz = best.z - e.z, L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, ang = (Math.atan2(ux, -uz) * 180) / Math.PI;   // image top along the run
+    for (let t = 1.4; t < L - 0.8; t += rr(3.6, 4.6)) G('cable_on_ground', e.x + ux * t + -uz * rr(-0.5, 0.5), e.z + uz * t + ux * rr(-0.5, 0.5), ang + rr(-40, 40), rr(2.2, 2.8), rr(2.2, 2.8));
+  }
+  for (const e of by('pipe_rack_stack')) { const F = frame(e); for (const lx of [-1.6, 1.6]) { const [x, z] = F.toWorld(lx, 1.9); G('cable_on_ground', x, z, e.rot + 90 + rr(-10, 10), 2.6, 2.6); } }
+
+  // ---- wall: hazard stripes on jersey barriers, generator sets, control cabinets and the tank stair
+  for (const e of by('jersey_barrier')) { const fs = faces(e).filter((f) => f.len > 2); for (const f of fs) if (rnd() < 0.8) wallOn('hazard_stripe', e, f, rr(-0.45, 0.45), 0.42, 1.2, 0.25, 'need', 1); }
+  for (const e of by('generator_set')) for (const f of faces(e).filter((f) => f.len > 2)) wallOn('hazard_stripe', e, f, rr(-0.5, 0.5), 0.32, 1.2, 0.25, 'need', 1);
+  for (const e of by('control_cabinet')) wallOn('hazard_stripe', e, faces(e)[0], 0, 0.25, 0.7, 0.15, 'try');
+  Wd('hazard_stripe', -40.15, -34.6, -42, -34.6, 0.09, 1, 0, 1.0, 0.16, 'none', 't1_stair_1');   // first riser of the tank stair (no collider on stairs)
+
+  // ---- stencil numbers on containers and tanks, one each, alternating so neighbours differ
+  const CONTAINERS = list.filter((e) => /shipping_container/.test(e.asset)).sort((a, b) => a.x - b.x || a.z - b.z);
+  const sideToward = (e, tx, tz) => e.asset === 'shipping_container_open' ? faces(e).filter((f) => f.len > 5).sort((a, b) => (b.nx * (tx - e.x) + b.nz * (tz - e.z)) - (a.nx * (tx - e.x) + a.nz * (tz - e.z)))[0] : faceToward(e, tx, tz);   // an open container's ends are doors, not walls
+  CONTAINERS.forEach((e, i) => { const f = sideToward(e, 0, 6); wallOn(i % 2 ? 'stencil_07' : 'stencil_02', e, f, rr(-0.55, 0.55) * (f.len > 5 ? 1 : 0.4), 1.55, 0.6, 0.6 / 1.28, 'need', 1); });
+  const TANKS = list.filter((e) => /oil_storage_tank/.test(e.asset)).sort((a, b) => a.x - b.x);
+  TANKS.forEach((e, i) => { const a = Math.atan2(6 - e.z, 0 - e.x); wallRound(i % 2 ? 'stencil_02' : 'stencil_07', e, a + rr(-0.25, 0.25), 4 * (e.scale || 1), 2.6, 1.0, 1.0 / 1.28, 1); });
+  // DANGER FLAMMABLE on the bullet tanks and the fuel truck, NO SMOKING at the pump house and bunkhouse doors
+  for (const e of by('bullet_tank_horizontal')) { const f = faceToward(e, 0, 6); wallOn('stencil_danger', e, f, rr(-0.3, 0.3), 1.45, 0.8, 0.8 / 1.378, 'need', 1); }
+  for (const e of by('fuel_truck_wreck')) for (const f of faces(e).filter((f) => f.len > 5)) wallOn('stencil_danger', e, f, 0.35, 1.9, 0.8, 0.8 / 1.378, 'need', 1);   // both long sides of the tank, rear half
+  Wd('stencil_no_smoking', -24, 35.3, -30, 32, 1.75, 1, 0, 0.62, 0.62 / 1.54, 'need', 'pump_house', 1);
+  Wd('stencil_no_smoking', -27.6, 28, -30, 32, 2.25, 0, -1, 0.62, 0.62 / 1.54, 'need', 'pump_house', 1);
+  Wd('stencil_no_smoking', 31, 32.7, 38, 36, 1.75, -1, 0, 0.62, 0.62 / 1.54, 'need', 'bunkhouse', 1);
+  Wd('stencil_no_smoking', 42.4, 32, 38, 36, 1.75, 0, -1, 0.62, 0.62 / 1.54, 'need', 'bunkhouse', 1);
+
+  // ---- bullet holes on cover facing the centre: jersey barriers, containers, compound walls (craters), corrugated panels
+  for (const e of by('jersey_barrier')) if (rnd() < 0.6) { const f = faceToward(e, 0, 6); wallOn('bullet_holes_concrete', e, f, rr(-0.5, 0.5), 0.42, 0.6, 0.6, 'need'); }
+  for (const e of CONTAINERS) { const f = sideToward(e, 0, 6); const n = 1 + (rnd() < 0.6 ? 1 : 0); for (let i = 0; i < n; i++) wallOn('bullet_holes', e, f, rr(-0.8, 0.8), rr(1.0, 1.6), 0.8, 0.8, 'need'); }
+  for (const e of by('compound_wall_panel')) { const f = faceToward(e, 0, 6); if (f.nx * (0 - e.x) + f.nz * (6 - e.z) <= 0) continue; if (rnd() < 0.55) wallOn('bullet_holes_concrete', e, f, rr(-0.55, 0.55), rr(1.0, 1.5), 0.8, 0.8, 'need'); }
+  for (const e of by('corrugated_wall_panel')) if (rnd() < 0.5) { const f = faceToward(e, 0, 6); wallOn('bullet_holes', e, f, rr(-0.5, 0.5), rr(0.9, 1.5), 0.7, 0.7, 'need'); }
+  for (const e of by('generator_set')) if (rnd() < 0.5) { const f = faceToward(e, 0, 6); wallOn('bullet_holes', e, f, rr(-0.5, 0.5), 1.1, 0.6, 0.6, 'need'); }
+
+  // ---- rust runs under fixings on containers and tanks, several small ones each
+  for (const e of CONTAINERS) for (const f of faces(e).filter((f) => f.len > 5)) for (let i = 0; i < 2; i++) wallOn('rust_run', e, f, rr(-0.85, 0.85), 1.95, 0.12, 0.9, 'need');
+  for (const e of TANKS) for (let i = 0; i < 4; i++) wallRound('rust_run', e, rr(0, 6.28), 4 * (e.scale || 1), 3.6, 0.13, 1.0);
+  for (const e of by('bullet_tank_horizontal')) for (const f of faces(e).filter((f) => f.len > 5)) wallOn('rust_run', e, f, rr(-0.7, 0.7), 2.3, 0.12, 0.8, 'need');
+
+  // ---- scuffs and grease on drums, the generators, the containers and the wrecks
+  for (const e of by('oil_drum')) { if (rnd() < 0.5) wallRound('scuff_marks', e, rr(0, 6.28), 0.29, rr(0.3, 0.55), 0.34, 0.3); if (rnd() < 0.3) wallRound('grease_smear', e, rr(0, 6.28), 0.29, rr(0.35, 0.6), 0.3, 0.26); }
+  for (const e of by('generator_set')) for (const f of faces(e).filter((f) => f.len > 2)) { wallOn('grease_smear', e, f, rr(-0.6, 0.6), 0.95, 0.5, 0.43, 'need'); if (rnd() < 0.7) wallOn('scuff_marks', e, f, rr(-0.7, 0.7), 0.6, 0.6, 0.52, 'need'); }
+  for (const e of CONTAINERS) { const f = sideToward(e, 0, 6); for (let i = 0; i < 2; i++) wallOn('scuff_marks', e, f, rr(-0.85, 0.85), rr(0.3, 0.5), 0.7, 0.6, 'need'); }
+  for (const e of [...by('fuel_truck_wreck'), ...by('pickup_wreck')]) { const lo = e.asset === 'fuel_truck_wreck' ? 1.3 : 0.5; for (const f of faces(e).filter((f) => f.len > 3)) { wallOn('scuff_marks', e, f, rr(-0.6, 0.6), rr(lo, lo + 0.4), 0.8, 0.7, 'need'); if (rnd() < 0.7) wallOn('grease_smear', e, f, rr(-0.7, 0.7), rr(lo + 0.3, lo + 0.7), 0.5, 0.43, 'need'); } }
+  for (const e of by('control_cabinet')) wallOn('grease_smear', e, faces(e)[0], rr(-0.3, 0.3), 1.1, 0.4, 0.35, 'try');
+
+  out.__counts = { ground: out.filter((d) => d.k === 'g').length, wall: out.filter((d) => d.k === 'w').length, coverFootprints: coverN };
+  return out;
+})();
