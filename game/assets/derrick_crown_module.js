@@ -12,13 +12,14 @@ export default function (THREE) {
     if (emis) { mat.emissive = new THREE.Color(emis); mat.emissiveIntensity = 1.2; }
     return mat;
   };
-  const ox = M(0x8b4530, 'metal', 0.82, 0.15);
-  const oxS = M(0x985340, 'metal', 0.79, 0.15);
-  const oxN = M(0x7d3d2a, 'metal', 0.85, 0.15);
-  const oxE = M(0x864331, 'metal', 0.83, 0.15);
-  const oxW = M(0x924e38, 'metal', 0.81, 0.15);
-  const oxB = M(0xa66a54, 'metal', 0.80, 0.12);
-  const oxBS = M(0xb0745d, 'metal', 0.79, 0.12);
+  const ox = M(0x7e4835, 'metal', 0.82, 0.15);
+  const oxS = M(0x8d5a45, 'metal', 0.79, 0.15);
+  const oxN = M(0x6d3f2e, 'metal', 0.85, 0.15);
+  const oxE = M(0x7a4634, 'metal', 0.83, 0.15);
+  const oxW = M(0x86513d, 'metal', 0.81, 0.15);
+  const oxB = M(0x9d7159, 'metal', 0.80, 0.12);
+  const oxBS = M(0xa67a63, 'metal', 0.79, 0.12);
+  const oxR = M(0x6f4732, 'metal', 0.90, 0.12);   // members gone to rust
   const rust = M(0x6b4426, 'metal', 0.92, 0.10);
   const steel = M(0x4f5257, 'metal', 0.78, 0.30);
   const steelD = M(0x45484c, 'metal', 0.80, 0.30);
@@ -95,7 +96,7 @@ export default function (THREE) {
         let p, q;
         if (nz) { p = V(-s * w1, y1, nz * (w1 + o)); q = V(s * w2, y2, nz * (w2 + o)); }
         else { p = V(nx * (w1 + o), y1, -s * w1); q = V(nx * (w2 + o), y2, s * w2); }
-        bar(p, q, 0.07, 0.02, mat, V(nx, 0, nz));
+        bar(p, q, 0.07, 0.02, s > 0 ? mat : oxR, V(nx, 0, nz));
       }
       box(nx ? 0.012 : 0.22, 0.22, nz ? 0.012 : 0.22, mat, nx * (wm + o + 0.02), ym, nz * (wm + o + 0.02));
       cyl(0.015, 0.03, gun, nx * (wm + o + 0.03), ym, nz * (wm + o + 0.03), nx ? 'x' : 'z', 6);

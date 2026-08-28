@@ -10,15 +10,16 @@ export default function (THREE) {
     if (name) mat.name = name;
     return mat;
   };
-  const gun = M(0x3a3d40, 'metal', 0.55, 0.65);
-  const gunS = M(0x42464b, 'metal', 0.55, 0.65);
-  const gunD = M(0x33363a, 'metal', 0.58, 0.65);
-  const worn = M(0x5c5f63, 'metal', 0.50, 0.70);
+  const gun = M(0x3a3e45, 'metal', 0.48, 0.50);     // round 1: metalness 0.65 -> 0.50, the shade side went black with only the environment to reflect
+  const gunS = M(0x43474e, 'metal', 0.47, 0.50);
+  const gunD = M(0x33373d, 'metal', 0.52, 0.50);
+  const worn = M(0x62656a, 'metal', 0.45, 0.55);
   const rustM = M(0x6b4426, 'metal', 0.75, 0.3);
-  const dust = M(0x6b654f, 'metal', 0.65, 0.3);
+  const dust = M(0x42464b, 'metal', 0.52, 0.50);   // round 1: was a tan dust cap; a held weapon is wiped clean, so the up faces are just lighter gunmetal
   const rubber = M(0x1d1e20, null, 0.70, 0.05);
   const rubberL = M(0x2a2b2e, null, 0.68, 0.05);
-  const glass = M(0x27363a, null, 0.45, 0.2, true);
+  const glass = new THREE.MeshStandardMaterial({ color: 0x2a3a44, roughness: 0.95, metalness: 0.0, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide });   // see through: ADS looks THROUGH the optic
+  const reticle = new THREE.MeshStandardMaterial({ color: 0x3a0e08, roughness: 0.6, metalness: 0.0, emissive: 0xff4a30, emissiveIntensity: 2.2 });
   const dark = M(0x2a2c2f, 'metal', 0.60, 0.6, true);
 
   const box = (w, h, d, mat, x, y, z, parent) => {
@@ -73,7 +74,9 @@ export default function (THREE) {
   box(0.004, 0.02, 0.004, gunS, -0.012, 0.022, 0.024, rd);              // hood posts
   box(0.004, 0.02, 0.004, gunS, 0.012, 0.022, 0.024, rd);
   box(0.028, 0.004, 0.004, gunS, 0, 0.033, 0.024, rd);                    // hood top
-  const win = box(0.02, 0.018, 0.0015, glass, 0, 0.022, 0.024, rd); win.rotation.x = -0.15;
+  const win = box(0.026, 0.022, 0.0015, glass, 0, 0.022, 0.024, rd); win.rotation.x = -0.15;
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0012, 6, 4), reticle); dot.position.set(0, 0.022, 0.016); rd.add(dot);   // the red dot, behind the window
+  const sightSock = new THREE.Object3D(); sightSock.name = 'socket_sight'; sightSock.position.set(0, 0.022, 0.024); rd.add(sightSock);
   box(0.014, 0.008, 0.02, gunD, 0, 0.016, -0.01, rd);                    // emitter housing
   box(0.006, 0.006, 0.006, worn, 0.016, 0.006, -0.02, rd);               // adjustment screw
   cyl(0.004, 0.03, dark, 0, 0.004, 0.0, 'x', 6, rd);                     // clamp bolt
@@ -127,7 +130,7 @@ export default function (THREE) {
   const trig = box(0.006, 0.02, 0.004, worn, 0, -0.034, 0.042, grip); trig.rotation.x = 0.2;
 
   // ---- magazine with witness slots ----
-  const mag = new THREE.Group(); mag.position.set(0, B + 0.028, -0.02); g.add(mag);
+  const mag = new THREE.Group(); mag.name = 'socket_mag'; mag.position.set(0, B + 0.028, -0.02); g.add(mag);   // the group IS the socket so the reload moves the geometry
   box(0.026, 0.22, 0.04, gun, 0, -0.11, 0, mag);
   for (let i = 0; i < 3; i++) box(0.028, 0.003, 0.042, worn, 0, -0.15 - i * 0.025, 0, mag);
   box(0.002, 0.07, 0.006, dark, -0.0135, -0.172, 0.008, mag);
@@ -156,7 +159,8 @@ export default function (THREE) {
     muzzle: sock('muzzle', 0, 0, 0.106, sup),
     gripR: sock('gripR', 0, 0, 0, grip),
     gripL: sock('gripL', 0, -0.04, -0.02, hg),
-    mag: sock('mag', 0, 0, 0, mag),
+    mag: mag,
+    sight: sightSock,
   };
 
   // ---- contract: base at y=0, centred on x and z ----

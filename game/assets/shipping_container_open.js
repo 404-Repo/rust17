@@ -124,27 +124,71 @@ const CFG = { kind: 'open', livery: 0x9ea3a1, bleach: 0.12, plates: [], open: tr
   }
 
   // side walls: one displaced plane per band, two height segments so the dent can bell in the middle
-  function sideWall(sz) {
-    const mOut = sz > 0 ? mSouth : mNorth, zBack = sz * (W / 2 - 0.046);
-    const dent = CFG.dent && sz < 0 ? CFG.dent : null;
-    const bands = CFG.band ? [[wallY0, wallY0 + CFG.band.h, M(CFG.band.color, 'metal', { roughness: 0.86, metalness: 0.08, side: DS, flatShading: true })], [wallY0 + CFG.band.h, wallY1, mOut]] : [[wallY0, wallY1, mOut]];
-    for (const [y0, y1, mat] of bands) {
-      const h = y1 - y0;
-      const mod = dent ? (x, y) => { const xx = sz < 0 ? -x : x; if (xx < dent.x0 || xx > dent.x1) return 0; return -dent.depth * Math.sin(PI * (xx - dent.x0) / (dent.x1 - dent.x0)) * (0.55 + 0.45 * Math.cos(y / h * PI)); } : null;
-      mesh(g, corrPlane(panelL, h, PITCH, RIBD, dent ? 4 : 1, mod), mat, 0, (y0 + y1) / 2, zBack, 0, sz > 0 ? 0 : PI, 0);
+
+  // ---- weathering that has to read at 30 m: five welded sheet panels a side each aged differently, weld seams between them,
+  //      a rust skin along the rib feet and under the roof rail, rust blooms that follow the corrugation, a bolted repair
+  //      patch on the shade side, and every screw and drip sitting on a rib crest instead of floating over a trough ----
+  const NP = 5, PW = panelL / NP, RP = PW / 4;
+  let seed = ({ tan: 3, red: 7, blue: 11, open: 5 })[CFG.kind] || 1;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed & 0xffff) / 0x10000; };
+  const crestX = (xl) => Math.round((xl + panelL / 2 - 0.36 * RP) / RP) * RP + 0.36 * RP - panelL / 2;
+  const mBloom = [RUST, mCast, M(tint(P.rust, -0.25), 'metal', { roughness: 0.94, metalness: 0.05, side: DS })];
+  const mSeam = M(tint(liv, -0.28), 'metal', { roughness: 0.9, metalness: 0.1 });
+  const mPatch = M(tint(liv, -0.12), 'metal', { roughness: 0.88, metalness: 0.08 });
+  const wx = (sz, xl) => (sz > 0 ? xl : -xl);
+  const skin = (sz, xl, y, w, h, mat) => mesh(g, corrPlane(w, h, PITCH, RIBD, 1), mat, wx(sz, xl), y, sz * (W / 2 - 0.046 + 0.004), 0, sz > 0 ? 0 : PI, 0);
+  function bloom(sz, xl, y, n, h) {
+    const r0 = Math.round((xl + panelL / 2) / RP), mat = mBloom[Math.floor(rnd() * 3)];
+    for (let k = 0; k < n; k++) skin(sz, (r0 + k) * RP + RP / 2 - panelL / 2, y + (rnd() - 0.5) * h * 0.6, RP, h * (0.5 + rnd()), mat);
+  }
+  function sideDetail(sz) {
+    const face = sz > 0 ? 'pz' : 'nz';
+    for (let k = 1; k < NP; k++) {
+      const xs = k * PW - panelL / 2, d = CFG.dent && sz < 0 ? CFG.dent : null;
+      const dz = d && xs > d.x0 && xs < d.x1 ? -d.depth * Math.sin(PI * (xs - d.x0) / (d.x1 - d.x0)) : 0;
+      box(g, 0.025, wallH - 0.02, 0.03, mSeam, wx(sz, xs), wallYc, sz * (W / 2 - 0.046 + 0.01 + dz));
     }
-    if (CFG.rustRibs) { const pts = corrPts(panelL, PITCH, RIBD); for (let i = 1; i < pts.length - 1; i += 4) streak(g, sz > 0 ? 'pz' : 'nz', (pts[i][0] + pts[i + 1][0]) / 2 - panelL / 2, wallY0 + 0.16, sz * (W / 2 - 0.01), 0.16, 0.12); }
+    skin(sz, 0, wallY0 + 0.035 + 0.01 * rnd(), panelL, 0.05 + 0.04 * rnd(), RUST);
+    skin(sz, 0, wallY1 - 0.03, panelL, 0.04, mCast);
+    for (let b = 0; b < 3; b++) bloom(sz, -2.3 + b * 1.7 + rnd() * 0.7, 0.6 + rnd() * 1.2, 2 + Math.floor(rnd() * 3), 0.25 + rnd() * 0.3);
+    for (let r = 0; r < 20; r += 2) { const xl = r * RP + 0.36 * RP - panelL / 2; if (rnd() < 0.7) streak(g, face, wx(sz, xl), wallY0 + 0.14 + 0.1 * rnd(), sz * (W / 2 - 0.01), 0.08 + 0.14 * rnd(), 0.05); }
     for (let i = 0; i < 7; i++) {
-      const x = -2.5 + i * 0.83 + (i % 2) * 0.2;
-      box(g, 0.03, 0.03, 0.02, mCast, x, H - 0.08, sz * (railZ + 0.08));
-      streak(g, sz > 0 ? 'pz' : 'nz', x, H - 0.1, sz * (W / 2 - 0.01), 0.18 + 0.12 * (i % 3), 0.05);
+      const xl = crestX(-2.5 + i * 0.83 + (i % 2) * 0.2), x = wx(sz, xl);
+      cyl(g, 0.018, 0.02, mCast, x, H - 0.07, sz * (railZ + 0.08), PI / 2, 0, 0, { seg: 6 });
+      streak(g, face, x, H - 0.09, sz * (W / 2 - 0.01), 0.18 + 0.12 * (i % 3), 0.05);
     }
+    if (sz < 0) {
+      const xl = 1.2 + 0.8 * rnd(), x = wx(sz, xl), y = 1.0 + 0.6 * rnd(), zc = sz * (W / 2 - 0.003);
+      box(g, 0.55, 0.42, 0.012, mPatch, x, y, zc);
+      for (const ex of [-0.22, 0.22]) for (const ey of [-0.16, 0.16]) { cyl(g, 0.012, 0.012, GUN, x + ex, y + ey, zc + sz * 0.009, PI / 2, 0, 0, { seg: 6 }); streak(g, face, x + ex, y + ey - 0.014, zc + sz * 0.006, 0.1 + 0.12 * rnd(), 0.03); }
+    }
+  }
+  function endDetail(sx) {
+    const EW = W - 0.36, p = EW / 7, xo = sx * (L / 2 - 0.046 + 0.004), ry = sx * PI / 2;
+    mesh(g, corrPlane(EW, 0.05 + 0.03 * rnd(), PITCH, RIBD, 1), RUST, xo, wallY0 + 0.04, 0, 0, ry, 0);
+    const r0 = 1 + Math.floor(rnd() * 4);
+    for (let k = 0; k < 2; k++) mesh(g, corrPlane(p, 0.25 + 0.3 * rnd(), PITCH, RIBD, 1), mBloom[k], xo, 1.1 + 0.5 * rnd(), -sx * ((r0 + k) * p + p / 2 - EW / 2), 0, ry, 0);
+  }
+  function sideWall(sz) {
+    const zBack = sz * (W / 2 - 0.046), ry = sz > 0 ? 0 : PI;
+    const dent = CFG.dent && sz < 0 ? CFG.dent : null;
+    const pf = [1.0, 0.7, 1.25, 0.85, 1.1];
+    for (let k = 0; k < NP; k++) {
+      const xc = (k + 0.5) * PW - panelL / 2, mOut = paint(bl * (sz > 0 ? 1 : 0.35) * pf[(k + (sz > 0 ? 0 : 2)) % NP]);
+      const bands = CFG.band ? [[wallY0, wallY0 + CFG.band.h, M(CFG.band.color, 'metal', { roughness: 0.86, metalness: 0.08, side: DS, flatShading: true })], [wallY0 + CFG.band.h, wallY1, mOut]] : [[wallY0, wallY1, mOut]];
+      for (const [y0, y1, mat] of bands) {
+        const h = y1 - y0;
+        const mod = dent ? (x, y) => { const xx = sz < 0 ? -(x + xc) : (x + xc); if (xx < dent.x0 || xx > dent.x1) return 0; return -dent.depth * Math.sin(PI * (xx - dent.x0) / (dent.x1 - dent.x0)) * (0.55 + 0.45 * Math.cos(y / h * PI)); } : null;
+        mesh(g, corrPlane(PW, h, PITCH, RIBD, dent ? 4 : 1, mod), mat, wx(sz, xc), (y0 + y1) / 2, zBack, 0, ry, 0);
+      }
+    }
+    sideDetail(sz);
     if (sz > 0) { const p = CFG.plates.find((q) => q.on === 'side'); if (p) box(g, p.w, p.h, 0.012, M(tint(liv, 0.75), 'metal', { roughness: 0.85 }), 1.1, 1.55, sz * (W / 2 - 0.004)); }
     if (CFG.bullets && sz > 0) for (const [bx, by] of CFG.bullets) { disc(g, 0.045, RUST, bx, by, W / 2 - 0.006); disc(g, 0.022, GUN, bx, by, W / 2 - 0.003); }
   }
   sideWall(1); sideWall(-1);
 
-  function plainEnd(sx) { mesh(g, corrPlane(W - 0.36, wallH, PITCH, RIBD, 1), mEnd, sx * (L / 2 - 0.046), wallYc, 0, 0, sx * PI / 2, 0); }
+  function plainEnd(sx) { mesh(g, corrPlane(W - 0.36, wallH, PITCH, RIBD, 1), mEnd, sx * (L / 2 - 0.046), wallYc, 0, 0, sx * PI / 2, 0); endDetail(sx); }
   function doorLeaf(parent, sx, sz, lz) {
     // leaf: a backing plate plus a horizontally corrugated skin, lock bars carried on brackets
     box(parent, 0.03, wallH, 1.0, mDoor, sx * 0.0, wallYc, lz);

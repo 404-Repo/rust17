@@ -13,12 +13,12 @@ export default function (THREE) {
     if (emis) { mat.emissive = new THREE.Color(emis); mat.emissiveIntensity = 1.2; }
     return mat;
   };
-  const ox = M(0x8b4530, 'metal', 0.82, 0.15);
-  const oxS = M(0x985340, 'metal', 0.79, 0.15);
-  const oxN = M(0x7d3d2a, 'metal', 0.85, 0.15);
-  const oxE = M(0x864331, 'metal', 0.83, 0.15);
-  const oxW = M(0x924e38, 'metal', 0.81, 0.15);
-  const oxT = M(0x9d5a45, 'metal', 0.80, 0.15);
+  const ox = M(0x7e4835, 'metal', 0.82, 0.15);
+  const oxS = M(0x8d5a45, 'metal', 0.79, 0.15);
+  const oxN = M(0x6d3f2e, 'metal', 0.85, 0.15);
+  const oxE = M(0x7a4634, 'metal', 0.83, 0.15);
+  const oxW = M(0x86513d, 'metal', 0.81, 0.15);
+  const oxT = M(0x96674f, 'metal', 0.80, 0.15);
   const rust = M(0x6b4426, 'metal', 0.92, 0.10);
   const galv = M(0x9ea3a1, 'metal', 0.70, 0.55, true);
   const galvS = M(0xaaafad, 'metal', 0.68, 0.55, true);

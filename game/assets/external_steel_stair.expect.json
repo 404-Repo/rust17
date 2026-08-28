@@ -1,1 +1,7 @@
-{"width": 1.2, "depth": 3.6, "height": 2.3, "tolerance": 0.15}
+{
+ "width": 1.2,
+ "depth": 3.6,
+ "height": 3.3,
+ "tolerance": 0.15,
+ "note": "rise is 2.3 m (top tread and landing plate at 2.300, what the level relies on); the bounding height adds the 1.0 m handrail"
+}

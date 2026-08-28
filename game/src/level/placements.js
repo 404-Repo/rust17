@@ -332,6 +332,67 @@ for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', -69, -4.5 + i * 3, 90
   many('oil_drum', [[12.4, -8, 20], [21.3, 40, 100]]);
 }
 
+// 4.7 West approach: the road from the Rangers berm gap to the derrick (round 1 fix, level) -----
+// The critic's frames along the harness route (x -57 to -8, z -8 to 3) were 60 percent blank
+// sky: nothing at mid depth, nothing above eye level. MAP-PLAN section 10 promises "left, tanks
+// and a lattice of pipes; right, a nodding pump jack and a low steel building", so this section
+// builds that approach: a flowline on trestles from a wellhead at the berm foot to the tank farm
+// (laid on the slope of the west rise with per piece tilt, so no trestle floats), a Rangers
+// watchtower on the flat top of the rise, a floodlight mast lighting the berm gap, a generator
+// with its drums, and a checkpoint gantry over the road at x -14 where the ground is flat: two
+// watchtowers either side of the road with a railed catwalk bridge between their decks at 4.6 m.
+// The bridge is dressing (no walkable, no link); the Rangers tower on the rise has both.
+// Terrain heights from world/terrain.js, probed on 2026-08-28 (work/fix1_level/NOTES.md).
+{
+  // flowline P3 on trestles along z -11 from a wellhead at the berm foot east to a manifold at
+  // x -35.5. The rise falls 0.6 m over the run; each piece leans east by the slope of its own
+  // span (tilt about the world z axis via tiltDir 90) so both trestles sit on the sand. The run
+  // is deliberately short and ends in the open: a longer run (24 m, with an elbow and a north
+  // arm) walled the Rangers north spawn line off from the road and the harness got stuck in
+  // the pocket between it and a wire fence (work/fix1_level/NOTES.md).
+  P('wellhead_christmas_tree', -50.2, -11, 0, { tag: 'wellhead_west' });
+  P('pipe_run_straight', -46, -11, 0, { tilt: 1.1, tiltDir: 90, tag: 'p3_a' });    // ends 1.74 / 1.62
+  P('pipe_run_straight', -40, -11, 0, { tilt: 3.0, tiltDir: 90, tag: 'p3_b' });    // 1.62 / 1.31
+  P('valve_manifold', -35.5, -11, 0, { tilt: 5, tiltDir: 90, tag: 'p3_manifold' });
+  // Rangers watchtower on the flat top of the rise (ground 1.98), ladder south, overlooking
+  // the berm gap. It stands off the z -10 spawn line so the pipe run beside it is not a pocket.
+  P('watchtower_gantry', -48, -6, 0, { tag: 'watchtower_west' });
+  // integrator r1: the mast, generator and drums moved from the tower's east side (z -6 to -3.6)
+  // to the strip between the tower and the flowline (z -8.3 to -9.5). Where they were, a player
+  // stepping out from under the tower toward the road met the generator ahead, the drums on
+  // one hand and the tower legs on the other, and the touch harness stood in that pocket for
+  // four legs (work/game/NOTES.md). The mast still lights the berm gap.
+  P('floodlight_mast', -42, -8.3, faceTo(-42, -8.3, -54, 6), { tag: 'mast_west_gap' });
+  P('generator_set', -44.5, -9.5, 0);
+  cluster('oil_drum', -40.3, -9.4, 3, 12);
+  P('crate_stack', -38.5, -6, 20);
+  P('pipe_rack_stack', -41, -19, 0);
+  P('shipping_container_rust_red', -28, -17, 0, { tag: 'container_stack_w_low' });
+  P('shipping_container_tan', -28, -17, 0, { dy: 2.59, tag: 'container_stack_w_top' });
+  P('palm_tree', -33, -20.5, 140, { tilt: 9, tiltDir: 300 });
+  P('ibc_tote', -27, -6.5, 10);
+  P('crate_stack', -25.5, -4.5, 70);
+  P('palm_tree', -24, -8, 310, { tilt: 7, tiltDir: 120 });         // over the road corridor for frames 4 to 6
+  P('palm_tree', -32, -5, 40, { tilt: 6, tiltDir: 90 });
+  // one at the berm foot in the spawn's first view of the map, off the spawn lines: the upper
+  // band from the rise can only be filled by tall things within 15 m, everything east is lower
+  P('palm_tree', -52.5, -4.5, 120, { tilt: 10, tiltDir: 250 });
+  P('palm_tree', -38, -13.5, 200, { tilt: 8, tiltDir: 30 });
+  cluster('oil_drum', -36.5, 11.5, 3, 13);
+  // south verge: a palm leaning north over the road, a low steel building, the pump jack beyond
+  P('palm_tree', -45.5, 10.8, 20, { tilt: 10, tiltDir: 180 });
+  P('palm_tree', -33, 10.5, 80, { tilt: 8, tiltDir: 200 });
+  P('floodlight_mast', -30, 15, faceTo(-30, 15, -14, 6), { tag: 'mast_gantry' });
+  P('palm_tree', -22, 13.5, 250, { tilt: 10, tiltDir: 60 });
+  // checkpoint gantry over the road at x -14 (ground 0.02 / 0.01 either side): towers with
+  // their ladders facing away from the road, three railed catwalks deck to deck at 4.6 m
+  P('watchtower_gantry', -14, 1, 180, { tag: 'gantry_tower_n' });
+  P('watchtower_gantry', -14, 11, 0, { tag: 'gantry_tower_s' });
+  P('catwalk_section', -14, 3, 90, { dy: 4.6, ySample: [-14, 1], bridge: true, tag: 'gantry_bridge_1' });
+  P('catwalk_section', -14, 6, 90, { dy: 4.6, ySample: [-14, 1], bridge: true, tag: 'gantry_bridge_2' });
+  P('catwalk_section', -14, 9, 90, { dy: 4.6, ySample: [-14, 1], bridge: true, tag: 'gantry_bridge_3' });
+}
+
 // tags: unique names for anything not named explicitly
 {
   const n = new Map();
@@ -380,6 +441,7 @@ export const WALKABLES = [
   { polygon: rect(31, 45, 32, 40), y: PADS.compound + 4.6, name: 'bunkhouse_roof', island: 'bunkhouse_roof' },
   { polygon: rect(44.1, 47.1, 40.3, 41.5), y: PADS.compound + 2.3, name: 'bunk_landing', island: 'bunk_landing' },
   { polygon: rect(24.5, 27.5, -49.5, -46.5), y: PADS.watchtower + 4.6, name: 'watchtower_deck', island: 'watchtower_deck' },
+  { polygon: rect(-49.5, -46.5, -7.5, -4.5), y: 1.98 + 4.6, name: 'watchtower_west_deck', island: 'watchtower_west_deck' },   // ground 1.98 probed
   ...annulusQuarters(-40, -40, 3.5, 4.5, PADS.hardstand + 4.6, 't1_ring'),
   ...annulusQuarters(-27, -40, 3.5, 4.5, PADS.hardstand + 4.6, 't2_ring'),
   ...annulusQuarters(-30, -28, 3.5, 4.5, PADS.hardstand + 4.6, 't3_ring'),
@@ -416,6 +478,7 @@ export const LINKS = [
   L('bunk_stair_1', 'stair', [46.2, PADS.compound, 36.6], [46.2, PADS.compound + 2.3, 40.2], 1.2),
   L('bunk_stair_2', 'stair', [44.1, PADS.compound + 2.3, 40.9], [40.5, PADS.compound + 4.6, 40.9], 1.2),
   L('watchtower_ladder', 'ladder', [26, PADS.watchtower, -46.2], [26, PADS.watchtower + 4.6, -47], 0.8, 'slow'),
+  L('watchtower_west_ladder', 'ladder', [-48, 1.98, -4.2], [-48, 1.98 + 4.6, -5], 0.8, 'slow'),
   wadiRamp('wadi_north_ford_w', -33, -1),
   wadiRamp('wadi_north_ford_e', -33, 1),
   wadiRamp('wadi_north_entry', -46, -1),
@@ -432,9 +495,13 @@ export const LINKS = [
 // ---------------------------------------------------------------------------
 // Spawns: eight per team, 1 m behind an object, yaw in the same degrees convention as rot
 // (0 faces south, 90 faces east, 270 faces west). Rangers look east, Militia look west.
+// Round 1 fix (level): each point is beside its cover object, not dead behind it. The plan's
+// "1 m behind" put (-63, -6) 0.4 m from the crate's face, facing it, and a player (or the
+// harness) walking forward from there stood still for three legs. The object is now at the
+// shoulder: the capsule (radius 0.35) clears it walking straight ahead, cover is still adjacent.
 export const SPAWNS = {
-  rangers: [[-63, -6, 90], [-63, 8, 90], [-61.5, 0, 90], [-59.5, -10, 90], [-59.5, 10, 90], [-65, 12, 90], [-64, -11, 90], [-66, 2, 90]],
-  militia: [[63, -6, 270], [63, 8, 270], [61.5, 0, 270], [59.5, -10, 270], [59.5, 10, 270], [65, -12, 270], [64, 11, 270], [66, -2, 270]],
+  rangers: [[-63.2, -7.3, 90], [-63.2, 9.3, 90], [-61.5, -1.2, 90], [-59.5, -12.2, 90], [-59.5, 11.6, 90], [-65.2, 13.3, 90], [-64, -12.4, 90], [-66, 2, 90]],
+  militia: [[63.2, -7.3, 270], [63.2, 9.3, 270], [61.5, -1.2, 270], [59.5, -12.2, 270], [59.5, 11.6, 270], [65.2, -13.3, 270], [64, 12.4, 270], [66, -2, 270]],
 };
 
 export const BOUNDARY = { minX: -66, maxX: 66, minZ: -52, maxZ: 52 };

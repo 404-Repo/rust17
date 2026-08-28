@@ -11,11 +11,11 @@ export default function (THREE) {
     if (name) mat.name = name;
     return mat;
   };
-  const gun = M(0x3a3d40, 'metal', 0.55, 0.65);
-  const gunS = M(0x43474c, 'metal', 0.55, 0.65);
-  const gunD = M(0x33363a, 'metal', 0.58, 0.65);
-  const worn = M(0x5c5f63, 'metal', 0.50, 0.70);
-  const dust = M(0x6b654f, 'metal', 0.65, 0.3);
+  const gun = M(0x3a3e45, 'metal', 0.48, 0.50);     // round 1: metalness 0.65 -> 0.50, the shade side went black with only the environment to reflect
+  const gunS = M(0x43474e, 'metal', 0.47, 0.50);
+  const gunD = M(0x33373d, 'metal', 0.52, 0.50);
+  const worn = M(0x62656a, 'metal', 0.45, 0.55);
+  const dust = M(0x42464b, 'metal', 0.52, 0.50);   // round 1: was a tan dust cap; a held weapon is wiped clean, so the up faces are just lighter gunmetal
   const rustM = M(0x6b4426, 'metal', 0.75, 0.3);
   const rubber = M(0x1d1e20, null, 0.70, 0.05);
   const rubberL = M(0x27282b, null, 0.68, 0.05);
@@ -23,15 +23,18 @@ export default function (THREE) {
   const oliveS = M(0x585c40, 'fabric', 0.70, 0.1);
   const cloth = M(0xb0a07c, 'fabric', 0.85, 0.0);
   const clothD = M(0xa09270, 'fabric', 0.85, 0.0);
-  const glass = M(0x27363a, null, 0.45, 0.2, true);
+  const glass = new THREE.MeshStandardMaterial({ color: 0x2a3a44, roughness: 0.95, metalness: 0.0, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide });   // see through: ADS looks THROUGH the optic
+  const reticle = new THREE.MeshStandardMaterial({ color: 0x3a0e08, roughness: 0.6, metalness: 0.0, emissive: 0xff4a30, emissiveIntensity: 2.2 });
   const dark = M(0x2a2c2f, 'metal', 0.60, 0.6, true);
 
   const box = (w, h, d, mat, x, y, z, parent) => {
     const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     mm.position.set(x, y, z); (parent || g).add(mm); return mm;
   };
-  const cyl = (r, len, mat, x, y, z, axis, seg, parent, r2) => {
-    const mm = new THREE.Mesh(new THREE.CylinderGeometry(r2 === undefined ? r : r2, r, len, seg || 10), mat);
+  const cyl = (r, len, mat, x, y, z, axis, seg, parent, r2, open) => {
+    // open: no end caps. Every cylinder coaxial with the scope tube must be open, or its cap
+    // is a solid disc across the eyepiece and ADS looks at a black circle
+    const mm = new THREE.Mesh(new THREE.CylinderGeometry(r2 === undefined ? r : r2, r, len, seg || 10, 1, !!open), mat);
     if (axis === 'z') mm.rotation.x = Math.PI / 2; else if (axis === 'x') mm.rotation.z = Math.PI / 2;
     mm.position.set(x, y, z); (parent || g).add(mm); return mm;
   };
@@ -80,20 +83,24 @@ export default function (THREE) {
   cyl(0.004, 0.036, dark, 0, 0.0, -0.06, 'x', 6, sc);                   // clamp bolts
   cyl(0.004, 0.036, dark, 0, 0.0, 0.0, 'x', 6, sc);
   box(0.006, 0.008, 0.03, worn, 0.02, 0.004, -0.02, sc);                // clamp lever
-  cyl(0.015, 0.30, gun, 0, 0.038, 0.0, 'z', 12, sc);                    // tube
-  cyl(0.025, 0.07, gunS, 0, 0.038, 0.13, 'z', 12, sc, 0.019);           // bell
-  cyl(0.026, 0.01, worn, 0, 0.038, 0.165, 'z', 12, sc);
+  cyl(0.015, 0.30, gun, 0, 0.038, 0.0, 'z', 12, sc, undefined, true);                    // tube
+  cyl(0.025, 0.07, gunS, 0, 0.038, 0.13, 'z', 12, sc, 0.019, true);           // bell
+  cyl(0.026, 0.01, worn, 0, 0.038, 0.165, 'z', 12, sc, undefined, true);
   cyl(0.02, 0.002, glass, 0, 0.038, 0.171, 'z', 12, sc);
-  cyl(0.02, 0.05, gunS, 0, 0.038, -0.13, 'z', 12, sc, 0.016);           // ocular
-  cyl(0.021, 0.008, rubber, 0, 0.038, -0.156, 'z', 12, sc);
+  cyl(0.02, 0.05, gunS, 0, 0.038, -0.13, 'z', 12, sc, 0.016, true);           // ocular
+  cyl(0.021, 0.008, rubber, 0, 0.038, -0.156, 'z', 12, sc, undefined, true);
   cyl(0.017, 0.002, glass, 0, 0.038, -0.161, 'z', 12, sc);
-  cyl(0.02, 0.03, gun, 0, 0.038, -0.015, 'z', 12, sc);                  // saddle
+  // crosshair on the tube axis, seen through the ocular in ADS; the sight socket is the ocular centre
+  box(0.0006, 0.026, 0.0006, dark, 0, 0.038, 0.0, sc);
+  box(0.026, 0.0006, 0.0006, dark, 0, 0.038, 0.0, sc);
+  const sightSock = new THREE.Object3D(); sightSock.name = 'socket_sight'; sightSock.position.set(0, 0.038, -0.161); sc.add(sightSock);
+  cyl(0.02, 0.03, gun, 0, 0.038, -0.015, 'z', 12, sc, undefined, true);                  // saddle
   cyl(0.011, 0.018, gun, 0, 0.065, -0.015, 'y', 10, sc);                // elevation turret
   cyl(0.012, 0.004, worn, 0, 0.075, -0.015, 'y', 10, sc);
   cyl(0.011, 0.018, gun, 0.029, 0.038, -0.015, 'x', 10, sc);            // windage turret
   cyl(0.012, 0.004, worn, 0.039, 0.038, -0.015, 'x', 10, sc);
   cyl(0.008, 0.012, gun, -0.026, 0.038, -0.015, 'x', 10, sc);           // parallax
-  const wrap = (z0, n, r) => { for (let i = 0; i < n; i++) { const w = cyl(r, 0.013, i % 2 ? cloth : clothD, 0, 0.038, z0 + i * 0.014, 'z', 12, sc); w.rotation.z = i * 0.3; } };
+  const wrap = (z0, n, r) => { for (let i = 0; i < n; i++) { const w = cyl(r, 0.013, i % 2 ? cloth : clothD, 0, 0.038, z0 + i * 0.014, 'z', 12, sc, undefined, true); w.rotation.z = i * 0.3; } };
   wrap(0.04, 5, 0.0185); wrap(-0.10, 3, 0.0185);
   box(0.03, 0.008, 0.004, clothD, 0.01, 0.055, 0.045, sc);              // tied tail
   box(0.018, 0.003, 0.28, dust, 0, 0.053, 0.0, sc);
@@ -167,7 +174,7 @@ export default function (THREE) {
   const trig = box(0.006, 0.024, 0.004, worn, 0, B - 0.066, -0.18); trig.rotation.x = 0.25;
 
   // ---- 20 round box mag ----
-  const mag = new THREE.Group(); mag.position.set(0, B - 0.02, -0.10); mag.rotation.x = -0.06; g.add(mag);
+  const mag = new THREE.Group(); mag.name = 'socket_mag'; mag.position.set(0, B - 0.02, -0.10); mag.rotation.x = -0.06; g.add(mag);   // the group IS the socket so the reload moves the geometry
   box(0.028, 0.17, 0.068, gun, 0, -0.085, 0, mag);
   for (let i = 0; i < 3; i++) box(0.03, 0.003, 0.07, worn, 0, -0.09 - i * 0.025, 0, mag);
   box(0.002, 0.06, 0.008, dark, -0.0145, -0.12, 0.015, mag);
@@ -202,7 +209,8 @@ export default function (THREE) {
     muzzle: sock('muzzle', 0, 0, 0.04, mb),
     gripR: sock('gripR', 0, 0, 0, grip),
     gripL: sock('gripL', 0, -0.03, -0.05, hg),
-    mag: sock('mag', 0, 0, 0, mag),
+    mag: mag,
+    sight: sightSock,
   };
 
   // ---- contract: base at y=0, centred on x and z ----

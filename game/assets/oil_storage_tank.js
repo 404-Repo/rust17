@@ -81,6 +81,12 @@ export default function (THREE) {
   const fil = cyl(0.2, R + 0.6, 0.26, sand, 0, 0.13, 0, SEG, false);
   fil.scale.set(1.04, 1, 0.96);
   bx(0.3, 0.06, 0.02, rust, 0.9, 0.14, R + 0.1);
+  // ---- contact ring: a stained band on the bottom course, a collar of packed oil dark sand over the fillet, a splash line ----
+  const stain = M(tint(TANK, 0.7), 'metal', 0.92, 0.12, true);
+  const collar = cyl(R + 0.02, R + 0.42, 0.22, M(0xa89372, 'ground', 0.96, 0.0), 0, 0.11, 0, SEG, false);
+  collar.scale.set(1.04, 1, 0.96);
+  cyl(R + 0.004, R + 0.004, 0.38, stain, 0, 0.31, 0, SEG, true);
+  for (let k = 0; k < 10; k++) { const s = swing(k * Math.PI / 5 + 0.3); bx(0.3 + 0.1 * (k % 3), 0.07 + 0.05 * (k % 2), 0.006, conc, 0, 0.53 + 0.04 * (k % 2), R + 0.006, s); }
 
   // ---- roof: cone, eave ring, 12 radial ribs, dust cone, vent stub ------------
   const roof = new THREE.Mesh(new THREE.ConeGeometry(R + 0.08, 0.6, SEG, 1, false), M(tint(TANK, 1.15), 'metal', 0.85, 0.2, true));
@@ -137,6 +143,8 @@ export default function (THREE) {
     cyl(0.025, 0.025, 1.05, k % 2 ? yel : yelD, 0, H + 0.525, RR, 6, false, s);
     bx(0.09, 0.02, 0.09, steel, 0, H + 0.02, RR, s);
     bx(0.04, 0.06, 0.006, rust, 0, H + 0.07, RR + 0.03, s);
+    bx(0.05, 0.10, 0.006, rust, 0, H + 0.03, RW + 0.004, s);      // drip from the post foot down the kerb face
+    bx(0.045, 0.12, 0.006, rust, 0.01, H - 0.06, RW + 0.014, s);  // and on down the deck edge ring
   }
   for (const [y, mat] of [[H + 1.05, yel], [H + 0.55, yelD]]) {
     const t = new THREE.Mesh(new THREE.TorusGeometry(RR, 0.027, 6, SEG), mat);

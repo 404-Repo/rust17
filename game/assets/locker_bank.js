@@ -59,7 +59,7 @@ export default function (THREE) {
   function mound(x, z, r, h) { return cyl(r * 0.2, r, h, 8, DUST(), x, h / 2, z); }
   // locker_bank c2: different breakdown. Three separate welded locker units bolted side by side with visible joint seams,
   // each on its own channel foot; doors hinged on the left; the open door swings left; a padlock on one hasp.
-  const UW = 0.4, D = 0.5, H = 1.8, T = 0.012, PL = 0.1;
+  const UW = 0.4, D = 0.46, H = 1.8, T = 0.012, PL = 0.1;
   const GUN = mat(C.gun, 'metal', 0.7, 0.4);
   const PLATE = mat(C.galv, 'metal', 0.7, 0.45, 1.1);
   function unit(cx, openAngle, tintF, withHasp, padlock) {
@@ -118,7 +118,7 @@ export default function (THREE) {
     return u;
   }
   unit(-0.4, 0, 1.0, true, true);
-  unit(0, -Math.PI / 4, 0.96, false, false);
+  unit(0, -Math.PI * 0.917, 0.96, false, false);   // flung back against the next door, resting on its handle
   unit(0.4, 0, 1.04, true, false);
   // joint bolts and seam strips where units meet, front and back
   for (const x of [-0.2, 0.2]) {

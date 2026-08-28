@@ -10,11 +10,13 @@
  *   const tier = getTier(tierName);         // the TIERS entry, with .name attached
  */
 
-// integrator: high cascades 2 -> 1 and shadowDist 90 -> 45 (2048 map, 2.2 cm texels at 45 m). Measured on the
-// integrated map: two cascades over 50 m cost 0.9 to 1.0 M shadow triangles per frame on top of a 1.1 M main pass
-// against the 1.7 M budget; one cascade over 45 m costs 0.4 to 0.6 M and the frame peaks at 1.54 M.
+// integrator (round 0): high cascades 2 -> 1 and shadowDist 90 -> 45 (2048 map). Two cascades over 50 m cost
+// 0.9 to 1.0 M shadow triangles on top of a 1.1 M main pass against the 1.7 M budget.
+// render (round 1): the critic wants shadow coverage to at least 60 m. A second cascade would put the frame over
+// budget, so the single cascade grows to 65 m and the map to 4096 (2.3 cm texels, the same as 2048 over 45 m).
+// The shadow pass triangle count is set by main.js CAST_DIST (blocks cast within 30 m), not by shadowDist.
 export const TIERS = {
-  high:  { pixelRatio: 1.5, shadowMap: 2048, cascades: 1, shadowDist: 45, fog: true, post: true,  density: 1.0, pointLights: true,  anisotropy: 4 },
+  high:  { pixelRatio: 1.5, shadowMap: 4096, cascades: 1, shadowDist: 65, fog: true, post: true,  density: 1.0, pointLights: true,  anisotropy: 4 },
   phone: { pixelRatio: 1.0, shadowMap: 1024, cascades: 1, shadowDist: 45, fog: true, post: false, density: 0.5, pointLights: false, anisotropy: 1 },
 };
 for (const k of Object.keys(TIERS)) TIERS[k].name = k;

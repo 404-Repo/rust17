@@ -16,9 +16,11 @@ export default function (THREE) {
   const oliveD = M(0x43472f, 'fabric', 0.88, 0.0);
   const dust = M(0x6e6b4c, 'fabric', 0.90, 0.0, true);   // dusty olive, sand settled on cloth
   const skin = M(0xa89372, null, 0.75, 0.0);
-  const glove = M(0x1d1e20, null, 0.72, 0.05);
-  const gloveL = M(0x2a2b2e, null, 0.70, 0.05);
-  const gloveD = M(0x2e2c26, null, 0.72, 0.05);
+  // gloves: worn leather, dark olive brown rather than rubber black, so the fingers still read
+  // against a blued receiver in shade; knuckles and seams lighter where they rub
+  const glove = M(0x3a3528, 'fabric', 0.82, 0.0);
+  const gloveL = M(0x4e4838, 'fabric', 0.80, 0.0);
+  const gloveD = M(0x2e2b22, 'fabric', 0.84, 0.0);
   const gun = M(0x3a3d40, 'metal', 0.55, 0.65);
   const glass = M(0x27363a, null, 0.45, 0.2);
 
@@ -65,11 +67,11 @@ export default function (THREE) {
       box(0.03, 0.002, 0.03, glass, 0, 0.037, 0.232, parent);
     }
   };
-  const finger = (parent, x, y, z, side, curl) => {
+  const finger = (parent, x, y, z, side, curl, curl2) => {
     const f = new THREE.Group(); f.position.set(x, y, z); f.rotation.y = side * -curl; parent.add(f);
     cyl(0.009, 0.0085, 0.045, glove, 0, 0, 0.0225, 8, f);
     const k = new THREE.Mesh(new THREE.SphereGeometry(0.0095, 8, 6), gloveL); k.position.z = 0.045; f.add(k);
-    const f2 = new THREE.Group(); f2.position.z = 0.045; f2.rotation.y = side * -1.2; f.add(f2);
+    const f2 = new THREE.Group(); f2.position.z = 0.045; f2.rotation.y = side * -(curl2 === undefined ? 1.2 : curl2); f.add(f2);
     cyl(0.0085, 0.008, 0.038, glove, 0, 0, 0.019, 8, f2);
     const k2 = new THREE.Mesh(new THREE.SphereGeometry(0.0085, 8, 6), glove); k2.position.z = 0.038; f2.add(k2);
   };
@@ -79,7 +81,8 @@ export default function (THREE) {
     box(0.052, 0.072, 0.095, glove, 0, 0, 0.075, parent);                  // palm
     box(0.046, 0.004, 0.085, gloveD, 0, 0.038, 0.075, parent);             // dusty back
     box(0.054, 0.002, 0.09, gloveL, 0, 0.018, 0.07, parent);               // seam
-    for (let i = 0; i < 4; i++) finger(parent, side * 0.0, 0.028 - i * 0.019, 0.12, side, 1.0 + i * 0.05);
+    // index finger lies along the receiver (trigger discipline), the other three wrap the grip
+    for (let i = 0; i < 4; i++) finger(parent, side * 0.0, 0.028 - i * 0.019, 0.12, side, i === 0 ? 0.35 : 1.05 + i * 0.05, i === 0 ? 0.55 : 1.25);
     const th = new THREE.Group(); th.position.set(side * -0.018, 0.038, 0.05); th.rotation.x = -0.35; th.rotation.y = side * -0.5; parent.add(th);
     cyl(0.011, 0.0105, 0.04, glove, 0, 0, 0.02, 8, th);
     const tk = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), gloveL); tk.position.z = 0.04; th.add(tk);
@@ -115,7 +118,7 @@ export default function (THREE) {
   const handL = chain(-1);
   g.updateMatrixWorld(true);
   const ws = new THREE.Object3D(); ws.name = 'weaponSocket'; handR.add(ws);
-  ws.position.set(-0.01, 0.05, 0.06);
+  ws.position.set(-0.040, 0.045, 0.10);   // grip top against the palm, inside the fingers (palm side is -X on the right hand)
   ws.quaternion.copy(handR.getWorldQuaternion(new THREE.Quaternion()).invert());
   joints.weaponSocket = ws;
   const gl = new THREE.Object3D(); gl.name = 'socket_gripL'; handL.add(gl); gl.position.set(0.01, 0.05, 0.06);

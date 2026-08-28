@@ -150,6 +150,11 @@ export default function (THREE) {
   for (const [p, q] of minus(0, Math.PI * 2, 0, 0.12)) arc(R + 0.06, 0, 0.12, p, q - p, conc);
   const fil = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.3, R + 0.55, 0.24, 30), sand);
   fil.position.y = 0.12; fil.scale.set(1.04, 1, 0.96); g.add(fil);
+  // ---- contact ring: a collar of packed sand over the fillet (0.2 m, the depth the drift comes through the cuts) and a stained band ----
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.05, R + 0.4, 0.2, 30), M(0xa89372, 'ground', 0.96, 0.0));
+  collar.position.y = 0.1; collar.scale.set(1.04, 1, 0.96); g.add(collar);
+  const stainB = M(tint(TANK, 0.7), 'metal', 0.92, 0.12, true);
+  for (const [p, q] of minus(0, Math.PI * 2, 0.12, 0.5)) arc(R + 0.004, 0.12, 0.5, p, q - p, stainB);
 
   // ---- roof: eight panels, rafters under, dust on top, vent with rain cap ----------
   for (let k = 0; k < 8; k++) {
@@ -229,6 +234,7 @@ export default function (THREE) {
     if (d < gapA + 0.05) { post.rotation.x = 0.7; post.position.y = H + 0.35; post.position.z = RR + 0.25; }
     bx(0.08, 0.02, 0.08, steel, 0, H + 0.02, RR, s);
     bx(0.035, 0.06, 0.006, rust, 0, H + 0.07, RR + 0.03, s);
+    bx(0.05, 0.18, 0.006, rust, 0.01, H + 0.02, RW + 0.016, s);   // drip from the post foot down the kerb face
   }
   for (const [y, mat] of [[H + 1.05, yel], [H + 0.56, yelD]]) {
     const t = new THREE.Mesh(new THREE.TorusGeometry(RR, 0.026, 6, 28, railArc), mat);

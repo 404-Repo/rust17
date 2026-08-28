@@ -13,7 +13,7 @@ export default function (THREE) {
     if (emis) { mat.emissive = new THREE.Color(emis); mat.emissiveIntensity = 1.2; }
     return mat;
   };
-  const ox = M(0x8b4530, 'metal', 0.82, 0.15);
+  const ox = M(0x7e4835, 'metal', 0.82, 0.15);
   const oxS = M(0x9c5842, 'metal', 0.79, 0.15);
   const oxN = M(0x7b3c29, 'metal', 0.85, 0.15);
   const oxE = M(0x874431, 'metal', 0.83, 0.15);

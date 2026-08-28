@@ -23,6 +23,14 @@
  * look, a spring kick on fire, a reload with the magazine leaving and
  * returning, a switch that drops the weapon out of frame, a sprint carry,
  * and a two bone IK that keeps the left hand on the weapon's gripL socket.
+ *
+ * Round 1 (player fix): the rifle was held low and small and its optic hood blocked the
+ * ADS view. Hip pose raised and brought in, a hip scale and a smaller ADS scale (the
+ * "viewmodel fov" trick without a second camera), a slight inward cant so the left side
+ * of the receiver shows, ADS aligned on the weapon's `sight` socket (the optic window)
+ * at a fixed eye relief instead of on the muzzle, the left hand placed so the palm wraps
+ * the foregrip instead of the wrist sitting on it, the hand kept level after IK, and the
+ * left elbow pulled under the weapon in ADS so the sleeve leaves the frame.
  */
 import * as THREE from 'three';
 import { ASSET } from '../../assetlib.js';
@@ -30,7 +38,9 @@ import { vertexiseMaterials } from '../game/bake.js';
 import { collapsePerJoint } from '../ai/animation.js';
 
 const WEAPON_ASSET = { ar: 'assault_rifle', smg: 'smg', dmr: 'marksman_rifle' };
-const SIGHT = { ar: 0.075, smg: 0.060, dmr: 0.090 };
+const SIGHT = { ar: 0.075, smg: 0.060, dmr: 0.090 };   // fallback sight height over the muzzle when an asset has no `sight` socket
+const ADS_EYE = { ar: 0.14, smg: 0.13, dmr: 0.10 };   // the DMR ocular sits close so the eyepiece fills, the zoom is the ADS fov     // eye relief in ADS, camera units, sight socket to lens
+const HIP_SCALE = 0.70, ADS_SCALE = 0.62;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -109,7 +119,7 @@ export class Viewmodel {
     // Apparent size. A 0.9 m rifle held 0.35 m from a 74 degree camera fills the frame;
     // shooters render the viewmodel at a narrower fov, and scaling the rig is the same
     // thing without a second camera or a second light.
-    this.scale = 0.62;
+    this.scale = HIP_SCALE; this.adsScale = ADS_SCALE;
     this.root.scale.setScalar(this.scale);
     if (camera) camera.add(this.root);
     this.arms = null; this.joints = {}; this.weapons = {}; this.sockets = {};
@@ -123,11 +133,21 @@ export class Viewmodel {
     this.landDip = 0; this.wasGrounded = true;
     this.time = 0;
     this.adsOffset = new THREE.Vector3();
-    this.restPos = new THREE.Vector3(0.0, -0.06, -0.07);   // integrator: was (0, -0.02, -0.03); the real arms' forearms passed 5 cm from the lens
-    this.hip = new THREE.Vector3(0.012, -0.01, 0.0);
+    // hip rest: sight window lands about 60% across and 66% down the frame, muzzle just right
+    // of centre; the shoulders stay behind the lens
+    this.restPos = new THREE.Vector3(0.012, -0.036, -0.10);
+    this.hip = new THREE.Vector3(0.0, 0.0, 0.0);
+    // camera space: forward is -Z, so +ry swings the muzzle LEFT (in toward the centre, showing
+    // the left flank of the receiver the way the reference holds it) and +rx lifts it
+    this.hipYaw = 0.16; this.hipPitch = -0.012; this.hipRoll = 0.05;
+    this.adsDist = 0.16;
     this.socketPos = new THREE.Vector3();
     this.ikTarget = new THREE.Vector3(); this.ikHasTarget = false;
     this.leftPole = new THREE.Vector3(-0.6, -1, 0);
+    this.leftPoleAds = new THREE.Vector3(-0.1, -1, 0.15);   // elbow straight under the weapon when aiming
+    this.pole = new THREE.Vector3();
+    this.handLRest = null;                                    // hand orientation to keep after IK
+    this.palmL = new THREE.Vector3(0.042, 0.0, 0.10);          // foregrip position in the left hand's own frame (palm side +X, fingers +Z)
     this._mats = null;
     this.gripLLocal = new THREE.Vector3(); this.magRest = null;
   }
@@ -258,13 +278,25 @@ export class Viewmodel {
     const p = this.root.position.clone(), r = this.root.rotation.clone();
     this.root.position.set(0, 0, 0); this.root.rotation.set(0, 0, 0);
     cam.updateMatrixWorld(true); this.root.updateMatrixWorld(true);
+    const s0 = this.root.scale.x;
+    this.root.scale.setScalar(this.adsScale);
+    cam.updateMatrixWorld(true); this.root.updateMatrixWorld(true);
     const m = new THREE.Vector3();
-    if (this.sockets.muzzle) this.sockets.muzzle.getWorldPosition(m);
-    else if (this.weaponObj) { const b = new THREE.Box3().setFromObject(this.weaponObj); b.getCenter(m); m.z = b.min.z; }
-    else m.copy(cam.position);
-    cam.worldToLocal(m);
-    const sight = (SIGHT[key] || 0.07) * this.scale;
-    this.adsOffset.set(-m.x, -m.y - sight, 0.05);
+    this.adsDist = ADS_EYE[key] || 0.16;
+    if (this.sockets.sight) {
+      // the optic window centre goes on the camera axis at the eye relief
+      this.sockets.sight.getWorldPosition(m);
+      cam.worldToLocal(m);
+      this.adsOffset.set(-m.x, -m.y, -this.adsDist - m.z);
+    } else {
+      if (this.sockets.muzzle) this.sockets.muzzle.getWorldPosition(m);
+      else if (this.weaponObj) { const b = new THREE.Box3().setFromObject(this.weaponObj); b.getCenter(m); m.z = b.min.z; }
+      else m.copy(cam.position);
+      cam.worldToLocal(m);
+      const sight = (SIGHT[key] || 0.07) * this.adsScale;
+      this.adsOffset.set(-m.x, -m.y - sight, 0.05);
+    }
+    this.root.scale.setScalar(s0);
     this.root.position.copy(p); this.root.rotation.copy(r);
   }
 
@@ -312,8 +344,8 @@ export class Viewmodel {
 
     // sway lags the look: velocity from this frame's turn, damped spring
     const sx = clamp(-yawDelta / Math.max(dt, 1e-3), -6, 6), sy = clamp(-pitchDelta / Math.max(dt, 1e-3), -6, 6);
-    this.swayX = damp(this.swayX, sx * 0.012 * (1 - this.adsT * 0.8), 9, dt);
-    this.swayY = damp(this.swayY, sy * 0.012 * (1 - this.adsT * 0.8), 9, dt);
+    this.swayX = damp(this.swayX, sx * 0.016 * (1 - this.adsT * 0.8), 9, dt);
+    this.swayY = damp(this.swayY, sy * 0.016 * (1 - this.adsT * 0.8), 9, dt);
 
     // kick spring
     this.kick += this.kickV * dt * 28;
@@ -330,16 +362,19 @@ export class Viewmodel {
 
     // ---- compose the root transform (camera space, -Z forward)
     const pos = _v4.copy(this.restPos).add(this.hip);
-    let rx = 0, ry = 0, rz = 0;
+    const ads = smooth(this.adsT);
+    let rx = this.hipPitch * (1 - ads), ry = this.hipYaw * (1 - ads), rz = this.hipRoll * (1 - ads);
     // idle breathing
-    pos.y += Math.sin(this.time * 1.4) * 0.0018 * (1 - this.adsT);
-    rx += Math.sin(this.time * 0.9) * 0.0015 * (1 - this.adsT);
-    // bob: figure eight, small
-    const A = (sprinting ? 0.026 : crouched ? 0.008 : 0.012) * this.bobK;
+    pos.y += Math.sin(this.time * 1.4) * 0.0022 * (1 - this.adsT);
+    rx += Math.sin(this.time * 0.9) * 0.002 * (1 - this.adsT);
+    ry += Math.sin(this.time * 0.6 + 1) * 0.0015 * (1 - this.adsT);
+    // bob: figure eight, a stride you can see in a still
+    const A = (sprinting ? 0.028 : crouched ? 0.009 : 0.015) * this.bobK;
     pos.x += Math.sin(this.bobPhase) * A;
-    pos.y += (Math.cos(this.bobPhase * 2) - 1) * 0.5 * A * 0.9;
-    rz += Math.sin(this.bobPhase) * 0.012 * this.bobK * (0.5 + this.sprintT);
-    rx += Math.cos(this.bobPhase * 2) * 0.006 * this.bobK;
+    pos.y += (Math.cos(this.bobPhase * 2) - 1) * 0.5 * A * 1.1;
+    rz += Math.sin(this.bobPhase) * 0.018 * this.bobK * (0.5 + this.sprintT);
+    rx += Math.cos(this.bobPhase * 2) * 0.008 * this.bobK;
+    ry += Math.sin(this.bobPhase) * 0.006 * this.bobK;
     // sway
     pos.x += this.swayX * 0.6; pos.y += this.swayY * 0.4;
     ry += this.swayX * 1.4; rx += this.swayY * 1.1; rz += this.swayX * 0.5;
@@ -351,9 +386,9 @@ export class Viewmodel {
     const sp = this.sprintT;
     pos.x += 0.045 * sp; pos.y -= 0.055 * sp; pos.z += 0.02 * sp;
     ry += 0.42 * sp; rx -= 0.28 * sp; rz += 0.18 * sp;
-    // ADS: sight to the camera axis
-    const ads = smooth(this.adsT);
+    // ADS: sight window to the camera axis, rig shrinks toward the ADS scale
     pos.lerp(_v1.copy(this.adsOffset), ads);
+    this.root.scale.setScalar(lerp(this.scale, this.adsScale, ads));
     // kick: back and up, a little roll
     const k = this.kick;
     pos.z += k * 0.035; pos.y += k * 0.004;
@@ -398,7 +433,10 @@ export class Viewmodel {
     // weapon follows the right hand socket, orientation stays on the view axis
     this._followSocket();
 
-    // left hand IK onto gripL (or the magazine during a reload)
+    // left hand IK onto gripL (or the magazine during a reload). The target is the WRIST, so
+    // the grip is moved from the socket into the palm by the hand's own frame; the hand
+    // keeps its authored orientation after the solve so the fingers stay wrapped round the
+    // foregrip whatever the elbow does.
     if (this.ikHasTarget && this.arms) {
       this.arms.updateMatrixWorld(true);
       const tgt = this.ikTarget;
@@ -413,7 +451,16 @@ export class Viewmodel {
         this.arms.worldToLocal(_v3);
         tgt.copy(_v3);
       }
-      solveTwoBone(this.arms, this.joints.upperArmL, this.joints.lowerArmL, this.joints.handL, tgt, this.leftPole);
+      const hand = this.joints.handL;
+      if (!this.handLRest) this.handLRest = quatRel(hand, this.arms, new THREE.Quaternion());
+      // wrist = grip - R_hand * palmOffset  (grip sits against the palm, inside the fingers)
+      _v2.copy(this.palmL).applyQuaternion(this.handLRest);
+      tgt.sub(_v2);
+      this.pole.copy(this.leftPole).lerp(this.leftPoleAds, ads);
+      solveTwoBone(this.arms, this.joints.upperArmL, this.joints.lowerArmL, hand, tgt, this.pole);
+      // hold the hand's authored orientation: q_local = inverse(q_parent_rel) * q_rest_rel
+      quatRel(hand.parent, this.arms, _q2).invert();
+      hand.quaternion.copy(_q2).multiply(this.handLRest);
     }
   }
 }

@@ -39,7 +39,7 @@ import { Audio } from './src/game/audio.js';
 import { ASSET } from './assetlib.js';
 import { vertexiseMaterials } from './src/game/bake.js';
 
-const ROUND = 'r0';
+const ROUND = 'r1';
 const DEG = Math.PI / 180;
 const params = new URLSearchParams(location.search);
 
@@ -68,24 +68,9 @@ scene.add(camera);                                   // the viewmodel is a child
 const sky = createSky(THREE, { scene, tier });
 const rig = createLightingRig(THREE, { scene, renderer, camera, tier });
 const post = createPost(THREE, { renderer, scene, camera, tier });
-// Environment for the PBR metals. Without scene.environment a MeshStandardMaterial with
-// metalness 0.5 to 0.7 (gunmetal, galvanised: the style lock allows up to 0.7) has nothing to
-// reflect but the sun's highlight and renders near black; the first filmstrip's rifle was a
-// silhouette. The sky dome itself is filtered into the environment, at a low intensity so the
-// hemisphere light stays the fill the render agent measured against the references.
-{
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const envScene = new THREE.Scene();
-  const dome = sky.mesh.clone();
-  dome.position.set(0, 0, 0);
-  envScene.add(dome);
-  try {
-    const rt = pmrem.fromScene(envScene, 0.04, 1, 200);
-    scene.environment = rt.texture;
-    scene.environmentIntensity = 0.3;
-  } catch (e) { console.warn('[main] environment map failed', e && e.message); }
-  pmrem.dispose();
-}
+// integrator r1: the environment map lives in the lighting rig now (its own analytic dome
+// through PMREM, cool zenith and warm ground bounce); the cream sky PMREM that used to be built
+// here flooded every shadow with warm light (render notes, round 1) and is gone.
 screens.loading(0.04, 'Lighting');
 
 // ------------------------------------------------------------------ terrain and world
@@ -195,10 +180,11 @@ const squads = {
 };
 
 /** MAP-PLAN section 7: farthest from any enemy with no enemy line of sight; else the fewest enemies within 30 m. */
+const ROAD_VERGE_W = [-54, 3];
 function pickPlayerSpawn() {
   const enemies = hostiles().filter((b) => b.alive);
   const list = SPAWNS.rangers;
-  let best = null, bestD = -1, fallback = null, fewest = Infinity;
+  let best = null, bestD = -Infinity, fallback = null, fewest = Infinity;
   const eye = new THREE.Vector3(), ee = new THREE.Vector3();
   for (const s of list) {
     const [x, z] = s;
@@ -211,7 +197,13 @@ function pickPlayerSpawn() {
       if (d < 30) near++;
       if (!seen) { ee.set(e.pos.x, e.pos.y + 1.6, e.pos.z); if (world.lineOfSight(eye, ee)) seen = true; }
     }
-    if (!seen && minD > bestD) { bestD = minD; best = s; }
+    // integrator r1: among the points no enemy can see, the human takes the one nearest the
+    // west end of the road's north verge (-54, 3): the road is the human's lane (the rangers
+    // squad takes the flanks, see squad.js) and MAP-PLAN section 10 describes the walk east
+    // from there. The section 7 "farthest from any enemy" rule put the player behind the new
+    // west tower with no view of the road, and four runs in five never met a hostile.
+    const score = -Math.hypot(x - ROAD_VERGE_W[0], z - ROAD_VERGE_W[1]);
+    if (!seen && score > bestD) { bestD = score; best = s; }
     if (near < fewest) { fewest = near; fallback = s; }
   }
   return best || fallback || list[0];
@@ -326,32 +318,83 @@ resize();
 // A prop 60 m away throws a shadow the haze swallows; drawing it into both cascades cost
 // more triangles than the whole main pass. Blocks (and bots) cast only within CAST_DIST of
 // the camera, measured to the block's nearest edge, so the sun still throws every near shadow.
-const CAST_DIST = +(params.get('cast') || (tier.name === 'phone' ? 26 : 30));
+const CAST_DIST = +(params.get('cast') || (tier.name === 'phone' ? 26 : 28));   // integrator r1: high 30 -> 28 (see the budget note below)
+// integrator r1: two caster distances. Landmarks (tanks, towers, containers, palms, walls, the
+// derrick) throw 10 to 50 m shadows the critic wants to see at 40 m; clutter (drums, crates,
+// sandbags, pallets) throws 1 to 3 m and its shadow is a few pixels at 20 m.
+const CAST_L = +(params.get('castl') || CAST_DIST);
+const CAST_C = +(params.get('castc') || Math.min(CAST_DIST, tier.name === 'phone' ? 18 : 20));
 // Clutter (and the no shadow scatter) in blocks whose nearest edge is beyond FAR_CULL is not
 // drawn: at 90 m the haze has taken a third of it and a drum is four pixels; landmarks stay.
-const FAR_CULL = +(params.get('far') || (tier.name === 'phone' ? 60 : 70));
+const FAR_CULL = +(params.get('far') || (tier.name === 'phone' ? 60 : 55));   // integrator r1: high 70 -> 55 (round 1 props put the peak view at 1.95 M)
 // shrubs, debris and wire fences (the no shadow group) go sooner: a shrub is 0.74 m tall
-const FAR_CULL_N = +(params.get('farn') || (tier.name === 'phone' ? 40 : 50));
+const FAR_CULL_N = +(params.get('farn') || (tier.name === 'phone' ? 40 : 32));   // integrator r1: high 50 -> 32, same reason
+// Budget note (round 1): the six probe views in work/game/triprobe.mjs peaked at 1.95 M with
+// cast 30 / far 70 / farn 50 after the round 1 level, asset and sky additions. Measured there:
+// clutter casting at 20 m instead of 30 saves about 100 k in the cascade, landmarks at 28 m
+// another 150 k at the worst view, clutter culled at 55 m and scatter at 32 m about 110 k in the
+// main pass; together the peak view is 1.56 M against the 1.7 M budget. Nothing was decimated;
+// the level's west approach, the gantry and every asset change of the round are kept.
+// integrator r1: a block only casts when its shadow can land in the frame. The shadow of a block
+// is its box swept along the sun's ground direction by height / tan(elevation) (2.5 x height at
+// 22 degrees); if that swept box misses the camera frustum, the block is not drawn into the
+// cascade. The union box over approximates the true swept hull, so no visible shadow is lost;
+// measured at the harness's worst view it drops the blocks behind and beside the camera whose
+// shadows fall away from the frame (the cascade was 0.8 M of a 1.95 M frame).
+const SHADOW_GROUND = new THREE.Vector2(-rig.sunDir.x, -rig.sunDir.z).normalize();
+const SHADOW_PER_M = 1 / Math.tan(Math.atan2(rig.sunDir.y, Math.hypot(rig.sunDir.x, rig.sunDir.z)));
+const _fr = new THREE.Frustum(), _pv = new THREE.Matrix4(), _swept = new THREE.Box3();
+function sweptShadowBox(g) {
+  // the shadow region is the block box swept along SHADOW_GROUND by L; it is tested as a
+  // chain of translated copies of the box (step 4 m) so a block beside the frame whose
+  // shadow runs parallel to the frame edge is not pulled in by a union box's empty corner
+  const b = new THREE.Box3();
+  const tmp = new THREE.Box3();
+  for (const c of g.children) { if (String(c.name).endsWith('#nocast')) continue; tmp.setFromObject(c); if (!tmp.isEmpty()) b.union(tmp); }
+  if (b.isEmpty()) return null;
+  b.min.y -= 2; b.expandByScalar(1.0);
+  const L = Math.max(0, b.max.y - b.min.y) * SHADOW_PER_M;
+  const n = Math.max(1, Math.ceil(L / 4));
+  const boxes = [];
+  for (let i = 0; i <= n; i++) {
+    const t = (i / n) * L;
+    boxes.push(b.clone().translate(new THREE.Vector3(SHADOW_GROUND.x * t, 0, SHADOW_GROUND.y * t)));
+  }
+  return boxes;
+}
+function shadowCanReachFrame(boxes) {
+  for (const bx of boxes) if (_fr.intersectsBox(bx)) return true;
+  return false;
+}
 const blockCenters = new Map();
 for (const [key, g] of level.blocks) {
   const [bx, bz] = key.split('_').map(Number);
-  blockCenters.set(key, { x: -70 + bx * 20 + 10, z: -55 + bz * 20 + 10, g });
+  blockCenters.set(key, { x: -70 + bx * 20 + 10, z: -55 + bz * 20 + 10, g, swept: sweptShadowBox(g) });
 }
 function updateShadowCasters() {
   const cx = camera.position.x, cz = camera.position.z;
-  for (const { x, z, g } of blockCenters.values()) {
+  camera.updateMatrixWorld();
+  _pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  _fr.setFromProjectionMatrix(_pv);
+  for (const { x, z, g, swept } of blockCenters.values()) {
     const dx = Math.max(0, Math.abs(cx - x) - 10), dz = Math.max(0, Math.abs(cz - z) - 10);
     const d = Math.hypot(dx, dz);
-    const near = d < CAST_DIST;
+    const reach = !swept || shadowCanReachFrame(swept);
+    const nearL = d < CAST_L && reach, nearC = d < CAST_C && reach;
     const shown = d < FAR_CULL;
     const shownN = d < FAR_CULL_N;
     if (g.userData.shown !== shown || g.userData.shownN !== shownN) {
       g.userData.shown = shown; g.userData.shownN = shownN;
       for (const c of g.children) { if (c.name.endsWith('#clutter')) c.visible = shown; else if (c.name.endsWith('#nocast')) c.visible = shownN; }
     }
-    if (g.userData.casting !== near) {
-      g.userData.casting = near;
-      g.traverse((o) => { if (o.isMesh && !(o.parent && String(o.parent.name).endsWith('#nocast'))) o.castShadow = near; });
+    if (g.userData.castingL !== nearL || g.userData.castingC !== nearC) {
+      g.userData.castingL = nearL; g.userData.castingC = nearC; g.userData.casting = nearL || nearC;
+      g.traverse((o) => {
+        if (!o.isMesh) return;
+        const pn = o.parent ? String(o.parent.name) : '';
+        if (pn.endsWith('#nocast')) return;
+        o.castShadow = pn.endsWith('#clutter') ? nearC : nearL;
+      });
     }
   }
   for (const b of bots) {
@@ -407,7 +450,7 @@ function frame() {
   updateShadowCasters();
   fx.update(dt);
   sky.update(camera, dt);
-  rig.update(camera);
+  rig.update(camera, dt);
 
   if (window.__GOD__) { player.hp = 100; hurt = 0; }
   hurt = Math.max(0, hurt - dt * 1.4);
@@ -522,6 +565,31 @@ window.__DIAG3__ = () => {
   cats.info = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles };
   return cats;
 };
+window.__DIAG4__ = () => {
+  // per block triangles in the main pass and in the cascade, with the block's asset list
+  const tri = (o) => { const g = o.geometry; if (!g) return 0; const n = g.index ? g.index.count : g.attributes.position.count; return (n / 3) * (o.isInstancedMesh ? o.count : 1); };
+  camera.updateMatrixWorld(true);
+  const fr = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+  const cam = rig.csm.lights[0].shadow.camera; cam.updateMatrixWorld(true);
+  const f2 = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+  const sph = new THREE.Sphere();
+  const out = [];
+  for (const [key, g] of level.blocks) {
+    let main = 0, casc = 0;
+    g.traverse((o) => {
+      if (!o.isMesh) return;
+      let p = o, ok = true; while (p) { if (!p.visible) { ok = false; break; } p = p.parent; } if (!ok) return;
+      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      sph.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld);
+      if (fr.intersectsSphere(sph)) main += tri(o);
+      if (o.castShadow && f2.intersectsSphere(sph)) casc += tri(o);
+    });
+    if (main + casc > 0) out.push({ key, main: Math.round(main), casc: Math.round(casc), assets: g.userData.assets });
+  }
+  out.sort((a, b) => (b.main + b.casc) - (a.main + a.casc));
+  return out;
+};
+window.__DBG__.casters = () => [...blockCenters.entries()].map(([k, v]) => ({ k, casting: v.g.userData.casting, n: v.swept ? v.swept.length : 0, b0: v.swept ? v.swept[0].min.toArray().map((n) => +n.toFixed(0)).concat(v.swept[0].max.toArray().map((n) => +n.toFixed(0))) : null }));
 window.__DBG__.bots = () => {
   const p = player;
   return `player ${p.pos.x.toFixed(0)},${p.pos.z.toFixed(0)} hp ${p.hp.toFixed(0)} | ` + bots.filter((b) => b.team === 'militia').map((b) => `${b.id} ${b.pos.x.toFixed(0)},${b.pos.z.toFixed(0)} ${b.state}${b.objective ? '/' + b.objective.lane : ''} tgt:${b.target ? (b.target.id || 'p') : '-'} d:${Math.hypot(b.pos.x - p.pos.x, b.pos.z - p.pos.z).toFixed(0)}`).join(' | ');

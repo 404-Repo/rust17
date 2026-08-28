@@ -10,12 +10,13 @@ export default function (THREE) {
     if (name) mat.name = name;
     return mat;
   };
-  const ox = M(0x8b4530, 'metal', 0.82, 0.15);
-  const oxS = M(0x985340, 'metal', 0.79, 0.15);
-  const oxN = M(0x7d3d2a, 'metal', 0.85, 0.15);
-  const oxE = M(0x864331, 'metal', 0.83, 0.15);
-  const oxW = M(0x924e38, 'metal', 0.81, 0.15);
-  const oxT = M(0x9d5a45, 'metal', 0.80, 0.15);   // bleached top faces of flanges
+  const ox = M(0x7e4835, 'metal', 0.82, 0.15);
+  const oxS = M(0x8d5a45, 'metal', 0.79, 0.15);
+  const oxN = M(0x6d3f2e, 'metal', 0.85, 0.15);
+  const oxE = M(0x7a4634, 'metal', 0.83, 0.15);
+  const oxW = M(0x86513d, 'metal', 0.81, 0.15);
+  const oxT = M(0x96674f, 'metal', 0.80, 0.15);   // bleached top faces of flanges
+  const oxR = M(0x6f4732, 'metal', 0.90, 0.12);   // members gone to rust
   const rust = M(0x6b4426, 'metal', 0.92, 0.10);
   const galv = M(0x9ea3a1, 'metal', 0.70, 0.55);
   const galvD = M(0x8b9090, 'metal', 0.74, 0.55);
@@ -131,7 +132,17 @@ export default function (THREE) {
         let p, q;
         if (nz) { p = V(-s * w1, y1, nz * (w1 + o)); q = V(s * w2, y2, nz * (w2 + o)); }
         else { p = V(nx * (w1 + o), y1, -s * w1); q = V(nx * (w2 + o), y2, s * w2); }
-        bar(p, q, 0.075, 0.02, mat, V(nx, 0, nz));
+        bar(p, q, 0.075, 0.02, s > 0 ? mat : oxR, V(nx, 0, nz));
+      }
+      // secondary X in each half bay: lighter flat bar in its own plane, so the lattice reads at every height
+      for (const [ya, yb] of [[y1 + 0.05, ym - 0.06], [ym + 0.06, y2 - 0.05]]) {
+        const wa = hw(ya), wb = hw(yb), o2 = o - 0.04;
+        for (const s of [-1, 1]) {
+          let p, q;
+          if (nz) { p = V(-s * wa, ya, nz * (wa + o2)); q = V(s * wb, yb, nz * (wb + o2)); }
+          else { p = V(nx * (wa + o2), ya, -s * wa); q = V(nx * (wb + o2), yb, s * wb); }
+          bar(p, q, 0.05, 0.014, s > 0 ? oxR : mat, V(nx, 0, nz));
+        }
       }
       box(nx ? 0.012 : 0.34, 0.34, nz ? 0.012 : 0.34, mat, nx * (wm + o + 0.02), ym, nz * (wm + o + 0.02));
       for (const u of [-0.1, 0.1]) for (const v of [-0.1, 0.1]) cyl(0.016, 0.03, gun, nx * (wm + o + 0.03) + (nz ? u : 0), ym + v, nz * (wm + o + 0.03) + (nx ? u : 0), nx ? 'x' : 'z', 6);

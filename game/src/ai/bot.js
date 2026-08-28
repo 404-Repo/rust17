@@ -23,6 +23,11 @@ export const BOT_WEAPONS = {
 };
 const BOT_DAMAGE_TO_PLAYER = 0.7;    // bots hit the player a little softer than the numbers say; CoD does the same
 const WALK = 3.2, RUN = 5.4, CROUCH_WALK = 1.8, CLIMB = 1.2;
+// integrator r1: how far past the weapon's range a bot will open fire. Bot against bot stays at
+// 1.1 (the round 0 value); at the human it is 1.4 so the road bots start shooting at 110 m, where
+// first contact on this map happens, instead of walking 25 m in silence under the player's rifle.
+// Damage still falls to 55 percent at 1.8 x range (weapons contract).
+const fireReach = (t) => (t && !t.hitboxes ? 1.4 : 1.1);
 const SEE_RANGE = 75, SEE_HALF_CONE = (110 / 2) * Math.PI / 180;   // integrator: was 60; first contact on this map is at 60 to 80 m and bots stood silent at 65 m
 const GRAVITY = 14;
 
@@ -235,7 +240,11 @@ export class Bot {
     if (this.senseT <= 0) {
       this.senseT += 0.1;
       const t = this.visibleTarget();
-      if (t && t !== this.target) { this.reactT = 0.35 + 0.35 * clamp(this.pos.distanceTo(t.pos) / 60, 0, 1); this.burstLeft = 0; this.burstPause = 0; }
+      // integrator r1: the reaction clock restarts only after a real loss of contact (0.8 s). The
+      // player walking behind a palm trunk flickered the target every few tenths and the road
+      // bots never finished a reaction in the whole first contact.
+      if (t && t !== this.target && (t !== this.lastTarget || this.time - this.lastSeenT > 0.8)) { this.reactT = 0.35 + 0.35 * clamp(this.pos.distanceTo(t.pos) / 60, 0, 1); this.burstLeft = 0; this.burstPause = 0; }
+      if (t) this.lastTarget = t;
       if (t) { this.lastSeenT = this.time; this.lastKnown.copy(t.pos); }
       this.target = t;
     }
@@ -327,7 +336,11 @@ export class Bot {
         // fighting in the open for a while: find cover that faces the target
         // (integrator: only once the target is inside weapon range; a bot that spotted the player
         // at 110 m went to cover out of range and creeped for the rest of the round)
-        if (this.engageT > rnd(2.5, 4.0) && !this.cover && d <= this.weapon.range) { if (this._seekCover(tgt.pos, 16)) return; this.engageT = 0; }
+        // (integrator r1: against the human the push goes on to 55 percent of range before any cover
+        // is taken. Round 1 runs showed the road bots stopping at 79 m, ducking behind the chicane and
+        // never being seen again; a CoD bot that has spotted the player closes on them.)
+        const coverAt = tgt.hitboxes ? this.weapon.range : this.weapon.range * 0.55;
+        if (this.engageT > rnd(2.5, 4.0) && !this.cover && d <= coverAt) { if (this._seekCover(tgt.pos, 16)) return; this.engageT = 0; }
         if (d > this.weapon.range * 0.55) { if (this._pathDone() || this.repathT <= 0) this._pathTo(this.nav.randomPointNear(tgt.pos, 6)); }
         else if (d < 4 && this.weaponKey !== 'smg') {
           if (this._pathDone()) this._pathTo(this.nav.randomPointNear(this.pos, 5));   // back off a step
@@ -479,7 +492,7 @@ export class Bot {
     if (this.state === 'cover' && !this.peek && this._arrived(this.cover ? this.cover.point : this.pos, 0.7)) return;
     if (this.reactT > 0) { this.reactT -= dt; return; }
     const d = this.pos.distanceTo(t.pos);
-    if (d > this.weapon.range * 1.1) return;
+    if (d > this.weapon.range * fireReach(t)) return;
     if (this.burstPause > 0) { this.burstPause -= dt; return; }
     if (this.burstLeft <= 0) {
       const [a, b] = this.weapon.burst;
@@ -503,7 +516,13 @@ export class Bot {
     if (t.hp !== undefined && Math.random() < 0.12) aim.y += 0.35;      // an occasional head shot
     const dir = new THREE.Vector3().subVectors(aim, from).normalize();
     // spread: a cone of the weapon's bot spread, wider on the first rounds after acquiring
-    const sp = this.weapon.spread * (this.crouched ? 0.75 : 1);
+    // integrator r1: at the human beyond half the weapon's range the cone opens with distance
+    // (x1.5 at 60 m, x2.2 at 80 m, x2.9 at 100 m for the AR). With fireReach 1.4 the road bots
+    // open up at 110 m as a real squad would, but a run where the player died 3 s after DEPLOY
+    // to two bots at 95 m is not CoD; this is the standard bot accuracy fall off.
+    const dAim = from.distanceTo(aim);
+    const farMult = t.hitboxes ? 1 : clamp(Math.pow(dAim / (this.weapon.range * 0.5), 1.2), 1, 3);
+    const sp = this.weapon.spread * (this.crouched ? 0.75 : 1) * farMult;
     const up = Math.abs(dir.y) < 0.9 ? _u.set(0, 1, 0) : _u.set(1, 0, 0);
     const right = new THREE.Vector3().crossVectors(dir, up).normalize();
     const upv = new THREE.Vector3().crossVectors(right, dir).normalize();
@@ -512,7 +531,7 @@ export class Bot {
 
     // integrator: the trigger gate is range * 1.1 (above) but the hit ray was only `range` long, so a bot
     // firing at the player between 80 and 88 m emptied bursts that could never land
-    const range = this.weapon.range * 1.1;
+    const range = this.weapon.range * fireReach(t);
     let maxD = range;
     if (this.world && typeof this.world.raycast === 'function') {
       const r = this.world.raycast(from, dir, range, {});

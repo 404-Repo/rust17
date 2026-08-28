@@ -89,7 +89,7 @@ function pressable(btn, fn) {
 }
 
 export class Screens {
-  constructor(container, { round = 'r0' } = {}) {
+  constructor(container, { round = 'r1' } = {}) {
     ensureStyle();
     this.container = container || document.body;
     this.round = round;

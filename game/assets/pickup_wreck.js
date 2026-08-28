@@ -110,10 +110,10 @@ export default function (THREE) {
     const t = mesh(g, tyreGeo, TYRE, x, y, z, out * PI / 2, 0, 0); if (flat) t.scale.set(1.15, 1, 0.72);
     mesh(g, rimGeo, RIM, x, y, z, out * PI / 2, 0, 0);
     for (let k = 0; k < 5; k++) { const a = k / 5 * PI * 2; cyl(g, 0.012, 0.02, GUN, x + Math.cos(a) * 0.14, y + Math.sin(a) * 0.14, z + out * 0.045, PI / 2, 0, 0, { seg: 6 }); }
-    fillet(g, 0.7, 0.25, 0.1, x, 0, z + out * 0.05, z > 0 ? 0 : PI);
+    fillet(g, 0.7, 0.12, 0.1, x, 0, z + out * 0.05, z > 0 ? 0 : PI);
   }
   wheel(1.75, 0.8); wheel(1.75, -0.8); wheel(-1.35, 0.8); wheel(-1.35, -0.8, true);
-  fillet(g, 1.0, 0.3, 0.16, -1.35, 0, -0.9, PI); fillet(g, 0.8, 0.3, 0.14, -1.35, 0, -0.65, 0);
+  fillet(g, 1.0, 0.15, 0.16, -1.35, 0, -0.9, PI); fillet(g, 0.8, 0.3, 0.14, -1.35, 0, -0.65, 0);
 
   // body side silhouette: rear post, bed, cab, wing, with wheel arches and the door opening cut out
   // one simple polygon, walked along the bottom edge from the rear with the two arch cutouts and the door notch, then back along the top
@@ -132,11 +132,11 @@ export default function (THREE) {
     box(g, 0.02, 0.12, 0.08, M(tint(P.red, -0.1), 'metal', { roughness: 0.8 }), -2.13, 0.9, sz * 0.88);
     cyl(g, 0.008, 0.55, GALV, -2.3, 0.9, sz * 0.82, 0, 0, 1.0);
     // door: plate with the window cut out, hung on the front edge
-    const dr = new THREE.Group(); dr.position.set(0.9, 0, sz * 0.9); dr.rotation.y = sz > 0 ? 0.7 : 0; g.add(dr);
+    const dr = new THREE.Group(); dr.position.set(0.9, 0, sz * 0.9); dr.rotation.y = sz > 0 ? 0.14 : 0; g.add(dr);
     mesh(dr, plate(rect(-1.2, 0.6, 0, 1.75), [rect(-1.14, 1.15, -0.06, 1.69)], 0.05), ms, 0, 0, 0);
     box(dr, 0.14, 0.03, 0.04, GALV, -0.95, 1.05, sz * 0.03); box(dr, 1.2, 0.04, 0.005, RUST, -0.6, 0.62, sz * 0.03);
     for (const hy of [0.75, 1.05]) { box(dr, 0.05, 0.1, 0.06, STEEL, 0.0, hy, 0); streak(dr, sz > 0 ? 'pz' : 'nz', 0.0, hy - 0.05, sz * 0.03, 0.2, 0.05); }
-    box(dr, 0.03, 0.03, 0.2, STEEL, -1.05, 1.35, sz * 0.12); box(dr, 0.05, 0.14, 0.1, GUN, -1.05, 1.4, sz * 0.24);
+    box(dr, 0.03, 0.03, 0.08, STEEL, -1.05, 1.35, sz * 0.06);   // mirror arm stub, the head is gone with everything else worth taking
   }
   // cab structure and interior
   box(g, 1.8, 0.05, 1.75, GUN, 0.4, 0.45, 0);
@@ -177,7 +177,7 @@ export default function (THREE) {
   mesh(g, plate(rect(-0.25, -0.85, 0.25, 0.85), [], 0.05), BN, -2.35, 0.735, 0, PI / 2, 0, 0);
   for (let i = 0; i < 3; i++) box(g, 0.44, 0.02, 0.05, BN, -2.35, 0.77, -0.5 + i * 0.5); dust(g, 0.5, 1.7, -2.35, 0.76, 0, 0.05, 0.006);
   box(g, 0.08, 0.1, 1.7, STEEL, -2.15, 0.42, 0);
-  fillet(g, 3.6, 0.2, 0.12, 0.1, 0, -0.94, PI);
+  fillet(g, 3.6, 0.1, 0.12, 0.1, 0, -0.94, PI);
 
   // ---- contract: base at y = 0, centred on x and z, measured from vertices ----
   const box_ = new THREE.Box3(), v = new THREE.Vector3(), m = new THREE.Matrix4(), im = new THREE.Matrix4();

@@ -12,9 +12,9 @@ export default function (THREE) {
     if (name) mat.name = name;
     return mat;
   };
-  const red = M(0x8b4530, 'metal', 0.85, 0.15);
-  const redS = M(0x98523c, 'metal', 0.85, 0.15);
-  const redD = M(0x793b28, 'metal', 0.85, 0.15);
+  const red = M(0x7e4835, 'metal', 0.85, 0.15);
+  const redS = M(0x8d5a45, 'metal', 0.85, 0.15);
+  const redD = M(0x6d3f2e, 'metal', 0.85, 0.15);
   const galv = M(0x9ea3a1, 'metal', 0.72, 0.35, true);
   const galvB = M(0xaaafad, 'metal', 0.72, 0.35, true);
   const galvD = M(0x8c9190, 'metal', 0.74, 0.35, true);

@@ -1,73 +1,84 @@
 /**
- * Sky dome (owner: render).
+ * Sky dome, hills and dust (owner: render).
  *
- * A gradient dome computed in the shader from the view direction: no texture,
- * no image. Zenith 0x7f9cc0, horizon 0xe8d6b0 warm haze, a haze band that gets
- * paler toward the horizon, and a sun glow around the sun direction from
- * lighting.js. Below the horizon the dome is the fog colour, so the far edge
- * of the terrain fades into exactly the colour that stands behind it.
+ * The dome draws the atmosphere model from lighting.js (ATMOS_GLSL), the same
+ * function that colours the aerial perspective in every material and the
+ * environment map, so the sky, the hazed ground and the fill light are one
+ * atmosphere: pale warm horizon rising through a pale neutral band to a grey
+ * blue at the top of a level frame and a deeper blue overhead, a warm glow
+ * and a small disc where the sun is (azimuth 250, elevation 22), thin high
+ * cloud streaks between 8 and 40 degrees, and a haze band along the horizon.
+ * No texture, no image.
  *
- * The vertex shader pins the dome to the far plane (gl_Position.z = w), so it
- * draws behind everything whatever the camera's far value is, and the dome
- * follows the camera in update(). One draw call. On the high tier a second
- * draw adds dust motes: a few hundred points drifting in a box around the
- * camera, soft discs from gl_PointCoord, wrapped so they never run out.
+ * The vertex shader pins the dome to the far plane so it draws behind
+ * everything whatever the camera's far value is; the dome follows the camera.
  *
- * Colours are mixed in linear space and then pushed through the renderer's
- * tone mapping and output colour space (the same ACES curve as the scene), so
- * the sky and the fogged terrain agree at the horizon.
+ * The hills: a world fixed ring of two ridge lines at 700 and 1100 m, drawn as
+ * silhouettes coloured by the same atmosphere at their own haze level, so the
+ * map edge has something behind it at every heading and the horizon is not a
+ * straight line. Two draw calls (dome, hills), plus the dust motes on high.
+ *
+ * Colours are mixed in linear space and pushed through the renderer's ACES
+ * curve and output colour space in the fragment shader.
  */
-import { sunDirection, FOG_COLOR, SUN_COLOR } from './lighting.js';
+import { sunDirection, SUN_COLOR, ATMOS_UNIFORMS_GLSL, ATMOS_GLSL, atmosUniforms } from './lighting.js';
 import { getTier } from './quality.js';
 
-export const ZENITH_COLOR = 0x7f9cc0;
-export const HORIZON_COLOR = 0xe8d6b0;
-export const HAZE_COLOR = 0xf1e6cf;
-export const MID_COLOR = 0xd3d3cb;      // pale warm grey, the sky 20 to 40 degrees up in the reference frames (measured 222,216,197 sRGB)
+export const ZENITH_COLOR = 0x6987b9;    // documentary: the linear values live in lighting.js ATMOS
+export const HORIZON_COLOR = 0xeee0c8;
 
 const SKY_VS = /* glsl */`
 varying vec3 vDir;
 void main() {
-  vDir = normalize(position);
+  vDir = position;
   vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  // far plane, always behind the scene
-  p.z = p.w * 0.999999;
+  p.z = p.w * 0.999999;   // far plane, always behind the scene
   gl_Position = p;
 }`;
 
-const SKY_FS = /* glsl */`
-uniform vec3 uZenith, uMid, uHorizon, uHaze, uFog, uSun;
-uniform vec3 uSunDir;
-uniform float uSunGlow, uSunDisc, uBright;
+const SKY_FS = ATMOS_UNIFORMS_GLSL + ATMOS_GLSL + /* glsl */`
+uniform vec3 uSun;
+uniform float uSunDisc;
 varying vec3 vDir;
 void main() {
   vec3 d = normalize(vDir);
-  float y = d.y;                                   // 1 up, 0 horizon, -1 down
-  float el = asin(clamp(y, -1.0, 1.0));           // elevation in radians
-  // Measured on refs/aaa: at level pitch the frame top reaches 37 degrees
-  // and the sky there is pale warm grey (about 222,216,197 sRGB), never
-  // saturated blue. So the contract zenith colour is reached only high up:
-  // horizon -> mid (pale grey blue) by 40 degrees, mid -> zenith by 90.
-  float t1 = smoothstep(0.0, 0.70, el);            // 0 at horizon, 1 at 40 deg
-  float t2 = smoothstep(0.70, 1.55, el);           // 40 deg -> zenith
-  vec3 col = mix(uHorizon, uMid, t1);
-  col = mix(col, uZenith, t2);
-  // haze band: paler and warmer in the lowest 8 degrees, dust in the air.
-  // CLAIMS claim 6 wants the horizon paler than the sky above it.
-  float band = pow(1.0 - clamp(el / 0.14, 0.0, 1.0), 1.6);
-  col = mix(col, uHaze, band * 0.85);
-  col *= uBright;
-  // sun: a wide warm glow, a tighter core and a small disc
-  float sd = max(dot(d, uSunDir), 0.0);
-  float glowWide = pow(sd, 5.0) * 0.30;
-  float glowCore = pow(sd, 40.0) * 0.55;
+  vec3 col = atmosSky(d, 1.0);
+  float sd = max(dot(d, uAtmSunDir), 0.0);
   float disc = smoothstep(0.99925, 0.99965, sd);
-  col += uSun * (glowWide + glowCore) * uSunGlow;
   col = mix(col, uSun * uSunDisc, disc);
-  // below the horizon: the fog colour exactly, so the fogged terrain edge
-  // meets a dome of the same colour; the haze band sits just above it.
-  float below = smoothstep(0.006, -0.01, y);
-  col = mix(col, uFog, below);
+  gl_FragColor = vec4(col, 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}`;
+
+// Hills: world space ring. aHaze per vertex is the haze fraction of that ridge.
+const HILL_VS = /* glsl */`
+attribute float aHaze;
+varying vec3 vDir;
+varying float vHaze;
+varying float vY;
+void main() {
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  vDir = wp.xyz - cameraPosition;
+  vHaze = aHaze;
+  vY = position.y;
+  vec4 p = projectionMatrix * viewMatrix * wp;
+  p.z = p.w * 0.999998;
+  gl_Position = p;
+}`;
+const HILL_FS = ATMOS_UNIFORMS_GLSL + ATMOS_GLSL + /* glsl */`
+uniform vec3 uHillLit, uHillShade;
+varying vec3 vDir;
+varying float vHaze;
+varying float vY;
+void main() {
+  vec3 d = normalize(vDir);
+  // a ridge lit from the west: the face toward the sun a touch warmer
+  float az = max(dot(normalize(vec3(d.x, 0.0, d.z)), normalize(vec3(uAtmSunDir.x, 0.0, uAtmSunDir.z))), 0.0);
+  vec3 rock = mix(uHillShade, uHillLit, 1.0 - az * 0.6);
+  // the sky colour just above the horizon is what the haze mixes toward
+  vec3 sky = atmosSky(vec3(d.x, max(d.y, 0.012), d.z), 0.0);
+  vec3 col = mix(rock, sky, vHaze);
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -79,7 +90,6 @@ uniform float uTime, uBox, uSize;
 attribute float aSeed;
 varying float vA;
 void main() {
-  // drift in world space, then wrap into a box centred on the camera
   vec3 p = position;
   p.x += uTime * (0.35 + aSeed * 0.4) + sin(uTime * 0.7 + aSeed * 31.0) * 0.6;
   p.y += sin(uTime * 0.5 + aSeed * 17.0) * 0.4 - uTime * 0.05;
@@ -87,7 +97,6 @@ void main() {
   p = uCam + mod(p - uCam + uBox * 0.5, uBox) - uBox * 0.5;
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   float dist = -mv.z;
-  // fade near the box edge and very near the camera
   float edge = 1.0 - smoothstep(uBox * 0.36, uBox * 0.5, length(p - uCam));
   float nearFade = smoothstep(0.3, 1.2, dist);
   vA = edge * nearFade * (0.5 + 0.5 * aSeed);
@@ -109,24 +118,58 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+/** Ridge line height in metres at a heading (radians), layered sines with a fixed seed. */
+function ridge(theta, layer) {
+  const s = layer === 0
+    ? 26 + 22 * Math.sin(theta * 3.0 + 0.4) + 12 * Math.sin(theta * 7.0 + 2.1) + 6 * Math.sin(theta * 13.0 + 1.3) + 3 * Math.sin(theta * 29.0)
+    : 40 + 30 * Math.sin(theta * 2.0 + 1.9) + 16 * Math.sin(theta * 5.0 + 0.7) + 8 * Math.sin(theta * 11.0 + 3.0) + 4 * Math.sin(theta * 23.0 + 0.5);
+  return Math.max(s, 4);
+}
+
+function buildHills(THREE, atm) {
+  const rings = [
+    { r: 700, haze: 0.62, layer: 0 },
+    { r: 1100, haze: 0.80, layer: 1 },
+  ];
+  const N = 480;
+  const pos = [], haze = [], idx = [];
+  let base = 0;
+  for (const ring of rings) {
+    for (let i = 0; i <= N; i++) {
+      const th = (i / N) * Math.PI * 2;
+      const x = Math.sin(th) * ring.r, z = Math.cos(th) * ring.r;
+      const h = ridge(th, ring.layer) * (ring.r / 700);
+      pos.push(x, -60, z, x, h, z);
+      haze.push(ring.haze, ring.haze);
+      if (i < N) { const a = base + i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    }
+    base += (N + 1) * 2;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aHaze', new THREE.Float32BufferAttribute(haze, 1));
+  g.setIndex(idx);
+  const m = new THREE.ShaderMaterial({
+    uniforms: { ...atm, uHillLit: { value: new THREE.Color(0.26, 0.21, 0.165) }, uHillShade: { value: new THREE.Color(0.14, 0.13, 0.13) } },
+    vertexShader: HILL_VS, fragmentShader: HILL_FS,
+    side: THREE.DoubleSide, depthWrite: false, depthTest: true, depthFunc: THREE.LessEqualDepth, fog: false, toneMapped: true,   // depthTest false drew a screen filling black polygon (probe t_*), so the ring is depth tested at a pinned depth just inside the dome's
+  });
+  const mesh = new THREE.Mesh(g, m);
+  mesh.name = 'hills';
+  mesh.frustumCulled = false;
+  mesh.renderOrder = -999;      // right after the dome; pinned at 0.999998 so it passes over the dome and everything real draws over it
+  mesh.castShadow = false; mesh.receiveShadow = false;
+  return mesh;
+}
+
 export function createSky(THREE, { scene, tier }) {
   const T = getTier(tier);
   const sunDir = sunDirection(THREE);
+  const atm = atmosUniforms(THREE);
 
   const geo = new THREE.SphereGeometry(80, 40, 24);
   const mat = new THREE.ShaderMaterial({
-    uniforms: {
-      uZenith: { value: new THREE.Color(ZENITH_COLOR) },
-      uMid: { value: new THREE.Color(MID_COLOR) },
-      uHorizon: { value: new THREE.Color(HORIZON_COLOR) },
-      uHaze: { value: new THREE.Color(HAZE_COLOR) },
-      uFog: { value: new THREE.Color(FOG_COLOR) },
-      uSun: { value: new THREE.Color(SUN_COLOR) },
-      uSunDir: { value: sunDir },
-      uSunGlow: { value: 1.0 },
-      uSunDisc: { value: 4.0 },
-      uBright: { value: 1.75 },   // the dome is HDR: the reference sky sits near 230 sRGB after the ACES curve
-    },
+    uniforms: { ...atm, uSun: { value: new THREE.Color(SUN_COLOR) }, uSunDisc: { value: 4.0 } },
     vertexShader: SKY_VS,
     fragmentShader: SKY_FS,
     side: THREE.BackSide,
@@ -144,6 +187,9 @@ export function createSky(THREE, { scene, tier }) {
   mesh.receiveShadow = false;
   mesh.matrixAutoUpdate = true;
   scene.add(mesh);
+
+  const hills = buildHills(THREE, atm);
+  scene.add(hills);
 
   // Dust motes, high tier only. One draw call.
   let motes = null;
@@ -186,8 +232,9 @@ export function createSky(THREE, { scene, tier }) {
 
   function dispose() {
     scene.remove(mesh); geo.dispose(); mat.dispose();
+    scene.remove(hills); hills.geometry.dispose(); hills.material.dispose();
     if (motes) { scene.remove(motes); motes.geometry.dispose(); motes.material.dispose(); }
   }
 
-  return { mesh, motes, sunDir, update, dispose };
+  return { mesh, hills, motes, sunDir, update, dispose };
 }

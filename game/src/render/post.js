@@ -4,13 +4,15 @@
  * High tier: EffectComposer with a multisampled HDR target (antialias on the
  * WebGLRenderer is discarded the moment a composer renders into its own
  * target, and thin lattice without MSAA is the loudest browser-game tell
- * there is), a RenderPass, a very small bloom for the floodlight lenses and
- * the sun disc only (strength 0.08, threshold well above the sunlit sand),
- * the OutputPass (ACES and sRGB, the same as the renderer would do), and one
- * grade pass: vignette 0.25, a slight cool lift in the shadows and warm gain
- * in the highlights, and the damage edge. No grain, no chromatic aberration,
- * no global desaturation: CLAIMS.md names each of those as a way to game a
- * metric, and a critic who sees them is right to reject the frame.
+ * there is), a RenderPass, a small bloom whose threshold sits at the sunlit
+ * level so only the sun facing surfaces, the floodlight lenses and the sun
+ * disc glow (a warm key side bloom, never a haze over the whole frame), the
+ * OutputPass (ACES and sRGB, the same as the renderer would do), and one
+ * grade pass that is a tone curve and the damage edge, nothing else: a black
+ * point so the frame reaches true darks, a gentle contrast pivot, no lift, no
+ * split tone, no vignette, no global tint, no grain, no desaturation.
+ * CLAIMS.md names each of the removed ones as a way to game a metric, and the
+ * round 1 critic named the flat lift and the low contrast as a fail.
  *
  * Phone tier: renderer.render directly; the damage edge is a single overlay
  * quad drawn only while damage > 0.
@@ -27,25 +29,23 @@ import { getTier } from './quality.js';
 
 const GRADE_VS = /* glsl */`varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 
-// Runs in display space, after OutputPass.
+// Runs in display space, after OutputPass (ACES applied, sRGB encoded).
 const GRADE_FS = /* glsl */`
 uniform sampler2D tDiffuse;
-uniform float uVignette, uHurt;
-uniform vec3 uLift, uGain;
+uniform float uHurt, uBlack, uContrast, uPivot;
 varying vec2 vUv;
 void main() {
   vec3 col = texture2D(tDiffuse, vUv).rgb;
-  float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
-  // shadows lifted a touch toward the sky colour, highlights a touch warm:
-  // a split tone of about two percent, kept far below what the lights do
-  col = col * uGain + uLift * (1.0 - smoothstep(0.0, 0.5, l));
-  // vignette, corners only: r2 * 2 is 1.0 in the corners and 0.5 at the top
-  // centre, so the top centre loses about one percent and a corner 25 percent
+  // black point: ACES leaves the darkest shade near 0.03; pull it toward 0 so
+  // the histogram reaches the darks (0.02, not more: the gunmetal viewmodel in
+  // shade is already near black), then a mild S about the pivot. Same curve on
+  // all three channels: no tint.
+  col = max(col - uBlack, 0.0) / (1.0 - uBlack);
+  col = (col - uPivot) * uContrast + uPivot;
+  col = clamp(col, 0.0, 1.0);
+  // damage: a red edge that closes in as t -> 1
   vec2 c = vUv - 0.5;
   float r2 = dot(c, c);
-  float v = 1.0 - smoothstep(0.35, 1.0, r2 * 2.0);
-  col *= mix(1.0, v, uVignette);
-  // damage: a red edge that closes in as t -> 1
   float edge = smoothstep(0.10, 0.55, r2 * 2.0);
   col = mix(col, vec3(0.62, 0.05, 0.03), edge * uHurt * 0.85);
   col = mix(col, col * vec3(1.0, 0.72, 0.68), uHurt * 0.35);
@@ -86,9 +86,11 @@ export function createPost(THREE, { renderer, scene, camera, tier }) {
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
 
-    // Threshold 1.15 in linear HDR: sunlit sand sits near 0.9, floodlight
-    // lenses and the sun disc sit above 2. Strength 0.08 is under the 0.1 cap.
-    const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.08, 0.35, 1.15);
+    // Threshold 0.85 in linear HDR: sunlit sand sits at 0.9 to 1.3, a west
+    // facing bleached wall at 1.2 to 1.6, shade under 0.2, so only the sun
+    // side of things blooms, and it blooms in its own warm colour. Strength
+    // 0.12, radius 0.45: a soft key side halo, not a browser game glow.
+    const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.12, 0.45, 0.85);
     composer.addPass(bloom);
 
     composer.addPass(new OutputPass());
@@ -96,10 +98,10 @@ export function createPost(THREE, { renderer, scene, camera, tier }) {
     const grade = new ShaderPass({
       uniforms: {
         tDiffuse: { value: null },
-        uVignette: { value: 0.25 },
         uHurt: { value: 0 },
-        uLift: { value: new THREE.Vector3(0.006, 0.010, 0.020) },
-        uGain: { value: new THREE.Vector3(1.012, 1.000, 0.985) },
+        uBlack: { value: 0.02 },
+        uContrast: { value: 1.06 },
+        uPivot: { value: 0.42 },
       },
       vertexShader: GRADE_VS, fragmentShader: GRADE_FS,
     });
