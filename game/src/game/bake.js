@@ -34,8 +34,11 @@ export class VertexPBRMaterial extends THREE.MeshStandardMaterial {
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRM = aRM;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vRM;')
-      .replace('float roughnessFactor = roughness;', 'float roughnessFactor = vRM.x;')
-      .replace('float metalnessFactor = metalness;', 'float metalnessFactor = vRM.y;');
+      .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = vRM.x;\n#ifdef USE_ROUGHNESSMAP\n  vec4 texelRoughness = texture2D( roughnessMap, vRoughnessMapUv );\n  roughnessFactor *= texelRoughness.g;\n#endif')
+      .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = vRM.y;\n#ifdef USE_METALNESSMAP\n  vec4 texelMetalness = texture2D( metalnessMap, vMetalnessMapUv );\n  metalnessFactor *= texelMetalness.b;\n#endif');
+    // round 2: onBeforeCompile receives the source with its #include lines UNEXPANDED, so the old
+    // text replacements on the expanded chunk never matched and every baked object rendered as a
+    // rough metal (roughness 1, metalness 1). The includes are replaced whole instead.
   }
   customProgramCacheKey() { return 'derrick_vrm'; }
 }

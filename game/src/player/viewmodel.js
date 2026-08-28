@@ -135,11 +135,11 @@ export class Viewmodel {
     this.adsOffset = new THREE.Vector3();
     // hip rest: sight window lands about 60% across and 66% down the frame, muzzle just right
     // of centre; the shoulders stay behind the lens
-    this.restPos = new THREE.Vector3(0.012, -0.036, -0.10);
+    this.restPos = new THREE.Vector3(0.020, -0.046, -0.07);
     this.hip = new THREE.Vector3(0.0, 0.0, 0.0);
     // camera space: forward is -Z, so +ry swings the muzzle LEFT (in toward the centre, showing
     // the left flank of the receiver the way the reference holds it) and +rx lifts it
-    this.hipYaw = 0.16; this.hipPitch = -0.012; this.hipRoll = 0.05;
+    this.hipYaw = 0.17; this.hipPitch = 0.02; this.hipRoll = 0.12;
     this.adsDist = 0.16;
     this.socketPos = new THREE.Vector3();
     this.ikTarget = new THREE.Vector3(); this.ikHasTarget = false;

@@ -12,6 +12,9 @@
  *   tilt   optional degrees of lean (palms), tiltDir the compass direction of the lean
  *   railGaps optional list of world angles (degrees, atan2(z, x)) where a tank ring rail is open
  *   density true on the two scatter assets that the quality tier thins
+ *   scale  optional uniform scale (round 2, level): used only on things more than 40 m from any
+ *          route, where a tank of another size or a bigger rock is a silhouette and nothing else
+ *          (build.js scales the collider with it)
  *
  * Plan corrections applied here, each written in work/level/NOTES.md:
  *   the derrick south ladder uses rot 0 (its back must face the deck it climbs),
@@ -144,10 +147,27 @@ P('pickup_wreck', 42, 12, 200);
 P('pump_jack', 34, -12, 0, { moving: true, tag: 'pump_jack_east' });
 P('pump_jack', -40, 18, 90, { moving: true, tag: 'pump_jack_west' });
 // floodlight masts, lamps pointing at the derrick pad, the chicane, the tank farm, the pipe yard
-P('floodlight_mast', -10, 16, faceTo(-10, 16, -2, -10));
+P('floodlight_mast', -7.5, 17.2, faceTo(-7.5, 17.2, -2, -10));   // r2: was (-10,16), its base now inside the gatehouse's south edge
 P('floodlight_mast', 38, 14, faceTo(38, 14, 24, 5));
 P('floodlight_mast', -24, -24, faceTo(-24, -24, -33, -34));
 P('floodlight_mast', 32, -30, faceTo(32, -30, 10, -36));
+// round 2 (level): a pole line along the road. The critic's frames from the west approach had
+// two or three silhouettes on the horizon and nothing above eye level east of the checkpoint;
+// masts every 16 to 20 m along the road put a 9 m vertical at three depths in every east facing
+// frame (the set has no power pole or catenary cable; see work/fix2_level/NOTES.md for the asset
+// request). Heights probed 2026-08-28: (-50,12) 1.62, (6,12) -0.08, (22,12.5) 0.05, (51.5,-5.5) berm.
+P('floodlight_mast', -50, 12, faceTo(-50, 12, -40, 6), { tag: 'mast_road_w' });
+P('floodlight_mast', 6, 12, faceTo(6, 12, 14, 6), { tag: 'mast_road_wadi' });
+P('floodlight_mast', 22, 12.5, faceTo(22, 12.5, 30, 6), { tag: 'mast_road_chicane' });
+P('floodlight_mast', 51.5, -5.5, faceTo(51.5, -5.5, 54, 6), { tag: 'mast_road_e' });
+// round 2 (level): a 1.2 m bore pipeline on saddles along the road's north verge up the east
+// rise, x 26 to 50 at z -3: a long horizontal at the horizon of every frame looking east down
+// the road (the far silhouettes the critic asked for are pipe, not boxes). The rise climbs 0.8 m
+// over the first piece, so each piece carries the slope of its own span (probed at x 26/34/42/50:
+// 0.69, 1.49, 2.11, 1.90) and both saddles sit on the sand.
+P('large_pipe_section', 30, -3, 0, { tilt: 5.7, tiltDir: 270, tag: 'east_line_a' });
+P('large_pipe_section', 38, -3, 0, { tilt: 4.4, tiltDir: 270, tag: 'east_line_b' });
+P('large_pipe_section', 46, -3, 0, { tilt: 1.5, tiltDir: 90, tag: 'east_line_c' });
 // debris along the road every 12 m, offset 1 to 2 m from the centre line (z = 6)
 many('debris_scatter', [[-46, 7.6, 10], [-34, 4.4, 80], [-20, 7.8, 130], [8, 4.2, 200], [34, 7.4, 260], [46, 4.6, 320]], 0, { density: true });
 
@@ -165,33 +185,51 @@ P('catwalk_section', -45.2, -36.2, 0, { dy: 2.15, tag: 't1_landing' });
 P('external_steel_stair', -45.2, -38.4, 180, { dy: 2.3, tag: 't1_stair_2' });
 P('caged_ladder', -25.8, -28, 90, { tag: 't3_east_ladder' });
 P('bullet_tank_horizontal', -14, -44, 0);
-P('bullet_tank_horizontal', -14, -30, 0);
+P('bullet_tank_horizontal', -12, -29, 0);                                   // r2: was (-14,-30), 0.6 m into the hardstand corner elbow
 P('bullet_tank_horizontal', 40, -40, 90);
 // pipe run P1 along z = -36; the two pieces over the wadi take the lip height
 P('pipe_run_straight', -7, -36, 0, { ySample: [-12.5, -36], tag: 'p1_a' });
 P('pipe_run_straight', -1, -36, 0, { ySample: [-1.5, -36], tag: 'p1_b' });
 many('pipe_run_straight', [[5, -36], [11, -36], [17, -36], [23, -36]]);
-P('pipe_run_elbow', 26, -36, 0);
-P('pipe_run_straight', 26, -31, 90);
-P('pipe_run_elbow', 26, -26, 90);
-// pipe run P2 along z = -26
-many('pipe_run_straight', [[23, -26], [17, -26], [11, -26]]);
-P('pipe_run_elbow', 8, -26, 180);
-P('pipe_run_straight', 8, -23, 90);
-P('valve_manifold', 8, -20, 0);
+// Round 2 (level): the elbows now meet their straights. Measured on the asset (work/fix2_level
+// probe.mjs): an elbow's two arms lie 1.177 m off its centre and end 1.60 m out (flange to flange
+// with a straight, whose flanges end 3.02 m from its centre); at rot 0 it opens east and south,
+// rot 90 north and east, rot 180 west and north, rot 270 south and west. P1 ends at x 26.02, so
+// the corner elbow (rot 270, opens west and south) sits at (27.62, -34.82); its south arm is the
+// axis of the riser at x 28.80, which ends at z -27.18 where the next elbow (rot 180, opens north
+// and west) sits at (27.62, -25.58) and puts P2 on z -24.40 from x 26.02 west to the wadi lip.
+// P2 used to turn south at x 8 into the wadi cut (its elbow, riser and header hung over the bank);
+// it now ends on a flange 0.7 m short of the lip, and the header went to the wellhead it serves.
+P('pipe_run_elbow', 27.62, -34.82, 270, { tag: 'p1_corner' });
+P('pipe_run_straight', 28.8, -30.2, 90, { tag: 'p1_riser' });
+P('pipe_run_elbow', 27.62, -25.58, 180, { tag: 'p2_corner' });
+// pipe run P2 along z = -24.40
+many('pipe_run_straight', [[23, -24.4], [17, -24.4], [11, -24.4]]);
+P('valve_manifold', 17.8, -18, 0, { tag: 'wellhead_east_header' });     // inline west of the wellhead at (20, -18)
 P('pipe_run_straight', -22, -44, 0);
 P('pipe_run_straight', -16, -37, 90);
-P('pipe_run_elbow', -10, -40, 270);
-many('pipe_rack_stack', [[16, -46, 0], [0, -46, 0], [-20, -34, 90]]);
+// the hardstand's lattice: the riser at x -16 (z -40 to -34) turns west at its south end through
+// an elbow (rot 180) at (-17.18, -32.38) into a straight on z -31.20 toward T3
+P('pipe_run_elbow', -17.18, -32.38, 180, { tag: 'hardstand_corner' });
+P('pipe_run_straight', -21.8, -31.2, 0, { tag: 'hardstand_line' });
+many('pipe_rack_stack', [[16, -46, 0], [0, -46, 0], [-22, -36.5, 90]]);   // r2: rack moved off the new straight
 P('valve_manifold', -22, -40, 0);
-P('valve_manifold', 44, -30, 0);
+P('valve_manifold', 48.2, -29, 90, { tag: 'ne_tank_header' });           // r2: between the two east tanks
 P('watchtower_gantry', 26, -48, 0, { tag: 'watchtower' });     // plan said 180; ladder must be south
-P('shipping_container_open', 46, -36, 90, { tag: 'container_open_ne' });
+// Round 2 (level): an east tank group. The Militia half of the north lane had one bullet tank
+// and two containers; from the road every east facing frame ended on the bare east rise. Two
+// storage tanks of different sizes beside the bullet tank make three silhouette heights (6.8,
+// 4.8 and 3.2 m) on the horizon 60 to 100 m from the route. Both are 45 m or more from any lane
+// route, so a uniform scale is a size and nothing else. Ground probed: (52,-36) -0.17 with edges
+// within 0.2; (43,-27) 0.15 with edges within 0.28; the sand fillet and the terrain drift carry it.
+P('oil_storage_tank', 52, -36, 0, { scale: 1.2, tag: 'tank_e1' });
+P('oil_storage_tank', 43, -27, 0, { scale: 0.85, tag: 'tank_e2' });
+P('shipping_container_open', 44, -40, 90, { tag: 'container_open_ne' });   // r2: was (46,-36), in tank_e1
 P('shipping_container_tan', 50, -22, 45, { tag: 'container_tan' });
 P('shipping_container_open', -44, -14, 0, { tag: 'container_open_nw' });
 P('generator_set', -22, -28, 0);
-P('generator_set', 30, -22, 90);
-many('ibc_tote', [[-18, -40], [-16.7, -40], [-18, -38.8], [-16.7, -38.8]]);
+P('generator_set', 31, -21, 90);                                            // r2: was (30,-22), 0.1 m from the corner elbow
+many('ibc_tote', [[-19.2, -40], [-17.9, -40], [-19.2, -38.8], [-17.9, -38.8]]);   // r2: 1.2 m west, off the x -16 riser
 many('ibc_tote', [[14, -30], [15.3, -30], [14, -28.8]]);
 P('pickup_wreck', -36, -46, 20);
 P('tyre_stack', -34, -46, 0);
@@ -200,12 +238,17 @@ many('crate_stack', [[-24, -46, 10], [6, -42, 35], [30, -44, 5], [-46, -22, 70]]
 cluster('oil_drum', -36, -34, 3, 1);
 cluster('oil_drum', -20, -46, 3, 2);
 cluster('oil_drum', 10, -40, 3, 3);
-cluster('oil_drum', 28, -30, 3, 4);
+cluster('oil_drum', 26.3, -30, 3, 4);                                       // r2: was (28,-30), under the riser
 cluster('oil_drum', 42, -46, 3, 5);
 P('sandbag_wall', -30, -22, 0);
 P('sandbag_wall', 22, -22, 0);
 P('sandbag_wall', 26, -45, 0);
-for (let i = 0; i < 10; i++) P('corrugated_wall_panel', -46.5 + i * 3, -50, 0);        // tank farm north screen
+// tank farm north screen. Round 2 (level): the plan's ten corrugated panels (10.3 k triangles
+// each, 103 k) sat in every frame taken from the west rise without ever being seen (50 m behind
+// the tanks, off the route); the tank farm's north side is now a concrete bund wall of seven
+// panels (1.2 k each), which is what a tank farm has, and the screen's 95 k paid for the pole
+// line, the east tanks, the near cover and the horizon rocks of this round.
+for (let i = 0; i < 7; i++) P('compound_wall_panel', -46 + i * 4, -50, 0, { tag: `bund_wall_${i + 1}` });
 for (let i = 0; i < 4; i++) P('corrugated_wall_panel', -18.5 + i * 3, -16, 0);         // shed wind break
 for (let i = 0; i < 14; i++) P('barbed_wire_fence_section', -14.5 + i * 3, -54, 0);   // north edge fence
 for (let i = 0; i < 6; i++) P('barbed_wire_fence_section', -16.5 + i * 3, 54, 0);     // south edge, x -18..0
@@ -290,6 +333,15 @@ P('sandbag_wall', 58, -10, 270);
 P('sandbag_wall', 58, 10, 270);
 P('wooden_pallet_stack', 64, -12, 60);
 many('rock_outcrop_large', [[-64, -46, 0], [-60, -40, 30], [60, -48, 0], [64, -42, 300], [64, 40, 0], [50, 52, 0], [-64, 40, 0]]);
+// Round 2 (level): a rock ridge along the map's north and south edges and behind both spawn
+// plateaus, so the horizon of every frame ends on broken rock instead of a straight sand line.
+// Each is the large outcrop at 1.6 to 2.4 times its size (12 to 19 m wide, 5 to 7 m high), 50 m
+// or more from any route, half of each body past the terrain edge where nothing can see it.
+// The pair behind each spawn sits outside z -14..14 so no spawn point is inside one.
+many('rock_outcrop_large', [[-52, -55, 20], [-24, -58, 340], [34, -58, 15], [48, -57, 200]], 0, { scale: 2.2 });
+P('rock_outcrop_large', -38, -57, 0, { scale: 2.4, tag: 'ridge_n_big' });
+P('rock_outcrop_large', -25, 58.5, 10, { scale: 2.2, tag: 'ridge_s' });
+many('rock_outcrop_large', [[66, -22, 90], [66, 22, 90], [-66, -22, 90], [-66, 22, 90]], 0, { scale: 1.6 });
 for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', 69, -12.5 + i * 3, 90);
 for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', 69, 3.5 + i * 3, 90);
 for (let i = 0; i < 6; i++) P('barbed_wire_fence_section', -44.5 + i * 3, 54, 0);
@@ -318,7 +370,7 @@ for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', -69, -4.5 + i * 3, 90
   const plateau = [[-57, -12], [-57, -4], [-57, 4], [-57, 12], [57, -12], [57, -4], [57, 4], [57, 12]];
   const rocks = [[-60, -43], [-56, -38], [58, -44], [61, 37], [47, 49], [-60, 37]];
   const open = [[-30, 13], [-8, 16], [10, 18], [30, 18], [-50, 30], [12, -14], [36, -6], [-36, 14],
-    [-20, 16], [20, 16], [-44, 28], [8, 42], [-2, 14], [24, 40], [-52, 40], [40, 2]];
+    [-20, 16], [20, 16], [-44, 28], [8, 42], [-2, 19], [24, 40], [-52, 40], [40, 2]];   // r2: (-2,14) -> (-2,19), a container stands there now
   const all = shrubs.concat(plateau, rocks, open);
   for (let i = 0; i < 40 && i < all.length; i++) {
     const [x, z] = all[i];
@@ -384,13 +436,83 @@ for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', -69, -4.5 + i * 3, 90
   P('palm_tree', -33, 10.5, 80, { tilt: 8, tiltDir: 200 });
   P('floodlight_mast', -30, 15, faceTo(-30, 15, -14, 6), { tag: 'mast_gantry' });
   P('palm_tree', -22, 13.5, 250, { tilt: 10, tiltDir: 60 });
-  // checkpoint gantry over the road at x -14 (ground 0.02 / 0.01 either side): towers with
-  // their ladders facing away from the road, three railed catwalks deck to deck at 4.6 m
+  // checkpoint over the road at x -14 (ground 0.02 / 0.01 either side). Round 2 (level): the
+  // critic counted the same red watchtower four or five times in one view (the Rangers tower on
+  // the rise, both checkpoint towers, and the plan's north east tower on the horizon). The south
+  // checkpoint tower is now the gatehouse: the open sided steel shed (10 x 6 m, deck roof at 4.6 m
+  // with a toe rail that opens 1.2 m at its centre), its back wall to the road and its open side
+  // south. The three railed catwalks run from the north tower's deck across the road and land on
+  // the shed's roof through that opening; roof and bridge are dressing, no walkable, no link. From
+  // the rise the north east tower is hidden behind the container stack at (-28,-17) (bearing 29
+  // degrees from both spawn frames, the stack subtends 11), so every frame on the route holds at
+  // most two towers: this one and either the Rangers tower behind or the north east one ahead.
   P('watchtower_gantry', -14, 1, 180, { tag: 'gantry_tower_n' });
-  P('watchtower_gantry', -14, 11, 0, { tag: 'gantry_tower_s' });
+  P('mud_pump_shed', -14, 12.4, 0, { tag: 'gatehouse' });        // ground 0.02, corners -0.01 to 0.09
   P('catwalk_section', -14, 3, 90, { dy: 4.6, ySample: [-14, 1], bridge: true, tag: 'gantry_bridge_1' });
   P('catwalk_section', -14, 6, 90, { dy: 4.6, ySample: [-14, 1], bridge: true, tag: 'gantry_bridge_2' });
   P('catwalk_section', -14, 9, 90, { dy: 4.6, ySample: [-14, 1], bridge: true, tag: 'gantry_bridge_3' });
+  // the gatehouse yard south of the road (frames 2 to 5 look east south east across it at 15 to
+  // 35 m): a bullet tank on saddles, a pipe rack and an open container, three silhouettes that
+  // are not a tower. Ground probed: (-14,20) -0.07 with both ends within 0.05; (-22,18) -0.04; (-4,14) 0.06.
+  P('bullet_tank_horizontal', -14, 20, 0, { tag: 'gatehouse_bullet' });
+  P('pipe_rack_stack', -22, 18, 0, { tag: 'gatehouse_rack' });
+  P('shipping_container_open', -4, 14, 15, { tag: 'container_open_gate' });
+  // flowline P4 off the derrick pad: an elbow (rot 90, opens north into the pad's south edge at
+  // z -4 and east) at (-5.32, -2.40) puts the line on z -1.22, two straights to x 8.36, which is
+  // 1.2 m short of the wadi lip (9.55 at this z). Ground -0.09 to 0.06 along the run; the second
+  // piece climbs 0.18 m toward the lip so it leans west by that slope (probed 2026-08-28).
+  P('pipe_run_elbow', -5.32, -2.4, 90, { tag: 'p4_elbow' });
+  P('pipe_run_straight', -0.7, -1.22, 0, { tag: 'p4_a' });
+  P('pipe_run_straight', 5.34, -1.22, 0, { tilt: 1.7, tiltDir: 270, tag: 'p4_b' });
+}
+
+// 4.8 Cover and ground clutter along the west approach (round 2 fix, level) ------------------
+// The critic: "in the build the nearest object is often 10 m away on open sand; in every CoD
+// frame there is a barrier, drum, IBC or pallet within 5 m." The harness walks east from the
+// Rangers spawn between z -8 and 3 and turns its head each leg; the walk band z -7.5 to -0.5 and
+// the two north spawn lines at z -12.2 / -12.4 stay open (a long low barrier across a spawn line
+// is a pocket, work/fix1_level/NOTES.md), so the clusters sit in two strips either side of it:
+// z 0.3 to 1.8, just north of the jersey line at z 2, and z -9.6 to -8.3, the strip the mast,
+// generator and drums already use. Every 6 to 8 m along x there is a cluster of two or three
+// distinct props in one strip or the other, so a frame looking east has two props inside 6 m in
+// its lower half wherever the walker is. The sand drift on the windward side comes from the
+// terrain (world/terrain.js builds one against every placement in its footprint table), so a
+// drum here gets its drift without a second placement. Pallets (7.8 k) and tyres (5.5 k) are the
+// costly ones; drums (1.2 k), crates (2 k), IBCs (3.4 k) and jersey barriers (0.9 k) carry most
+// of it, 56 k in all when every cluster is in view.
+{
+  // south strip, against the barrier line
+  P('crate_stack', -52.6, 1.0, 10); P('oil_drum', -53.6, 0.75, 200);                                   // berm crest, between the (-55,2) and (-50,2) barriers
+  P('oil_drum', -49.0, 1.25, 40); P('oil_drum', -48.3, 0.95, 150); P('tyre_stack', -46.9, 1.0, 0);
+  P('ibc_tote', -40, 1.0, 0); P('oil_drum', -41.1, 1.2, 260);
+  P('crate_stack', -33, 1.0, 25); P('ibc_tote', -31.5, 0.95, 85); P('oil_drum', -34.2, 0.9, 10);
+  P('jersey_barrier', -27.5, 1.5, 0); P('oil_drum', -25.4, 0.9, 70); P('oil_drum', -25.5, 1.6, 190); P('tyre_stack', -30.2, 1.0, 0);
+  P('oil_drum', -10.5, 0.8, 0); P('oil_drum', -9.8, 1.35, 90); P('crate_stack', -8.8, 0.9, 40);         // east of the checkpoint tower
+  P('jersey_barrier', -1, 1.5, 0); P('oil_drum', 0.9, 0.75, 20); P('oil_drum', 1.5, 1.35, 140);          // frame 7's near ground, south of P4
+  // north strip
+  P('tyre_stack', -56.5, -9.0, 0); P('oil_drum', -55.6, -9.5, 30); P('oil_drum', -57.3, -9.7, 120);    // berm foot beside the (-58,-10) sandbags
+  P('crate_stack', -34, -9.0, 80); P('ibc_tote', -32.7, -9.1, 5);                                       // east of the P3 header
+  P('crate_stack', -22.6, -9.0, 40); P('oil_drum', -21.4, -9.3, 0); P('oil_drum', -21.0, -8.6, 75);     // west of the shed ladder
+  // one cluster inside the walk band, in the 2 m pocket the walker never crosses: both spawn
+  // lines pass at z -1.2 and -7.3, and the harness's leg from (-33,-6) to (-24,-1) reaches x -21
+  // at z 0.5 or more; this sits 0.85 m west of the shed's back wall and is what the sprint push
+  // frame from (-24,-1) has inside 6 m (both runs on this map put that frame there)
+  P('crate_stack', -20.5, -4.6, 20); P('oil_drum', -21.3, -4.0, 110); P('oil_drum', -22.0, -4.7, 30);
+}
+
+// 4.9 Ground debris at the heap toes and rut verges (round 2, world agent's request, placed by
+// the integrator). The world agent sited these clear of the heap crests and the road; two were
+// moved north of the walk band edge (z -0.5) by the integrator: the tyre stack asked for at
+// (-45.5,-1.5) sat on the z -1.2 walk line and the rubble asked for at (-20,-0.5) reached into the
+// band with its 2 m long axis. debris_scatter carries no collider.
+{
+  P('debris_scatter', -36.5, -4.5, 40, { density: true });     // foot of the west road heap, on the service track
+  P('debris_scatter', -40.5, -2.5, 210, { density: true });    // between the tower verge heap and the barriers
+  P('debris_scatter', -24.5, -0.5, 95, { density: true });     // foot of the shed verge heap
+  P('oil_drum', -31.0, -10.2, 30); P('oil_drum', -30.4, -9.7, 140);   // lee of the west road heap
+  P('tyre_stack', -45.5, 0.2, 0);                              // east of the tower verge heap (asked at z -1.5)
+  P('rock_outcrop_small', -19.5, 0.7, 340);                    // rubble at the shed verge heap's toe (asked at -20,-0.5 rot 250)
+  P('wooden_pallet_stack', 41.5, -6.5, 20); P('oil_drum', 42.5, -1.0, 75);   // east mirror
 }
 
 // tags: unique names for anything not named explicitly
@@ -531,6 +653,7 @@ const COVER_ASSETS = {
   rock_outcrop_large: { sides: 'front', h: 3.0 }, rock_outcrop_small: { sides: 'front', h: 1.0 },
   pipe_rack_stack: { sides: 'front', h: 1.6 }, pump_jack: { sides: 'front', h: 6 }, oil_storage_tank: { sides: 'all', h: 4.6 },
   oil_storage_tank_open: { sides: 'all', h: 4.6 }, culvert_crossing: { sides: 'ends', h: 2.6 },
+  mud_pump_shed: { sides: 'front', h: 2.4 },
 };
 const SIZES = {   // w x d from docs/OBJECTS.tsv for the cover set (metres)
   sandbag_wall: [2, 0.6], jersey_barrier: [3, 0.6], crate_stack: [1.2, 1], tyre_stack: [1, 1], ibc_tote: [1.2, 1],
@@ -540,6 +663,7 @@ const SIZES = {   // w x d from docs/OBJECTS.tsv for the cover set (metres)
   shipping_container_tan: [6.06, 2.44], shipping_container_open: [6.06, 2.44], compound_wall_panel: [4, 0.4],
   corrugated_wall_panel: [3, 0.15], rock_outcrop_large: [8, 5], rock_outcrop_small: [2, 1.5], pipe_rack_stack: [6, 2],
   pump_jack: [9, 2.6], oil_storage_tank: [8, 8], oil_storage_tank_open: [8, 8], culvert_crossing: [3.4, 8],
+  mud_pump_shed: [10, 6],
 };
 export const COVER_POINTS = (() => {
   const out = [];

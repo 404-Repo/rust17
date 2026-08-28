@@ -28,6 +28,12 @@ const NO_COLLIDER = new Set(['dead_shrub', 'debris_scatter', 'ammo_crate', 'exte
 const SIZE_TOLERANCE = 0.25;
 // integrator: scatter and wire fences are baked into a second group per block that casts no shadow (render notes lever)
 const NO_SHADOW = new Set(['dead_shrub', 'debris_scatter', 'barbed_wire_fence_section']);
+// level r2: furniture inside the two buildings joins the no shadow group. It stands under a roof
+// (the sun never reaches it, the lamp casts none) and is only ever seen through a door within a
+// few metres, yet as clutter it was drawn from 55 m: block 5_4 cost 171 k triangles in every frame
+// looking east from the road, of which the bunk beds, shelving and lockers were about 110 k.
+// The no shadow group is culled at 32 m from the block edge, which still shows it from every door.
+const INTERIOR = new Set(['bunk_bed', 'locker_bank', 'office_desk', 'mess_table', 'steel_shelving', 'control_cabinet']);
 // integrator: big silhouettes are baked apart from the clutter so the game can stop drawing
 // clutter (drums, crates, sandbags, pipes) past ~90 m in the haze while every landmark stays
 // to the map edge. Nothing is decimated; a far block just loses its small props.
@@ -215,6 +221,12 @@ function registerColliders(world, p, yaw, baseY, size) {
   else if (NO_COLLIDER.has(p.asset)) specs = [];
   else if (CYLINDER_ASSETS.has(p.asset)) specs = [cyl(0, size.y / 2, 0, Math.max(size.x, size.z) / 2, size.y)];
   else specs = [box(0, size.y / 2, 0, size.x, size.y, size.z)];
+  // level r2: a placement may carry a uniform `scale` (far tanks of different heights, the ridge
+  // rocks at the map edge); the collider specs are in the asset's own frame, so scale them too
+  const k = p.scale && p.scale !== 1 ? p.scale : 1;
+  if (k !== 1) specs = specs.map((s) => s.type === 'box'
+    ? { ...s, c: s.c.map((v) => v * k), s: s.s.map((v) => v * k) }
+    : { ...s, c: s.c.map((v) => v * k), r: s.r * k, h: s.h * k });
   let n = 0;
   for (const s of specs) {
     if (s.type === 'box') {
@@ -316,6 +328,7 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
     const baseY = baseYOf(p);
     obj.position.set(p.x, baseY, p.z);
     obj.rotation.y = yaw;
+    if (p.scale && p.scale !== 1) obj.scale.setScalar(p.scale);   // level r2: uniform, far objects only (see placements.js)
     if (p.tilt) {
       const dir = (p.tiltDir || 0) * DEG;
       const axis = new THREE.Vector3(Math.cos(dir), 0, -Math.sin(dir)).normalize();   // lean toward tiltDir
@@ -340,7 +353,7 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
       continue;
     }
     vertexiseMaterials(obj);   // integrator: replaces quantiseMaterials so bakeStatic merges per surface, not per colour
-    const gkey = NO_SHADOW.has(p.asset) ? p.block + '#nocast' : LANDMARK.has(p.asset) ? p.block : p.block + '#clutter';
+    const gkey = NO_SHADOW.has(p.asset) || INTERIOR.has(p.asset) ? p.block + '#nocast' : LANDMARK.has(p.asset) ? p.block : p.block + '#clutter';
     let g = blockGroups.get(gkey);
     if (!g) { g = new THREE.Group(); g.name = 'block_' + gkey; blockGroups.set(gkey, g); }
     g.add(obj);

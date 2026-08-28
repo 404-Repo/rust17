@@ -99,8 +99,8 @@ export function createPost(THREE, { renderer, scene, camera, tier }) {
       uniforms: {
         tDiffuse: { value: null },
         uHurt: { value: 0 },
-        uBlack: { value: 0.02 },
-        uContrast: { value: 1.06 },
+        uBlack: { value: 0.012 },   // round 2: 0.02 -> 0.012 and contrast 1.06 -> 1.04: the critic wants no object shade side under 0.15 luma, and the old curve took a 0.15 shade to 0.116
+        uContrast: { value: 1.04 },
         uPivot: { value: 0.42 },
       },
       vertexShader: GRADE_VS, fragmentShader: GRADE_FS,

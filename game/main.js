@@ -39,7 +39,7 @@ import { Audio } from './src/game/audio.js';
 import { ASSET } from './assetlib.js';
 import { vertexiseMaterials } from './src/game/bake.js';
 
-const ROUND = 'r1';
+const ROUND = 'r2';
 const DEG = Math.PI / 180;
 const params = new URLSearchParams(location.search);
 

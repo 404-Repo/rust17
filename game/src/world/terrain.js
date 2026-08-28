@@ -43,7 +43,9 @@ export const TERRAIN_SPEC = {
 
   // 3.1 base: the ground reading at running speed, not decoration.
   base: {
-    octaves: [ { amp: 0.12, wl: 9 }, { amp: 0.04, wl: 2.5 } ],
+    // the third octave is the round 2 addition: a 24 m swell of 0.22 m so open sand between the
+    // features rolls instead of lying dead flat (pads override it, the road is filtered over it)
+    octaves: [ { amp: 0.12, wl: 9 }, { amp: 0.04, wl: 2.5 }, { amp: 0.22, wl: 24 } ],
   },
 
   // 3.2 domes and 3.3 mounds: cosine falloff from h at centre to 0 at r.
@@ -56,12 +58,35 @@ export const TERRAIN_SPEC = {
     { name: 'north east mound', x: 36, z: -18, r: 7, h: 1.0 },
     { name: 'south centre mound', x: -8, z: 28, r: 6, h: 0.9 },
     { name: 'tank farm lip', x: -16, z: -24, r: 5, h: 0.6 },
+    // Spoil heaps (round 2): the subsoil graded off the pads and the wadi, heaped where a
+    // dozer leaves it, on the verges and around the yards. Each has a steeper downwind (ENE)
+    // face (`lee` shortens the radius on that side) and a wobbled outline (`warp`), so every
+    // one shows a sunlit west face and a shaded east face at 16:30 and casts onto the sand
+    // behind it. `spoil` marks them for the paint (packed subsoil, gravelly, no wind ripples).
+    // Sited in the gaps of the placement list: no closed base prop inside a heap's radius,
+    // checked by work/fix2_world/check_heaps.mjs against level/placements.js.
+    { name: 'west road heap', x: -33.5, z: -8, r: 3.6, h: 1.05, lee: 0.15, warp: 0.05, spoil: 1 },
+    { name: 'tower verge heap', x: -43, z: -4.5, r: 2.8, h: 0.8, lee: 0.15, warp: 0.05, spoil: 1 },
+    { name: 'shed verge heap', x: -22, z: -2, r: 3.2, h: 0.95, lee: 0.15, warp: 0.05, spoil: 1 },
+    { name: 'pump jack west heap', x: -47, z: 16, r: 4.0, h: 1.1, lee: 0.15, warp: 0.05, spoil: 1 },
+    { name: 'north exit heap', x: -54, z: -21, r: 4.0, h: 1.1, lee: 0.12, warp: 0.05, spoil: 1 },
+    { name: 'tank farm west heap', x: -55, z: -30, r: 4.0, h: 1.2, lee: 0.15, warp: 0.05, spoil: 1 },
+    { name: 'east road heap', x: 46, z: -6, r: 4.0, h: 1.1, lee: 0.15, warp: 0.05, spoil: 1 },
+    { name: 'east verge heap', x: 40, z: -3, r: 3.0, h: 0.85, lee: 0.15, warp: 0.05, spoil: 1 },
+    { name: 'pickup heap', x: 47, z: 18, r: 4.2, h: 1.1, lee: 0.15, warp: 0.05, spoil: 1 },
+    { name: 'north east yard heap', x: 56, z: -32, r: 4.0, h: 1.2, lee: 0.15, warp: 0.05, spoil: 1 },
+    { name: 'mast heap', x: 5, z: 17, r: 3.5, h: 1.0, lee: 0.15, warp: 0.05, spoil: 1 },
+    { name: 'container heap', x: 27, z: 16, r: 3.5, h: 1.1, lee: 0.15, warp: 0.05, spoil: 1 },
+    { name: 'trench heap', x: -6, z: 44, r: 3.5, h: 1.0, lee: 0.15, warp: 0.05, spoil: 1 },
   ],
 
   // 3.4 berms: ridge along a segment, flat crest, sloping sides, rounded ends, a road gap.
   berms: [
     { name: 'west berm', from: [-54, -12], to: [-54, 12], crest: 2, side: 3.2, h: 1.8, gap: { z0: 3, z1: 9, blend: 1.5 } },
     { name: 'east berm', from: [54, -12], to: [54, 12], crest: 2, side: 3.2, h: 1.8, gap: { z0: 3, z1: 9, blend: 1.5 } },
+    // round 2: a sand ridge on the south west flank, between the south exit and the pump house
+    // pad, 2.2 m over a 5.5 m side (31 degrees, under the nav grid's 35), no gap
+    { name: 'south west dune', from: [-53, 27], to: [-45, 38], crest: 2, side: 5.5, h: 2.2 },
   ],
 
   // 3.5 wadi: trapezoid section, Catmull Rom path, graded entries.
@@ -117,8 +142,13 @@ export const TERRAIN_SPEC = {
   // plan's two plus the service tracks a lease actually has: road to hardstand, road to the
   // shed, road to the pipe yard, road to the east pump jack. `wander` is the driver's line.
   tracks: {
-    bandW: 0.4, gauge: 1.6, rut: 0.09, rutW: 0.7, darken: 0.06, wander: 0.22, wanderWl: 7,
+    bandW: 0.4, gauge: 1.6, rut: 0.16, rutW: 0.8, darken: 0.11, wander: 0.22, wanderWl: 7,
     branches: [
+      // round 2: the service tracks a lease actually has on the verges, where the harness and
+      // the players walk: spawn plateau to the west tower and on to the shed, and the mirror
+      { name: 'spawn service track west', from: [-58, -2], ctrl: [-45, -0.2], to: [-36, -4] },
+      { name: 'service track to the shed', from: [-36, -4], ctrl: [-28, -3], to: [-20.5, -6] },
+      { name: 'spawn service track east', from: [58, -2], ctrl: [46, -1.5], to: [36, -4] },
       { name: 'to pump house roller door', from: [-40, 9], ctrl: [-35, 17], to: [-30, 27] },
       { name: 'to compound north gap', from: [40, 9], ctrl: [45, 15], to: [47, 24] },
       { name: 'to tank farm hardstand', from: [-52, 4], ctrl: [-46, -8], to: [-40, -22] },
@@ -140,7 +170,7 @@ export const TERRAIN_SPEC = {
     gravel: { wl1: 5.5, wl2: 14, threshold: 0.56, width: 0.14, sink: 0.03 },
     // sand drift against the foot of every prop: fMax = clamp(a + b * assetHeight, hMin, hMax),
     // out from the face `out` (upwind) to `out * tail` (downwind), profile (1 - t)^2
-    drift: { a: 0.06, b: 0.045, hMin: 0.08, hMax: 0.25, out: 0.9, tail: 1.9, inside: 0.6, windDeg: 300 },
+    drift: { a: 0.08, b: 0.055, hMin: 0.09, hMax: 0.35, out: 0.9, tail: 1.9, inside: 0.6, windDeg: 300 },
   },
 
   // painting: STYLE-LOCK palette, exact hex
@@ -165,6 +195,10 @@ const DRIFT_FOOTPRINTS = {
   compound_wall_panel: { w: 4.0, d: 0.4, h: 2.4 , p: 0}, corrugated_wall_panel: { w: 3.0, d: 0.15, h: 2.4 , p: 0},
   pipe_rack_stack: { w: 6.0, d: 2.0, h: 1.6 },
   floodlight_mast: { w: 1.4, d: 1.4, h: 2.0 },
+  // lattice towers and skids: sand banks against the legs from outside, the inside stays put
+  watchtower_gantry: { w: 3.0, d: 3.0, h: 1.5, p: 0 },
+  pump_jack: { w: 9.0, d: 2.6, h: 1.0, p: 0, m: 1 },       // m: a mover whose skid is static
+  large_pipe_section: { w: 8.0, d: 1.5, h: 1.6, p: 0 },
   sandbag_wall: { w: 2.0, d: 0.6, h: 1.0 , p: 0}, jersey_barrier: { w: 3.0, d: 0.6, h: 0.82 , p: 0},
   crate_stack: { w: 1.2, d: 1.0, h: 1.3 , p: 0}, oil_drum: { r: 0.3, h: 0.88 , p: 0}, ibc_tote: { w: 1.2, d: 1.0, h: 1.16 , p: 0},
   tyre_stack: { r: 0.5, h: 1.2 , p: 0},
@@ -479,9 +513,12 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
   const wTrack = new Float32Array(N);     // tyre bands
   const wCut = new Float32Array(N);       // any cut (bank or floor) for ripple masking
   const wOpen = new Float32Array(N);      // open sand: 1 minus everything above
+  const wHeap = new Float32Array(N);      // spoil heap weight (paint, gravel, no ripples)
   const cls = new Uint8Array(N);          // 0 sand 1 packed 2 concrete 3 rock
 
   const n1 = makeNoise(7), n2 = makeNoise(19), n3 = makeNoise(41), n4 = makeNoise(67), n5 = makeNoise(97);
+  const windDeg = (spec.detail && spec.detail.drift && spec.detail.drift.windDeg) || 300;
+  const wdx = Math.cos(windDeg * DEG), wdz = Math.sin(windDeg * DEG);   // the wind blows toward (wdx, wdz)
 
   // ---- pass 1: base, domes, mounds, berms, pads
   const pads = spec.pads;
@@ -493,7 +530,21 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
       let h = 0;
       for (const o of spec.base.octaves) h += n1(x / o.wl + 13.1, z / o.wl + 7.7) * o.amp;
       for (const d of spec.domes) h += d.h * cosFall(Math.hypot(x - d.x, z - d.z), d.r);
-      for (const m of spec.mounds) h += m.h * cosFall(Math.hypot(x - m.x, z - m.z), m.r);
+      for (const m of spec.mounds) {
+        const dx = x - m.x, dz = z - m.z;
+        const d0 = Math.hypot(dx, dz);
+        if (d0 >= m.r * 1.25) continue;
+        let r = m.r;
+        if (m.lee || m.warp) {
+          // downwind side shorter (steeper), outline wobbled at 3.5 m so it is not a circle
+          const k = d0 > 1e-6 ? (dx * wdx + dz * wdz) / d0 : 0;
+          r *= 1 - (m.lee || 0) * Math.max(0, k);
+          r *= 1 + (m.warp || 0) * n5(x / 3.5 + 77, z / 3.5 + 11);
+        }
+        const f = cosFall(d0, r);
+        h += m.h * f;
+        if (m.spoil && f > wHeap[i]) wHeap[i] = f;
+      }
       for (const b of spec.berms) {
         // distance to the crest segment, ends rounded
         const ax = b.from[0], az = b.from[1], bx = b.to[0], bz = b.to[1];
@@ -707,8 +758,8 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
     // off: distance from the band centre; a U with a rounded bottom, rutW wide
     const a = Math.abs(off);
     if (a >= TK.rutW / 2) return 0;
-    const flat = TK.rutW / 2 - 0.2;            // a 0.2 m lip either side of a flat bottom
-    return 1 - smooth01((a - flat) / 0.2);
+    const flat = TK.rutW / 2 - 0.25;           // a 0.25 m lip either side of a flat bottom
+    return 1 - smooth01((a - flat) / 0.25);
   };
   const bandWeight = (off) => {
     const a = Math.abs(off);
@@ -718,7 +769,6 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
 
   // drifts: the placements hashed into 4 m cells with their footprint and drift extent
   const DR = DT.drift;
-  const wdx = Math.cos(DR.windDeg * DEG), wdz = Math.sin(DR.windDeg * DEG);   // the wind blows toward (wdx, wdz)
   const driftItems = [];
   const driftHash = new Map();
   const DCELL = 4;
@@ -726,7 +776,7 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
   for (const p of PLACEMENTS) {
     const fp = DRIFT_FOOTPRINTS[p.asset];
     if (!fp) continue;
-    if (typeof p.y === 'number' || (p.dy && p.dy > 0) || p.moving) continue;
+    if (typeof p.y === 'number' || (p.dy && p.dy > 0) || (p.moving && !fp.m)) continue;
     if (bil(wConc, p.x, p.z) > 0.3) continue;                 // nothing drifts on a concrete pad here
     const fMax = Math.max(DR.hMin, Math.min(DR.hMax, DR.a + DR.b * fp.h));
     const reach = DR.out * DR.tail + 0.3;
@@ -774,11 +824,12 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
   };
 
   const GV = DT.gravel;
-  const gravelAt = (x, z, open, pack, bed, road, trench, conc, cut) => {
+  const gravelAt = (x, z, open, pack, bed, road, trench, conc, cut, heap = 0) => {
     const v = 0.55 * n5(x / GV.wl1 + 21, z / GV.wl1) + 0.45 * n5(x / GV.wl2 + 5, z / GV.wl2 + 33);
     let g = smooth01((v * 0.75 + 0.5 - GV.threshold) / GV.width) * open;
     const packedG = 0.45 + 0.35 * n2(x / 3 + 9, z / 3 + 4);
-    g = Math.max(g, packedG * pack, 0.8 * bed, 0.5 * road, 0.35 * trench);
+    // spoil is subsoil: stony over most of the heap, in the same 3 m clumps as the hardstands
+    g = Math.max(g, packedG * pack, 0.8 * bed, 0.5 * road, 0.35 * trench, (0.55 + 0.3 * n2(x / 3 + 9, z / 3 + 4)) * smooth01(heap * 2.5));
     g *= (1 - conc) * (1 - 0.5 * cut);
     return clamp01(g);
   };
@@ -788,9 +839,11 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
   const detailAt = (x, z) => {
     const open = bil(wOpen, x, z), pack = bil(wPack, x, z), conc = bil(wConc, x, z), cut = bil(wCut, x, z);
     const bed = bil(wBed, x, z), road = bil(wRoad, x, z), tr = bil(wTrench, x, z);
+    const heap = bil(wHeap, x, z);
     let h = 0;
     // hummocks: full on open sand, reduced on packed ground, none on concrete or in the cuts
-    const hk = (open + 0.4 * pack) * (1 - conc) * (1 - cut);
+    // spoil is clods, not sand: the hummocks run at double strength over a heap
+    const hk = (open + 0.4 * pack + 1.2 * smooth01(heap * 2)) * (1 - conc) * (1 - cut);
     if (hk > 0.001) for (const o of DT.hummocks) h += o.amp * hk * n1(x / o.wl + 31, z / o.wl + 17);
     // wind ripples on open sand, in patches
     dq.ripple = 0;
@@ -798,11 +851,12 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
       const patch = clamp01(0.35 + 0.9 * n3(x / rip.patchWl + 3, z / rip.patchWl));
       const warp = n4(x / 3.1, z / 3.1) * rip.warp;
       const ph = ((x * rdx + z * rdz) / rip.wl) * Math.PI * 2 + warp;
-      h += rip.amp * Math.sin(ph) * open * patch;
-      dq.ripple = clamp01(open * (0.25 + 0.75 * patch) * (1 - cut));
+      const noHeap = 1 - smooth01(heap * 2.5);        // spoil holds no wind ripples
+      h += rip.amp * Math.sin(ph) * open * patch * noHeap;
+      dq.ripple = clamp01(open * (0.25 + 0.75 * patch) * (1 - cut) * noHeap);
     }
     // gravel: a deflation hollow with a lip
-    const g = gravelAt(x, z, open, pack, bed, road, tr, conc, cut);
+    const g = gravelAt(x, z, open, pack, bed, road, tr, conc, cut, heap);
     h -= GV.sink * g * open;
     dq.g = g;
     // tyre tracks: road bands the whole length, plus the branches; the line wanders
@@ -933,6 +987,9 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
 
       c.copy(cSand);
       c.lerp(cPack, wp);
+      // spoil heaps: unbleached subsoil, toward packed over the body of the heap, and the crest
+      // is the last part to bleach so it stays a shade darker than the skirt
+      if (wHeap[i] > 0.02) c.lerp(cPack, 0.7 * smooth01(wHeap[i] * 1.8));
       c.lerp(cConc, wc);
       c.lerp(cRock, wRock);
       // tyre bands: packed darkened

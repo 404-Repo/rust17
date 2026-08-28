@@ -14,7 +14,8 @@
  * everything whatever the camera's far value is; the dome follows the camera.
  *
  * The hills: a world fixed ring of two ridge lines at 700 and 1100 m, drawn as
- * silhouettes coloured by the same atmosphere at their own haze level, so the
+ * silhouettes coloured by the same atmosphere at their own haze level (0.42 near,
+ * 0.64 far, so the far ridge is the paler layer behind the near one), so the
  * map edge has something behind it at every heading and the horizon is not a
  * straight line. Two draw calls (dome, hills), plus the dust motes on high.
  *
@@ -118,18 +119,26 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
-/** Ridge line height in metres at a heading (radians), layered sines with a fixed seed. */
+/**
+ * Ridge line height in metres at a heading (radians), layered sines with a fixed seed.
+ * Round 2: 1.6x taller (the near ring peaks at 9 degrees above the horizon from eye height,
+ * the far ring at 12, so the far layer shows above the near one) and a sharper profile
+ * (the high frequency terms carry more) so the ridge reads as rock, not as a swell.
+ */
 function ridge(theta, layer) {
   const s = layer === 0
-    ? 26 + 22 * Math.sin(theta * 3.0 + 0.4) + 12 * Math.sin(theta * 7.0 + 2.1) + 6 * Math.sin(theta * 13.0 + 1.3) + 3 * Math.sin(theta * 29.0)
-    : 40 + 30 * Math.sin(theta * 2.0 + 1.9) + 16 * Math.sin(theta * 5.0 + 0.7) + 8 * Math.sin(theta * 11.0 + 3.0) + 4 * Math.sin(theta * 23.0 + 0.5);
-  return Math.max(s, 4);
+    ? 30 + 24 * Math.sin(theta * 3.0 + 0.4) + 16 * Math.sin(theta * 7.0 + 2.1) + 10 * Math.sin(theta * 13.0 + 1.3) + 5 * Math.sin(theta * 29.0) + 3 * Math.sin(theta * 53.0 + 0.9)
+    : 46 + 34 * Math.sin(theta * 2.0 + 1.9) + 20 * Math.sin(theta * 5.0 + 0.7) + 12 * Math.sin(theta * 11.0 + 3.0) + 6 * Math.sin(theta * 23.0 + 0.5) + 3 * Math.sin(theta * 47.0 + 2.2);
+  return Math.max(s * 1.6, 6);
 }
 
 function buildHills(THREE, atm) {
+  // round 2 (critic item 7): the rings were hazed 0.62 and 0.80 into the sky and read as
+  // nothing at the horizon; now 0.42 and 0.64, the near ridge a warm grey brown silhouette,
+  // the far one paler behind it, both taking the dust band colour of the sky they stand in.
   const rings = [
-    { r: 700, haze: 0.62, layer: 0 },
-    { r: 1100, haze: 0.80, layer: 1 },
+    { r: 700, haze: 0.42, layer: 0 },
+    { r: 1100, haze: 0.64, layer: 1 },
   ];
   const N = 480;
   const pos = [], haze = [], idx = [];
@@ -150,7 +159,7 @@ function buildHills(THREE, atm) {
   g.setAttribute('aHaze', new THREE.Float32BufferAttribute(haze, 1));
   g.setIndex(idx);
   const m = new THREE.ShaderMaterial({
-    uniforms: { ...atm, uHillLit: { value: new THREE.Color(0.26, 0.21, 0.165) }, uHillShade: { value: new THREE.Color(0.14, 0.13, 0.13) } },
+    uniforms: { ...atm, uHillLit: { value: new THREE.Color(0.30, 0.235, 0.175) }, uHillShade: { value: new THREE.Color(0.13, 0.125, 0.135) } },
     vertexShader: HILL_VS, fragmentShader: HILL_FS,
     side: THREE.DoubleSide, depthWrite: false, depthTest: true, depthFunc: THREE.LessEqualDepth, fog: false, toneMapped: true,   // depthTest false drew a screen filling black polygon (probe t_*), so the ring is depth tested at a pinned depth just inside the dome's
   });

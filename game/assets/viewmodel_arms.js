@@ -3,6 +3,14 @@
 // as dark rings at every fold, a flared gauntlet cuff, gloves with four separate
 // two joint fingers and a thumb, a watch with a strap ring. Origin is the eye;
 // see userData.sockets.camera. +Z forward.
+//
+// Round 2 (player fix): the critic read the hands as "flat green blocks". The gloves were
+// near black leather (0x3a3528) with black fingers on a black receiver, and the sleeve was
+// one olive tube. Now: tan leather shooting gloves (sandbag / khaki from the style lock,
+// the desert issue glove) with dark hard knuckle pads, a lighter seam, darker fingertips
+// and a hook and loop wrist strap with a tab; the fingers are thicker so the four separate
+// fingers read at frame scale; the sleeve gets a proper buttoned cuff with a tab, a cuff
+// edge line and a dust band on the top of the forearm.
 export default function (THREE) {
   const g = new THREE.Group();
   const M = (hex, name, r, m, ds) => {
@@ -11,17 +19,19 @@ export default function (THREE) {
     if (name) mat.name = name;
     return mat;
   };
-  const olive = M(0x4e5238, 'fabric', 0.85, 0.0);
-  const oliveS = M(0x585c40, 'fabric', 0.85, 0.0);
+  const olive = M(0x555a3e, 'fabric', 0.85, 0.0);      // olive drab 0x4e5238 worn a step lighter (sun bleached cloth)
+  const oliveS = M(0x626747, 'fabric', 0.84, 0.0);     // fold crests, sun side
   const oliveD = M(0x43472f, 'fabric', 0.88, 0.0);
-  const dust = M(0x6e6b4c, 'fabric', 0.90, 0.0, true);   // dusty olive, sand settled on cloth
+  const dust = M(0x74714f, 'fabric', 0.90, 0.0, true);   // dusty olive, sand settled on the top of the sleeve
   const skin = M(0xa89372, null, 0.75, 0.0);
-  // gloves: worn leather, dark olive brown rather than rubber black, so the fingers still read
-  // against a blued receiver in shade; knuckles and seams lighter where they rub
-  const glove = M(0x3a3528, 'fabric', 0.82, 0.0);
-  const gloveL = M(0x4e4838, 'fabric', 0.80, 0.0);
-  const gloveD = M(0x2e2b22, 'fabric', 0.84, 0.0);
-  const gun = M(0x3a3d40, 'metal', 0.55, 0.65);
+  // gloves: tan leather, the desert issue shooting glove, so the fingers read against a grey
+  // receiver in shade; knuckle pads dark, seams lighter where they rub, fingertips darker
+  const glove = M(0x9c8a62, 'fabric', 0.80, 0.0);
+  const gloveL = M(0xb0a07c, 'fabric', 0.78, 0.0);       // seams and the worn heel of the palm
+  const gloveD = M(0x7a6a4c, 'fabric', 0.82, 0.0);       // fingertips, creases, the palm side
+  const knuckle = M(0x3a3528, 'fabric', 0.84, 0.0);      // hard knuckle pad
+  const strap = M(0x4e5238, 'fabric', 0.86, 0.0);        // wrist strap, olive
+  const gun = M(0x4f5257, 'metal', 0.55, 0.45);
   const glass = M(0x27363a, null, 0.45, 0.2);
 
   const cyl = (r1, r2, len, mat, x, y, z, seg, parent) => {
@@ -60,6 +70,10 @@ export default function (THREE) {
     cap(0.044, 0.05, parent); cap(0.04, 0.14, parent);
     cyl(0.046, 0.05, 0.03, oliveS, 0, 0, 0.19, 8, parent);                 // rolled cuff, flared
     cyl(0.051, 0.051, 0.006, oliveD, 0, 0, 0.205, 8, parent);              // cuff edge
+    cyl(0.052, 0.052, 0.003, dust, 0, 0, 0.196, 8, parent);                // dust line on the cuff roll
+    box(0.030, 0.012, 0.028, oliveD, side * 0.030, 0.030, 0.19, parent);   // cuff tab, on the back of the wrist
+    box(0.032, 0.002, 0.030, oliveS, side * 0.030, 0.037, 0.19, parent);
+    const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.003, 8), gun); btn.position.set(side * 0.030, 0.039, 0.19); parent.add(btn);
     cyl(0.03, 0.029, 0.05, skin, 0, 0, 0.23, 10, parent);
     if (side < 0) {
       const strap = new THREE.Mesh(new THREE.TorusGeometry(0.031, 0.004, 5, 12), gun); strap.position.z = 0.232; parent.add(strap);
@@ -69,23 +83,31 @@ export default function (THREE) {
   };
   const finger = (parent, x, y, z, side, curl, curl2) => {
     const f = new THREE.Group(); f.position.set(x, y, z); f.rotation.y = side * -curl; parent.add(f);
-    cyl(0.009, 0.0085, 0.045, glove, 0, 0, 0.0225, 8, f);
-    const k = new THREE.Mesh(new THREE.SphereGeometry(0.0095, 8, 6), gloveL); k.position.z = 0.045; f.add(k);
+    cyl(0.0105, 0.0095, 0.045, glove, 0, 0, 0.0225, 8, f);
+    box(0.004, 0.019, 0.040, gloveL, side * 0.0, 0.0, 0.0225, f);          // seam down the back of the finger
+    const k = new THREE.Mesh(new THREE.SphereGeometry(0.0105, 8, 6), knuckle); k.position.z = 0.045; f.add(k);
     const f2 = new THREE.Group(); f2.position.z = 0.045; f2.rotation.y = side * -(curl2 === undefined ? 1.2 : curl2); f.add(f2);
-    cyl(0.0085, 0.008, 0.038, glove, 0, 0, 0.019, 8, f2);
-    const k2 = new THREE.Mesh(new THREE.SphereGeometry(0.0085, 8, 6), glove); k2.position.z = 0.038; f2.add(k2);
+    cyl(0.0095, 0.0085, 0.038, glove, 0, 0, 0.019, 8, f2);
+    const k2 = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 6), gloveD); k2.position.z = 0.038; f2.add(k2);
   };
   const fist = (side, parent) => {
     cyl(0.038, 0.034, 0.035, glove, 0, 0, 0.0175, 10, parent);             // gauntlet cuff
     cyl(0.04, 0.04, 0.006, gloveL, 0, 0, 0.003, 10, parent);               // cuff edge
+    cyl(0.040, 0.037, 0.014, strap, 0, 0, 0.022, 10, parent);              // hook and loop wrist strap
+    box(0.022, 0.012, 0.016, strap, side * -0.030, 0.026, 0.022, parent);  // strap tab, standing off the back
+    box(0.024, 0.002, 0.018, gloveL, side * -0.030, 0.033, 0.022, parent);
     box(0.052, 0.072, 0.095, glove, 0, 0, 0.075, parent);                  // palm
-    box(0.046, 0.004, 0.085, gloveD, 0, 0.038, 0.075, parent);             // dusty back
-    box(0.054, 0.002, 0.09, gloveL, 0, 0.018, 0.07, parent);               // seam
+    box(0.054, 0.070, 0.004, gloveD, 0, 0, 0.0295, parent);                // crease at the wrist
+    box(0.046, 0.006, 0.040, knuckle, 0, 0.038, 0.100, parent);            // hard knuckle pad across the back
+    box(0.046, 0.004, 0.050, gloveD, 0, 0.038, 0.055, parent);             // back of the hand, darker
+    box(0.054, 0.003, 0.09, gloveL, 0, 0.018, 0.07, parent);               // seam
+    box(0.003, 0.074, 0.09, gloveL, side * 0.0265, 0, 0.07, parent);       // palm side seam
+    box(0.052, 0.004, 0.030, gloveD, 0, -0.037, 0.06, parent);             // palm side, darker
     // index finger lies along the receiver (trigger discipline), the other three wrap the grip
     for (let i = 0; i < 4; i++) finger(parent, side * 0.0, 0.028 - i * 0.019, 0.12, side, i === 0 ? 0.35 : 1.05 + i * 0.05, i === 0 ? 0.55 : 1.25);
     const th = new THREE.Group(); th.position.set(side * -0.018, 0.038, 0.05); th.rotation.x = -0.35; th.rotation.y = side * -0.5; parent.add(th);
     cyl(0.011, 0.0105, 0.04, glove, 0, 0, 0.02, 8, th);
-    const tk = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), gloveL); tk.position.z = 0.04; th.add(tk);
+    const tk = new THREE.Mesh(new THREE.SphereGeometry(0.0115, 8, 6), knuckle); tk.position.z = 0.04; th.add(tk);
     const th2 = new THREE.Group(); th2.position.z = 0.04; th2.rotation.x = 0.6; th.add(th2);
     cyl(0.0105, 0.009, 0.032, glove, 0, 0, 0.016, 8, th2);
   };
