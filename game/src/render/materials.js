@@ -41,10 +41,20 @@
  *   await preloadMaterials(tier)                    once, before the level (main.js)
  *   applyMaterials(obj, { asset, unify, local })    after ASSET(), in place of vertexiseMaterials
  *   applyTerrainMaterial(terrain, tier)             after buildTerrain (main.js)
+ *
+ * Round 5 (foliage): CARDS. A material named 'card:<name>' (assets/palm_tree.js, dead_shrub.js,
+ * grass_tuft.js) is an alpha tested plane wearing one of the Atlas cutouts in ./textures/card_*.webp
+ * through the plane's own 0..1 uvs, not the triplanar projection: see CardMaterial below. Same
+ * three phases, same one shared material per card across the game, so bakeStatic merges every
+ * frond_a in a block to one mesh (DoubleSide and alphaTest live on that shared material, and the
+ * merge keeps the material object, so both survive). Shadows come from three's own depth material,
+ * which copies map and alphaTest from the material (WebGLShadowMap.getDepthMaterial, 0.169), so a
+ * frond throws a leaflet shaped shadow, not a rectangle.
  */
 import * as THREE from 'three';
 import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js';
 import { classify, RECIPES } from '../../surfaces.js';
+import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js';   // round 5: the cards' backlight reads the rig's sun
 
 /**
  * The sets. `scale` is metres per tile. `normal` is the normal map strength, `albedo` and
@@ -71,7 +81,31 @@ export const SETS = {
   plaster_khaki:         { scale: 2.0, normal: 0.8, albedo: 1.0, rough: 0.9, recipe: 'plaster' },
   metal_painted_grey:    { scale: 2.0, normal: 0.8, albedo: 1.0, rough: 1.0, recipe: 'metal' },
   dry_palm:              { scale: 1.0, normal: 0.9, albedo: 1.0, rough: 0.9, recipe: 'foliage' },
+  // round 5 (foliage): the date palm trunk, frond boots in a spiral; the tile carries about seven boots across, a
+  // real boot is 0.2 m wide, so 1.5 m per tile. Keyed by the material NAME 'palm_bark' (chooseSet), no recipe guess.
+  palm_bark:             { scale: 1.5, normal: 0.9, albedo: 1.0, rough: 0.9, recipe: 'timber' },
 };
+
+/**
+ * The foliage cards (round 5). `sss` is the backlight: a thin leaf lit from behind glows, so the card
+ * adds emissive = albedo x sun x sss where the sun is on the far side of the card from the viewer.
+ * `tint` is how far the card's own colour is pulled toward the asset's material colour (0 = the
+ * photo as is, 1 = the same tint rule the triplanar sets use). The alpha cut is 0.5 for every card.
+ */
+export const CARDS = {
+  // sss is a fraction of the Lambert term of the sun (the shader divides by pi as three does): 0.15 on a frond seen
+  // against the sun adds a quarter of what a face square to the sun receives; the first cut at 0.3 without the
+  // pi went 2.5x the direct term and the crown read white from below
+  palm_frond_a: { sss: 0.15, tint: 0.30 },
+  palm_frond_b: { sss: 0.15, tint: 0.30 },
+  palm_frond_c: { sss: 0.10, tint: 0.35 },
+  date_cluster: { sss: 0.03, tint: 0.30 },   // the card itself is desaturated at prep (the photo's stalks were orange); a light pull toward the asset's brown
+  dead_shrub_a: { sss: 0.06, tint: 0.35 },
+  dead_shrub_b: { sss: 0.10, tint: 0.45 },   // the saltbush photo is grey green; the lock allows barely green
+  grass_tuft_a: { sss: 0.20, tint: 0.35 },
+  grass_tuft_b: { sss: 0.20, tint: 0.35 },
+};
+const CARD_PREFIX = 'card:';
 
 /** Sets that ship a 1024 tile for the high tier: the ground under every frame and the derrick's own steel. */
 const HERO_1024 = new Set(['sand_sunlit', 'red_oxide_steel']);
@@ -87,25 +121,32 @@ const ROCK_ASSETS = /rock_outcrop|culvert|debris_scatter/;
  * the multiplier goes onto the part's colour here, before it is baked into the vertices.
  */
 const ASSET_TINT = [
-  { asset: /palm_tree/, recipe: 'timber', k: [0.58, 0.56, 0.52] },
+  // round 5: the palm_tree trunk entry (0.58 on timber) is gone; the trunk wears the palm_bark set with its own colour
 ];
 
 // ------------------------------------------------------------------------------------------ textures
 const TEX = {};                  // set -> { map, normal, rough, mean: Color, roughMean }
 const TEX_TO_SET = new Map();    // basecolor texture -> set name (the phase 1 identity)
+const CARD_TEX = {};             // card -> { map, mean: Color }  (round 5)
+const TEX_TO_CARD = new Map();   // card texture -> card name
 let loading = null;
 let NORMAL_FLIP = 1.0;           // +1 for OpenGL green up (measured against the height maps, see NOTES.md)
 
-function meanOf(image, srgb) {
-  // mean in LINEAR space, from a 32 x 32 downsample: enough for a tile mean, free at load
+function meanOf(image, srgb, alphaWeighted = false) {
+  // mean in LINEAR space, from a 32 x 32 downsample: enough for a tile mean, free at load.
+  // alphaWeighted: the mean of what a card SHOWS (round 5), transparent texels count for nothing
   const c = document.createElement('canvas'); c.width = c.height = 32;
   const ctx = c.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(image, 0, 0, 32, 32);
   const d = ctx.getImageData(0, 0, 32, 32).data;
-  let r = 0, g = 0, b = 0;
+  let r = 0, g = 0, b = 0, n = 0;
   const lin = (v) => { v /= 255; return srgb ? (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)) : v; };
-  for (let i = 0; i < d.length; i += 4) { r += lin(d[i]); g += lin(d[i + 1]); b += lin(d[i + 2]); }
-  const n = d.length / 4;
+  for (let i = 0; i < d.length; i += 4) {
+    const w = alphaWeighted ? d[i + 3] / 255 : 1;
+    if (w <= 0) continue;
+    r += lin(d[i]) * w; g += lin(d[i + 1]) * w; b += lin(d[i + 2]) * w; n += w;
+  }
+  n = Math.max(n, 1e-6);
   return [r / n, g / n, b / n];
 }
 
@@ -146,12 +187,28 @@ export function preloadMaterials(tier = {}, base = './textures/') {
       TEX[set] = { map, normal, rough, mean: new THREE.Color(mean[0], mean[1], mean[2]), roughMean: rm[0], res };
       TEX_TO_SET.set(map, set);
     }));
-    console.info(`[materials] ${Object.keys(TEX).length}/${Object.keys(SETS).length} sets loaded in ${(performance.now() - t0).toFixed(0)} ms`);
+    // round 5: the cards. Clamped (a cutout never repeats), mipmapped, anisotropy from the tier
+    await Promise.all(Object.keys(CARDS).map(async (card) => {
+      const map = await one(`${base}card_${card}.webp`, true);
+      if (!map) return;
+      map.wrapS = map.wrapT = THREE.ClampToEdgeWrapping;
+      map.needsUpdate = true;
+      const mean = meanOf(map.image, true, true);
+      CARD_TEX[card] = { map, mean: new THREE.Color(mean[0], mean[1], mean[2]) };
+      TEX_TO_CARD.set(map, card);
+    }));
+    console.info(`[materials] ${Object.keys(TEX).length}/${Object.keys(SETS).length} sets, ${Object.keys(CARD_TEX).length}/${Object.keys(CARDS).length} cards loaded in ${(performance.now() - t0).toFixed(0)} ms`);
     return TEX;
   })();
   return loading;
 }
 export function loadedSets() { return TEX; }
+export function loadedCards() { return CARD_TEX; }
+/** The card a material asks for by name ('card:palm_frond_a' -> 'palm_frond_a'), or null. */
+export function cardOf(m) {
+  const n = m && m.name;
+  return n && n.startsWith(CARD_PREFIX) && CARDS[n.slice(CARD_PREFIX.length)] ? n.slice(CARD_PREFIX.length) : null;
+}
 export function setNormalFlip(v) { NORMAL_FLIP = v; }
 
 // ------------------------------------------------------------------------------------------ classification
@@ -179,6 +236,7 @@ function hsl(m) {
  */
 export function chooseSet(m, asset = '', local = false) {
   if (!m || !m.color) return null;
+  if (m.name && SETS[m.name]) return m.name;   // round 5: an asset may name a set outright ('palm_bark')
   if (m.transparent && m.opacity < 0.95) return null;
   if (m.emissive && m.emissive.getHex() && (m.emissiveIntensity || 1) > 0.5) return null;
   const { sat, lum, hue, r, g } = hsl(m);
@@ -352,6 +410,89 @@ export class TriplanarMaterial extends VertexPBRMaterial {
 }
 Object.defineProperty(TriplanarMaterial.prototype, 'isTriplanar', { value: true });
 
+// ------------------------------------------------------------------------------------------ cards (round 5)
+const CARD_PARS_FS = /* glsl */`
+uniform vec3 uCardInvMean;   // 1 / mean linear albedo of the card's opaque texels
+uniform vec4 uCardK;         // x: tint toward the asset colour, y: backlight, z w: unused
+uniform vec3 uCardSunW;      // direction toward the sun, world
+uniform vec3 uCardSun;       // sun colour x intensity`;
+// the asset's colour (vertex colour) pulls the photo's colour lightly toward the palette
+const CARD_COLOR_FS = /* glsl */`diffuseColor.rgb *= mix( vec3( 1.0 ), vColor * uCardInvMean, uCardK.x );`;
+// a card is a leaf, not a wall: both faces shade from the SAME normal (the asset bends its normals toward up
+// and outward so a crown reads as one lit mass, not as a fan of planes each lit or unlit by its own facing)
+const CARD_NORMAL_FS = /* glsl */`
+#ifdef DOUBLE_SIDED
+  normal = normalize( vNormal );
+#endif`;
+// backlight: the geometric facing from the view position derivatives (always toward the viewer); when the sun is
+// on the far side of the card the leaf transmits, so the albedo glows by uCardK.y of the sun
+const CARD_EMISSIVE_FS = /* glsl */`
+{
+  vec3 cgp = - vViewPosition;
+  vec3 cgN = normalize( cross( dFdx( cgp ), dFdy( cgp ) ) );
+  vec3 csun = normalize( ( viewMatrix * vec4( uCardSunW, 0.0 ) ).xyz );
+  float cback = max( 0.0, - dot( cgN, csun ) );
+  totalEmissiveRadiance += diffuseColor.rgb * uCardSun * ( uCardK.y * cback );
+}`;
+
+let SUN_W = sunDirection(THREE).clone().normalize(), SUN_RGB = new THREE.Color(SUN_COLOR).multiplyScalar(SUN_INTENSITY / Math.PI);
+/** Where the sun is and how bright, for the backlight; taken from lighting.js at load, this lets a probe move it. */
+export function setCardSun(dirToSun, color, intensity) {
+  SUN_W = dirToSun.clone().normalize();
+  SUN_RGB = new THREE.Color(color).multiplyScalar(intensity / Math.PI);
+}
+
+/**
+ * One alpha tested, double sided VertexPBR per card, shared by every asset in the game. The card's
+ * photo goes through three's own map path (uv 0..1 across the plane, sRGB decode, mipmaps,
+ * alphaTest 0.5 in alphatest_fragment) and the depth material picks map and alphaTest up for the
+ * shadow. isVertexPBR stays true so the rig's chain (CSM, dust film at the foliage hold, aerial
+ * perspective, cull fade) applies as to everything else; the triplanar hook is NOT used here.
+ */
+export class CardMaterial extends VertexPBRMaterial {
+  constructor(card, params) {
+    super(params);
+    if (card && CARD_TEX[card]) {
+      this.userData = { __vrm: true, surface: 'foliage', card, triSet: CARD_PREFIX + card };
+      this.name = 'foliage';   // the rig's dust class: fronds shed the film (DUST_HOLD.foliage)
+      this.map = CARD_TEX[card].map;
+      this.alphaTest = 0.5;
+      this.side = THREE.DoubleSide;
+      this.transparent = false;
+      this.alphaToCoverage = true;   // softer cut on the MSAA target; a no op without MSAA (phone tier)
+    }
+  }
+  onBeforeCompile(shader) {
+    VertexPBRMaterial.prototype.onBeforeCompile.call(this, shader);
+    const card = this.userData.card, C = CARDS[card], T = CARD_TEX[card];
+    if (!C || !T) return;
+    shader.uniforms.uCardInvMean = { value: new THREE.Vector3(1 / Math.max(T.mean.r, 0.02), 1 / Math.max(T.mean.g, 0.02), 1 / Math.max(T.mean.b, 0.02)) };
+    shader.uniforms.uCardK = { value: new THREE.Vector4(C.tint, C.sss, 0, 0) };
+    shader.uniforms.uCardSunW = { value: SUN_W };
+    shader.uniforms.uCardSun = { value: SUN_RGB };
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>' + CARD_PARS_FS)
+      .replace('#include <color_fragment>', CARD_COLOR_FS)
+      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>' + CARD_NORMAL_FS)
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>' + CARD_EMISSIVE_FS);
+  }
+  customProgramCacheKey() { return 'derrick_card'; }
+}
+Object.defineProperty(CardMaterial.prototype, 'isCard', { value: true });
+
+const CARD_SHARED = new Map();   // card|depthWrite|... -> CardMaterial
+const WARNED_CARDS = new Set();
+function cardSharedFor(card, m) {
+  const key = [card, m.depthWrite ? 1 : 0, m.flatShading ? 1 : 0].join('|');
+  let t = CARD_SHARED.get(key);
+  if (!t) {
+    t = new CardMaterial(card);
+    t.depthWrite = m.depthWrite; t.flatShading = m.flatShading;
+    CARD_SHARED.set(key, t);
+  }
+  return t;
+}
+
 const SHARED = new Map();   // set|side|transparent|opacity|emissive|... -> TriplanarMaterial, shared across every asset
 function sharedFor(set, m, local, detail = 1) {
   const key = [set, m.side, m.transparent ? 1 : 0, m.opacity, m.emissive ? m.emissive.getHexString() : '-', m.emissiveIntensity,
@@ -388,10 +529,13 @@ export function applyMaterials(root, opts = {}) {
   // phase 1: choose a set per part and mark the part's material with the set's textures
   const chosen = [];
   const counts = new Map();
+  const cards = [], orphans = [];
   root.traverse((o) => {
     if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
     const m = o.material;
     if (!m.isMeshStandardMaterial || m.isVertexPBR) return;
+    const card = cardOf(m);
+    if (card) { if (CARD_TEX[card]) cards.push([o, card]); else orphans.push([o, card]); return; }
     let set = opts.set || chooseSet(m, asset, local);
     if (!set || !TEX[set]) return;
     chosen.push([o, set]);
@@ -418,6 +562,31 @@ export function applyMaterials(root, opts = {}) {
     stats.tagged++;
     stats.sets.add(set);
   }
+  // a card whose photo did not load is dropped, not drawn: a card plane with no map is a solid tan rectangle
+  // hanging in the crown (seen once when a texture was rewritten while the phone gate was loading)
+  for (const [o, card] of orphans) {
+    if (!WARNED_CARDS.has(card)) { WARNED_CARDS.add(card); console.warn(`[materials] card ${card} not loaded: its planes are dropped from ${asset || 'asset'}`); }
+    o.removeFromParent();
+  }
+  // round 5: cards. The asset ships the card material as transparent 0.9 so surfaces.js leaves its uvs alone
+  // (classify() skips transparent parts; otherwise it would tile the plane's uvs by the part size and the
+  // photo would repeat three times along a frond). Here it becomes the opaque alpha tested card: the photo on
+  // `map` is the phase 1 identity, the asset's colour stays on the material and goes into the vertices in phase 2.
+  for (const [o, card] of cards) {
+    const src = o.material;
+    const ck = src.uuid + '|card:' + card;
+    let mm = clones.get(ck);
+    if (!mm) {
+      mm = src.clone();
+      mm.name = src.name;
+      mm.map = CARD_TEX[card].map; mm.normalMap = null; mm.roughnessMap = null;
+      mm.transparent = false; mm.opacity = 1; mm.alphaTest = 0.5; mm.side = THREE.DoubleSide;
+      clones.set(ck, mm);
+    }
+    o.material = mm;
+    stats.tagged++;
+    stats.sets.add(CARD_PREFIX + card);
+  }
 
   // phase 2: colour, roughness and metalness into the vertices, one VertexPBR per set (bake.js, untouched)
   vertexiseMaterials(root, { unify: !!opts.unify });
@@ -426,7 +595,9 @@ export function applyMaterials(root, opts = {}) {
   root.traverse((o) => {
     if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
     const m = o.material;
-    if (!m.isVertexPBR || m.isTriplanar) return;
+    if (!m.isVertexPBR || m.isTriplanar || m.isCard) return;
+    const card = m.map ? TEX_TO_CARD.get(m.map) : null;
+    if (card) { o.material = cardSharedFor(card, m); stats.swapped++; return; }
     const set = m.map ? TEX_TO_SET.get(m.map) : null;
     if (!set) return;
     o.material = sharedFor(set, m, local, detail);

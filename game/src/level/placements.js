@@ -11,7 +11,11 @@
  *   block  '<bx>_<bz>' per MAP-PLAN section 8, computed once here
  *   tilt   optional degrees of lean (palms), tiltDir the compass direction of the lean
  *   railGaps optional list of world angles (degrees, atan2(z, x)) where a tank ring rail is open
- *   density true on the two scatter assets that the quality tier thins
+ *   density true on the scatter assets that the quality tier thins
+ *   sink   optional radius (round 5): build.js samples the terrain at the centre and four points
+ *          this far out and sets the base to the lowest, so foliage on a slope sinks instead of
+ *          floating; sinkMax is the height spread over that footprint past which the placement is
+ *          skipped (a bank, a heap crest); near marks the round 5 near field foliage (4.10)
  *   scale  optional uniform scale (round 2, level): used only on things more than 40 m from any
  *          route, where a tank of another size or a bigger rock is a silhouette and nothing else
  *          (build.js scales the collider with it)
@@ -134,7 +138,14 @@ P('wellhead_christmas_tree', 20, -18, 0);
 P('wellhead_christmas_tree', -46, -30, 0);
 
 // 4.2 Centre: the road ----------------------------------------------------------------------
-P('fuel_truck_wreck', -26, 8, 70, { tag: 'fuel_truck' });
+// Round 5 (level): the plan puts the jackknifed tanker at (-26, 8) and promises "a 2.5 m gap on the north
+// verge (z 3..5.5)"; at rot 70 an 8 x 2.5 m body centred on z 8 reaches z 3.8 at its north corner, so
+// the gap was 0.8 m and both harness routes walked into it (work/game/NOTES.md, r2 to r4: "the fuel
+// truck wreck at (-26,8) catches the late legs of BOTH routes"). Centred on z 9.5 the body spans z 5.3
+// to 13.7 (x -28.6 to -23.4), the north verge gap is z 3..5.3 as the plan reads, the tank still sits
+// across the road's centre line (the end to end sightline stays blocked, checked by build.js), and the
+// south end lies on the verge 2.6 m from the palm at (-22, 13.5) and 2.4 m from the mast at (-30, 15).
+P('fuel_truck_wreck', -26, 9.5, 70, { tag: 'fuel_truck' });
 P('shipping_container_blue', 22, 1, 90, { tag: 'container_blue' });
 P('shipping_container_rust_red', 26, 9, 0, { tag: 'container_red' });
 P('shipping_container_open', 30, -6, 0, { tag: 'container_open_road' });
@@ -515,6 +526,289 @@ for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', -69, -4.5 + i * 3, 90
   P('wooden_pallet_stack', 41.5, -6.5, 20); P('oil_drum', 42.5, -1.0, 75);   // east mirror
 }
 
+// ---------------------------------------------------------------------------
+// Spawns: eight per team, 1 m behind an object, yaw in the same degrees convention as rot
+// (0 faces south, 90 faces east, 270 faces west). Rangers look east, Militia look west.
+// Round 1 fix (level): each point is beside its cover object, not dead behind it. The plan's
+// "1 m behind" put (-63, -6) 0.4 m from the crate's face, facing it, and a player (or the
+// harness) walking forward from there stood still for three legs. The object is now at the
+// shoulder: the capsule (radius 0.35) clears it walking straight ahead, cover is still adjacent.
+export const SPAWNS = {
+  rangers: [[-63.2, -7.3, 90], [-63.2, 9.3, 90], [-61.5, -1.2, 90], [-59.5, -12.2, 90], [-59.5, 11.6, 90], [-65.2, 13.3, 90], [-64, -12.4, 90], [-66, 2, 90]],
+  militia: [[63.2, -7.3, 270], [63.2, 9.3, 270], [61.5, -1.2, 270], [59.5, -12.2, 270], [59.5, 11.6, 270], [65.2, -13.3, 270], [64, 12.4, 270], [66, -2, 270]],
+};
+
+// 4.10 Near field foliage (round 5, level) -------------------------------------------------
+// The blind critic's deciding property on r4: "the first eight metres are empty ... every CoD frame
+// puts something touchable within 5 m and lets the ground carry the scene (litter, grass)". The
+// foliage agent shipped grass_tuft (44 triangles, three alpha cards on a footprint mound) and the
+// card dead_shrub (60); this section scatters them where a real yard has them: at the foot of walls,
+// fences, drums, tanks, rocks and wrecks (wind drops seed in the lee of anything that stands), along
+// the road verges, along the wadi and trench lips, and a fill so that every point of every route has
+// foliage within 8 m. Everything is derived from the placement list above and a seeded generator,
+// so it is deterministic, needs no coordinates of its own, and follows the props if they move.
+//   Never on the road surface (z 3..9, kept 0.3 m off the edge), never on a concrete pad, never inside
+//   the wadi cut or the trench, never inside the footprint of anything that stands (rotated boxes and
+//   discs from the TSV sizes, the same numbers the colliders use), never on a berm side or the spawn
+//   plateau lip. Shrubs stay out of the two harness walk bands and off the spawn lines; tufts have no
+//   collider (build.js NO_COLLIDER) so nothing here can block a walker or a bot.
+//   Both carry `density: true` (the phone tier keeps every second one) and `sink` (build.js drops the
+//   base to the lowest of five terrain samples so a tuft on a slope sinks instead of floating, and
+//   skips it where the slope is steeper than sinkMax over that footprint: a wadi bank, a heap crest).
+// Budgets (high tier): about 400 tufts (anchors first, then verges, lips, fill) and 60 new shrubs.
+{
+  let seed = 20260828;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const rr = (a, b) => a + (b - a) * rnd();
+  const pick = (arr) => arr[Math.floor(rnd() * arr.length) % arr.length];
+  // footprints (w x d, or r for round things) of everything that stands on the ground, TSV sizes
+  const FOOT = {
+    derrick_base_module: [10, 10], oil_storage_tank: { r: 4.0 }, oil_storage_tank_open: { r: 4.0 },
+    bullet_tank_horizontal: [8, 2.6], pump_house_building: [12, 8], bunkhouse_building: [14, 8], mud_pump_shed: [10, 6],
+    watchtower_gantry: [3, 3], culvert_crossing: [3.4, 8], compound_wall_panel: [4, 0.4], corrugated_wall_panel: [3, 0.15],
+    pipe_run_straight: [6, 0.9], pipe_run_elbow: [3, 3], pipe_rack_stack: [6, 2], large_pipe_section: [8, 1.5],
+    external_steel_stair: [1.2, 3.6], caged_ladder: [0.8, 0.5], floodlight_mast: { r: 0.7 }, barbed_wire_fence_section: [3, 0.3],
+    pump_jack: [9, 2.6], sandbag_wall: [2, 0.6], jersey_barrier: [3, 0.6], crate_stack: [1.2, 1], ammo_crate: [0.6, 0.35],
+    oil_drum: { r: 0.3 }, ibc_tote: [1.2, 1], tyre_stack: { r: 0.5 }, shipping_container_rust_red: [6.06, 2.44],
+    shipping_container_blue: [6.06, 2.44], shipping_container_tan: [6.06, 2.44], shipping_container_open: [6.06, 2.44],
+    rock_outcrop_large: [8, 5], rock_outcrop_small: [2, 1.5], generator_set: [3.2, 1.2], fuel_truck_wreck: [8, 2.5],
+    pickup_wreck: [5.2, 2], wooden_pallet_stack: [1.2, 0.8], valve_manifold: [2.4, 1], wellhead_christmas_tree: { r: 0.6 },
+    palm_tree: { r: 0.5 }, debris_scatter: { r: 0.9 }, dead_shrub: { r: 0.6 },
+  };
+  // what a cluster gathers against (a tuft at the base of a pipe run reads as under the pipe; skipped)
+  const ANCHOR = new Set(['sandbag_wall', 'jersey_barrier', 'crate_stack', 'tyre_stack', 'ibc_tote', 'oil_drum', 'wooden_pallet_stack',
+    'generator_set', 'valve_manifold', 'wellhead_christmas_tree', 'pipe_rack_stack', 'bullet_tank_horizontal', 'oil_storage_tank',
+    'oil_storage_tank_open', 'compound_wall_panel', 'corrugated_wall_panel', 'barbed_wire_fence_section', 'rock_outcrop_small',
+    'rock_outcrop_large', 'shipping_container_rust_red', 'shipping_container_blue', 'shipping_container_tan', 'shipping_container_open',
+    'pickup_wreck', 'fuel_truck_wreck', 'palm_tree', 'floodlight_mast', 'watchtower_gantry', 'pump_house_building', 'bunkhouse_building',
+    'mud_pump_shed', 'pump_jack']);
+  const CONCRETE = new Set(['derrick', 'shed', 'pumpHouse', 'watchtower']);
+  const onConcrete = (x, z) => CONCRETE.has(padAt(x, z));
+
+  // every standing placement as a footprint in its own frame (c, s from rot; hw, hd half sizes or r)
+  const feet = [];
+  for (const e of list) {
+    const f = FOOT[e.asset];
+    if (!f || e.dy > 0 || typeof e.y === 'number') continue;
+    const a = (e.rot * Math.PI) / 180, k = e.scale || 1;
+    feet.push({ e, x: e.x, z: e.z, c: Math.cos(a), s: Math.sin(a), r: f.r ? f.r * k : 0, hw: f.r ? 0 : (f[0] / 2) * k, hd: f.r ? 0 : (f[1] / 2) * k });
+  }
+  const toLocal = (f, x, z) => { const dx = x - f.x, dz = z - f.z; return [dx * f.c - dz * f.s, dx * f.s + dz * f.c]; };
+  const toWorldF = (f, lx, lz) => [f.x + lx * f.c + lz * f.s, f.z - lx * f.s + lz * f.c];
+  const insideFoot = (f, x, z, m) => {
+    if (f.r) return Math.hypot(x - f.x, z - f.z) < f.r + m;
+    const [lx, lz] = toLocal(f, x, z);
+    return Math.abs(lx) < f.hw + m && Math.abs(lz) < f.hd + m;
+  };
+  // the routes (MAP-PLAN 5.1 to 5.3) and the two harness walk lines (tools/fpstest.mjs, both start at
+  // the Rangers spawn and walk east; desktop in the band z -7.5..-0.5, touch along the road's north edge).
+  // w is a priority handicap in metres: a prop 4 m from a lane ranks like one 10 m from the harness line.
+  const ROUTES = [
+    { pts: [[-63, -1.5], [-15, -1.5]], w: 0, name: 'harness_desktop' },
+    { pts: [[-60, 1], [-30, 3], [-15, 3.5]], w: 0, name: 'harness_touch' },
+    { pts: [[-54, 6], [8, 6]], w: 3, name: 'road_w' }, { pts: [[20, 6], [54, 6]], w: 3, name: 'road_e' },
+    { pts: [[-58, -16], [-44, -14], [-36, -24], [-30, -33], [-14, -34], [-5, -33], [5, -30], [17, -30], [26, -40], [36, -40], [44, -40], [52, -28], [58, -16]], w: 6, name: 'north' },
+    { pts: [[-58, 16], [-40, 20], [-30, 27], [-24, 34], [-16, 27], [0, 26], [13, 30], [18, 30], [26, 31], [31, 34], [41, 32], [47, 24], [58, 16]], w: 6, name: 'south' },
+  ];
+  const segNearest = (x, z, a, b) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2));
+    return [a[0] + dx * t, a[1] + dz * t];
+  };
+  /** nearest route point to (x, z): { d (handicapped), q: [x, z], dist (true), route } */
+  const nearestRoute = (x, z) => {
+    let best = null;
+    for (const r of ROUTES) for (let i = 0; i < r.pts.length - 1; i++) {
+      const q = segNearest(x, z, r.pts[i], r.pts[i + 1]), dist = Math.hypot(q[0] - x, q[1] - z);
+      if (!best || dist + r.w < best.d) best = { d: dist + r.w, q, dist, route: r };
+    }
+    return best;
+  };
+  // exclusion zones
+  const inWadiCut = (x, z, m) => { const w = wadiAt(z); return Math.abs((x - w.x) * w.nx + (z - w.z) * w.nz) < WADI_HALF_TOP + m && Math.abs(z) < 55; };
+  const trenchZ = (x) => (x < -23 ? 49 : x < 3 ? 51 : 49);
+  const inTrench = (x, z, m) => x > -49 && x < 33 && (Math.abs(z - trenchZ(x)) < 1.0 + m || ((Math.abs(x + 23) < 2.5 || Math.abs(x - 3) < 2.5) && z > 47 && z < 53));   // the two dog legs are excluded whole
+  const onRoad = (x, z, m) => z > 3 - m && z < 9 + m;
+  const onBerm = (x, z) => Math.abs(Math.abs(x) - 54) < 4.6 && Math.abs(z) < 13.5;
+  const onPlateauLip = (x, z) => Math.abs(Math.abs(x) - 57.2) < 1.2 && Math.abs(z) < 15.5;
+  const inWalkBand = (x, z) => (x > -58 && x < -14 && z > -7.8 && z < -0.2) || (x > -61 && x < -14 && z > -1.2 && z < 4.6) || (x > -66 && x < -40 && z > -13.5 && z < -11);
+  const nearSpawn = (x, z, m) => SPAWNS.rangers.concat(SPAWNS.militia).some(([sx, sz]) => Math.hypot(sx - x, sz - z) < m);
+  const foliage = list.filter((e) => e.asset === 'dead_shrub').map((e) => ({ x: e.x, z: e.z, r: 0.6 }));   // the 40 plan shrubs
+  const nearFoliage = (x, z, m) => foliage.some((f) => Math.hypot(f.x - x, f.z - z) < f.r + m);
+  const footClear = (x, z, m, ignore) => feet.every((f) => f === ignore || !insideFoot(f, x, z, m));
+  const clear = (x, z, kind, ignore) => {
+    const shrub = kind === 'shrub', m = shrub ? 0.45 : 0.1;
+    if (Math.abs(x) > 67 || Math.abs(z) > 53) return false;
+    if (onRoad(x, z, shrub ? 0.9 : 0.3) || onConcrete(x, z)) return false;
+    if (inWadiCut(x, z, shrub ? 0.9 : 0.6) || inTrench(x, z, shrub ? 0.9 : 0.4)) return false;
+    if ((shrub && onBerm(x, z)) || onPlateauLip(x, z)) return false;   // tufts do grow on a berm (sink handles its sides)
+    if (shrub && (inWalkBand(x, z) || nearSpawn(x, z, 2.0))) return false;
+    if (!shrub && nearSpawn(x, z, 0.9)) return false;
+    if (nearFoliage(x, z, shrub ? 0.6 : kind === 'open' ? 0.5 : 0.05)) return false;
+    return footClear(x, z, m, ignore);
+  };
+  let tufts = 0, shrubs = 0;
+  const tuft = (x, z, ignore, kind = 'tuft') => {
+    if (!clear(x, z, kind, ignore)) return false;
+    P('grass_tuft', +x.toFixed(2), +z.toFixed(2), Math.round(rr(0, 360)), { density: true, sink: 0.25, sinkMax: 0.3, near: true });
+    foliage.push({ x, z, r: 0.28 }); tufts++;
+    return true;
+  };
+  const shrub = (x, z, ignore) => {
+    if (!clear(x, z, 'shrub', ignore)) return false;
+    P('dead_shrub', +x.toFixed(2), +z.toFixed(2), Math.round(rr(0, 360)), { density: true, sink: 0.45, sinkMax: 0.45, near: true });
+    foliage.push({ x, z, r: 0.6 }); shrubs++;
+    return true;
+  };
+  // the perimeter of a footprint pushed out by `out`: arc length s from the point facing the route, with
+  // the outward normal, so a cluster runs along the foot of the thing and round its corners
+  const perimeter = (f, face, s, out) => {
+    if (f.r) { const R = f.r + out, ang = face + s / R; return { x: f.x + R * Math.cos(ang), z: f.z + R * Math.sin(ang), nx: Math.cos(ang), nz: Math.sin(ang) }; }
+    const W = f.hw + out, D = f.hd + out, per = 4 * (W + D);
+    // local perimeter from the +z side centre going toward +x: +z side, +x side, -z side, -x side
+    const sides = [{ p0: [0, D], dir: [1, 0], n: [0, 1], len: W }, { p0: [W, D], dir: [0, -1], n: [1, 0], len: 2 * D }, { p0: [W, -D], dir: [-1, 0], n: [0, -1], len: 2 * W },
+      { p0: [-W, -D], dir: [0, 1], n: [-1, 0], len: 2 * D }, { p0: [-W, D], dir: [1, 0], n: [0, 1], len: W }];
+    const start = face === 0 ? 0 : face === 1 ? W + D : face === 2 ? 2 * W + 2 * D : 3 * W + 3 * D;   // side centres: +z, +x, -z, -x
+    let t = ((start + s) % per + per) % per;
+    for (const sd of sides) {
+      if (t <= sd.len + 1e-9) {
+        const lx = sd.p0[0] + sd.dir[0] * t, lz = sd.p0[1] + sd.dir[1] * t;
+        const [x, z] = toWorldF(f, lx, lz), [nx0, nz0] = toWorldF(f, sd.n[0], sd.n[1]);
+        return { x, z, nx: nx0 - f.x, nz: nz0 - f.z };
+      }
+      t -= sd.len;
+    }
+    return null;
+  };
+  const faceOf = (f, qx, qz) => {
+    if (f.r) return Math.atan2(qz - f.z, qx - f.x);
+    const [lx, lz] = toLocal(f, qx, qz);
+    return Math.abs(lx) / (f.hw + 0.3) > Math.abs(lz) / (f.hd + 0.3) ? (lx > 0 ? 1 : 3) : (lz > 0 ? 0 : 2);
+  };
+  /** a cluster of n tufts along the foot of f on the side facing (qx, qz) */
+  const clusterAt = (f, qx, qz, n) => {
+    const face = faceOf(f, qx, qz), out = rr(0.18, 0.4);
+    let placed = 0, sPos = rr(-0.3, 0.3), sNeg = sPos - rr(0.3, 0.8), k = 0;
+    while (placed < n && k < n * 3) {
+      const s = (k % 2 === 0) ? sPos : sNeg;
+      const p = perimeter(f, face, s, out + rr(0, 0.25));
+      if (p && tuft(p.x, p.z, f)) placed++;
+      if (k % 2 === 0) sPos += rr(0.3, 0.8); else sNeg -= rr(0.3, 0.8);
+      k++;
+    }
+    return placed;
+  };
+
+  // 1. anchor clusters, nearest to a route first; one cluster per 1.5 m (a drum cluster is one anchor)
+  const anchors = feet.filter((f) => ANCHOR.has(f.e.asset) && !onConcrete(f.x, f.z) && !(f.e.moving && f.e.asset !== 'pump_jack'))
+    .map((f) => ({ f, nr: nearestRoute(f.x, f.z) })).filter((a) => a.nr.d < 14).sort((a, b) => a.nr.d - b.nr.d);
+  const used = [];
+  let clusters = 0;
+  for (const a of anchors) {
+    if (tufts >= 250) break;
+    if (used.some(([ux, uz]) => Math.hypot(ux - a.f.x, uz - a.f.z) < 1.5)) continue;
+    const big = a.f.r ? a.f.r > 1 : Math.max(a.f.hw, a.f.hd) > 1.4;
+    const n = a.f.r && a.f.r <= 0.5 ? Math.round(rr(3, 4)) : big ? Math.round(rr(4, 7)) : Math.round(rr(3, 5));
+    if (clusterAt(a.f, a.nr.q[0], a.nr.q[1], n) > 0) { used.push([a.f.x, a.f.z]); clusters++; }
+  }
+  const stage = { anchors: tufts };
+  // 2. road verges: small clusters 0.3 to 0.8 m off the road edge, both sides, not on the causeway or at the berm gaps
+  for (let x = -51; x <= 51; x += rr(3.5, 6.5)) {
+    if (tufts >= 300) break;
+    if (x > 7.5 && x < 20.5) continue;
+    const south = rnd() < 0.5, z0 = south ? 9.3 : 2.7, dir = south ? 1 : -1, n = Math.round(rr(2, 4));
+    let xx = x;
+    for (let i = 0; i < n; i++) { tuft(xx, z0 + dir * rr(0.05, 0.5)); xx += rr(0.3, 0.7); }
+  }
+  stage.verges = tufts;
+  // 3. wadi lips (both banks, off the graded ramps) and trench lips
+  const RAMPS = [[-33, -1], [-33, 1], [-46, -1], [-16, -1], [30, -1], [30, 1], [48, 1]];
+  for (let z = -52; z <= 52; z += rr(4, 7)) {
+    if (tufts >= 340) break;
+    if (z > 0 && z < 12) continue;   // causeway shoulders
+    const side = rnd() < 0.5 ? -1 : 1;
+    if (RAMPS.some(([rz, rs]) => rs === side && Math.abs(rz - z) < 4)) continue;
+    const w = wadiAt(z), n = Math.round(rr(2, 4)), out0 = WADI_HALF_TOP + rr(0.7, 1.5);
+    for (let i = 0; i < n; i++) {
+      const along = (i - (n - 1) / 2) * rr(0.35, 0.7), out = out0 + rr(-0.15, 0.25);
+      tuft(w.x + w.nx * out * side + w.tx * along, z + w.nz * out * side + w.tz * along);
+    }
+  }
+  for (let x = -44; x <= 28; x += rr(4, 7)) {
+    if (tufts >= 360) break;
+    if (Math.abs(x + 12) < 2.5 || x < -43 || x > 27) continue;   // the side ramp and the end ramps
+    const side = rnd() < 0.5 ? -1 : 1, n = Math.round(rr(2, 4)), z0 = trenchZ(x) + side * (0.8 + rr(0.5, 1.1));
+    let xx = x;
+    for (let i = 0; i < n; i++) { tuft(xx, z0 + rr(-0.15, 0.15)); xx += rr(0.3, 0.7); }
+  }
+  stage.lips = tufts;
+  // 4. shrubs: one at the foot of every rock, wall or fence near a route (a third of them pairs), then
+  //    singles and pairs 2.5 to 6 m off the routes where nothing else stands
+  const SHRUB_ANCHOR = new Set(['rock_outcrop_small', 'rock_outcrop_large', 'compound_wall_panel', 'corrugated_wall_panel', 'barbed_wire_fence_section',
+    'shipping_container_open', 'shipping_container_tan', 'shipping_container_rust_red', 'shipping_container_blue', 'fuel_truck_wreck', 'pickup_wreck']);
+  for (const a of anchors) {
+    if (shrubs >= 30) break;
+    if (!SHRUB_ANCHOR.has(a.f.e.asset)) continue;
+    if (a.f.e.asset !== 'rock_outcrop_small' && a.f.e.asset !== 'rock_outcrop_large' && rnd() < 0.35) continue;
+    const face = faceOf(a.f, a.nr.q[0], a.nr.q[1]), s0 = rr(-1.2, 1.2);
+    const p = perimeter(a.f, face, s0, rr(0.5, 0.95));
+    if (p && shrub(p.x, p.z, a.f) && rnd() < 0.35) { const q = perimeter(a.f, face, s0 + rr(1.4, 2.0), rr(0.5, 0.95)); if (q) shrub(q.x, q.z, a.f); }
+  }
+  stage.shrubAnchors = shrubs;
+  const shrubTries = {};
+  for (const r of ROUTES) {
+    let along = rr(2, 6), side = rnd() < 0.5 ? -1 : 1;
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz), tx = dx / len, tz = dz / len;
+      while (along < len) {
+        if (shrubs >= 60) break;
+        const off = rr(2.5, 6) * side, px = a[0] + tx * along + (-tz) * off, pz = a[1] + tz * along + tx * off;
+        shrubTries[r.name] = (shrubTries[r.name] || 0) + 1;
+        if (shrub(px, pz) && rnd() < 0.3) shrub(px + rr(-1.9, 1.9), pz + rr(-1.9, 1.9));
+        along += rr(4, 6.5); side = -side;
+      }
+      along -= len;
+    }
+  }
+  // 5. fill: every 3 m along every route, if no foliage stands within 7 m, a free cluster 2.5 to 5 m off
+  //    the line (tufts, no collider, so a walker or a bot is never blocked by anything placed here)
+  let fills = 0, gaps = 0;
+  for (const r of ROUTES) {
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz), tx = dx / len, tz = dz / len;
+      for (let t = 1.5; t < len; t += 3) {
+        const sx = a[0] + tx * t, sz = a[1] + tz * t;
+        if (foliage.some((f) => Math.hypot(f.x - sx, f.z - sz) < 7)) continue;
+        let done = 0;
+        for (let k = 0; k < 8 && !done; k++) {
+          const off = rr(2.5, 5) * (k % 2 ? 1 : -1), cx = sx + (-tz) * off, cz = sz + tx * off, n = Math.round(rr(3, 4));
+          for (let j = 0; j < n; j++) if (tuft(cx + rr(-0.6, 0.6), cz + rr(-0.6, 0.6))) done++;
+        }
+        if (done) fills++; else gaps++;
+      }
+    }
+  }
+  // 6. open ground: singles and pairs sprinkled over the route corridors (9 m either side), the way
+  //    seed blows across a yard, so the sand between the props carries something too. The harness
+  //    corridor is the densest (the blind critic's frames are taken there); the lanes get a quarter.
+  //    Nothing here has a collider, so the walk bands are open to them.
+  let open = 0;
+  for (const r of ROUTES) {
+    const prob = r.w === 0 ? 1 : 0.3, step = r.w === 0 ? 1 : 1.5;
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz), tx = dx / len, tz = dz / len;
+      for (let t = rr(0, step); t < len; t += step) {
+        if (rnd() > prob) continue;
+        const off = rr(-9, 9), px = a[0] + tx * t + (-tz) * off, pz = a[1] + tz * t + tx * off;
+        if (tuft(px, pz, null, 'open')) { open++; if (rnd() < 0.3 && tuft(px + rr(-0.9, 0.9), pz + rr(-0.9, 0.9), null, 'open')) open++; }
+      }
+    }
+  }
+  stage.open = open;
+  // the numbers are read back by work/r5_level/report.mjs; nothing in the game uses them
+  list.__foliage = { tufts, shrubs, clusters, anchors: anchors.length, fills, gaps, stage, shrubTries };
+}
+
 // tags: unique names for anything not named explicitly
 {
   const n = new Map();
@@ -614,17 +908,6 @@ export const LINKS = [
   L('trench_ramp_side', 'slope', [-12, null, 48.4], [-12, null, 51], 1.6, true, { terrainY: true }),
 ];
 
-// ---------------------------------------------------------------------------
-// Spawns: eight per team, 1 m behind an object, yaw in the same degrees convention as rot
-// (0 faces south, 90 faces east, 270 faces west). Rangers look east, Militia look west.
-// Round 1 fix (level): each point is beside its cover object, not dead behind it. The plan's
-// "1 m behind" put (-63, -6) 0.4 m from the crate's face, facing it, and a player (or the
-// harness) walking forward from there stood still for three legs. The object is now at the
-// shoulder: the capsule (radius 0.35) clears it walking straight ahead, cover is still adjacent.
-export const SPAWNS = {
-  rangers: [[-63.2, -7.3, 90], [-63.2, 9.3, 90], [-61.5, -1.2, 90], [-59.5, -12.2, 90], [-59.5, 11.6, 90], [-65.2, 13.3, 90], [-64, -12.4, 90], [-66, 2, 90]],
-  militia: [[63.2, -7.3, 270], [63.2, 9.3, 270], [61.5, -1.2, 270], [59.5, -12.2, 270], [59.5, 11.6, 270], [65.2, -13.3, 270], [64, 12.4, 270], [66, -2, 270]],
-};
 
 export const BOUNDARY = { minX: -66, maxX: 66, minZ: -52, maxZ: 52 };
 

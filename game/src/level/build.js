@@ -24,10 +24,12 @@ import { collapsePerJoint } from '../ai/animation.js';
 const EYE = 1.65;
 const DEG = Math.PI / 180;
 const CYLINDER_ASSETS = new Set(['oil_drum', 'tyre_stack', 'palm_tree', 'floodlight_mast', 'wellhead_christmas_tree']);
-const NO_COLLIDER = new Set(['dead_shrub', 'debris_scatter', 'ammo_crate', 'external_steel_stair', 'caged_ladder']);
+const NO_COLLIDER = new Set(['dead_shrub', 'grass_tuft', 'debris_scatter', 'ammo_crate', 'external_steel_stair', 'caged_ladder']);   // level r5: grass_tuft
 const SIZE_TOLERANCE = 0.25;
 // integrator: scatter and wire fences are baked into a second group per block that casts no shadow (render notes lever)
-const NO_SHADOW = new Set(['dead_shrub', 'debris_scatter', 'barbed_wire_fence_section']);
+const NO_SHADOW = new Set(['dead_shrub', 'grass_tuft', 'debris_scatter', 'barbed_wire_fence_section']);
+// level r5: grass_tuft (44 triangles, three alpha cards) joins the no shadow scatter group: its cast would be
+// a solid bar from the base clump, it is culled with the shrubs at FAR_CULL_N, and the group takes no fine split.
 // level r2: furniture inside the two buildings joins the no shadow group. It stands under a roof
 // (the sun never reaches it, the lamp casts none) and is only ever seen through a door within a
 // few metres, yet as clutter it was drawn from 55 m: block 5_4 cost 171 k triangles in every frame
@@ -364,6 +366,15 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
     if (typeof p.y === 'number') y = p.y;
     else if (p.wadiBed) y = Math.min(heightAt(p.x, p.z - 5), heightAt(p.x, p.z + 5), heightAt(p.x, p.z));
     else if (p.ySample) y = heightAt(p.ySample[0], p.ySample[1]);
+    else if (p.sink) {
+      // level r5: foliage sinks to the lowest of five samples over its footprint (a card whose bottom is
+      // under the sand is invisible, a card whose mound floats over a slope is not); NaN where the spread
+      // says the footprint is on a bank steeper than the placement allows, and the placement is skipped
+      const r = p.sink, hs = [heightAt(p.x, p.z), heightAt(p.x + r, p.z), heightAt(p.x - r, p.z), heightAt(p.x, p.z + r), heightAt(p.x, p.z - r)];
+      const lo = Math.min(...hs), hi = Math.max(...hs);
+      if (p.sinkMax && hi - lo > p.sinkMax) return NaN;
+      y = lo;
+    }
     else y = heightAt(p.x, p.z);
     return y + (p.dy || 0);
   };
@@ -373,6 +384,8 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
     i++;
     if (i % 40 === 0) progress(0.55 + 0.3 * (i / placements.length), 'placing');
     if (!present.has(p.asset)) { stats.skipped++; continue; }
+    const baseY = baseYOf(p);
+    if (Number.isNaN(baseY)) { stats.sloped = (stats.sloped || 0) + 1; continue; }   // level r5: foliage on a bank
     // integrator r4: static props come from the split prototype (coarse and fine halves, each already
     // collapsed by material, see loadSplit above); movers keep their part tree as before
     const split = (!p.moving && FINE_SIZE > 0) ? await loadSplit(p.asset) : null;
@@ -382,7 +395,6 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
     if (!meshes) { console.warn(`[level] asset ${p.asset} loaded empty, placement ${p.tag} skipped`); stats.empty++; continue; }
     const size = sizes.get(p.asset) || new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
     const yaw = p.rot * DEG;
-    const baseY = baseYOf(p);
     obj.position.set(p.x, baseY, p.z);
     obj.rotation.y = yaw;
     if (p.scale && p.scale !== 1) obj.scale.setScalar(p.scale);   // level r2: uniform, far objects only (see placements.js)
@@ -521,7 +533,7 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
     }
   }
   progress(1, 'level ready');
-  console.log(`[level] placed ${stats.placed}, skipped ${stats.skipped} (missing files), empty ${stats.empty}, colliders ${stats.colliders}, blocks ${blocks.size}, static meshes ${staticMeshes}, movers ${movers.length}, sightlines ${sightlines.filter((s) => s.ok).length}/${sightlines.length} ok`);
+  console.log(`[level] placed ${stats.placed}, skipped ${stats.skipped} (missing files), sloped ${stats.sloped || 0} (foliage on a bank), empty ${stats.empty}, colliders ${stats.colliders}, blocks ${blocks.size}, static meshes ${staticMeshes}, movers ${movers.length}, sightlines ${sightlines.filter((s) => s.ok).length}/${sightlines.length} ok`);
 
   return {
     blocks, movers, colliders: stats.colliders, assetNames, missing, sightlines, lamps, staticMeshes, stats,
@@ -546,7 +558,7 @@ const TSV_SIZES = {
   rock_outcrop_large: [8, 5, 3], rock_outcrop_small: [2, 1.5, 1], generator_set: [3.2, 1.2, 1.9],
   fuel_truck_wreck: [8, 2.5, 3.2], pickup_wreck: [5.2, 2, 1.8], wooden_pallet_stack: [1.2, 0.8, 0.6],
   valve_manifold: [2.4, 1, 1.6], wellhead_christmas_tree: [1.2, 1.2, 2.4], palm_tree: [6, 6, 9],
-  dead_shrub: [1.2, 1.2, 0.8], debris_scatter: [2, 2, 0.3], bunk_bed: [2, 0.9, 1.7], locker_bank: [1.2, 0.5, 1.8],
+  dead_shrub: [1.2, 1.2, 0.8], grass_tuft: [0.6, 0.6, 0.45], debris_scatter: [2, 2, 0.3], bunk_bed: [2, 0.9, 1.7], locker_bank: [1.2, 0.5, 1.8],
   office_desk: [1.4, 1.3, 0.9], mess_table: [2.4, 1.4, 0.76], steel_shelving: [1, 0.45, 1.8], control_cabinet: [0.8, 0.4, 1.9],
 };
 
