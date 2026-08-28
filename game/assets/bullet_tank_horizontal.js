@@ -105,17 +105,32 @@ export default function (THREE) {
   nz.position.set(1.0, CY + R - 0.02, 0); g.add(nz);
   arc(R + 0.012, 0.94, 1.06, Math.PI / 2, 0.45, rust, 3);
 
-  // ---- drain and valve under the belly, run out to +Z ------------------------------
-  const drop = new THREE.Mesh(new THREE.LatheGeometry([V2(0, 0), V2(0.12, 0), V2(0.12, 0.04), V2(0.075, 0.04), V2(0.075, 0.5), V2(0, 0.5)], 10), steel);
-  drop.rotation.x = Math.PI; drop.position.set(0.4, CY - R + 0.02, 0); g.add(drop);
-  const kn = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), steel); kn.position.set(0.4, 0.55, 0); g.add(kn);
-  const run = new THREE.Mesh(new THREE.LatheGeometry([V2(0, 0), V2(0.075, 0), V2(0.075, 0.3), V2(0.12, 0.3), V2(0.12, 0.34), V2(0.075, 0.34), V2(0.075, 0.85), V2(0.12, 0.85), V2(0.12, 0.9), V2(0, 0.9)], 10), steel);
-  run.rotation.x = Math.PI / 2; run.position.set(0.4, 0.55, 0); g.add(run);
-  bx(0.22, 0.24, 0.2, steel, 0.4, 0.55, 0.55);
-  cylY(0.03, 0.25, gun, 0.4, 0.78, 0.55, 8);
-  const wh = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.018, 6, 14), red); wh.rotation.x = Math.PI / 2; wh.position.set(0.4, 0.9, 0.55); g.add(wh);
-  bx(0.28, 0.02, 0.025, red, 0.4, 0.9, 0.55); bx(0.025, 0.02, 0.28, red, 0.4, 0.9, 0.55);
-  bx(0.3, 0.02, 0.3, M(0x8a7a5c, 'ground', 0.95, 0), 0.4, 0.01, 0.9);
+  // ---- drain under the belly (r4): flanged nozzle, elbow, flanged gate valve with bonnet, stem and wheel, capped stub --
+  {
+    const hex = (mat, x, y, z, r, h, axis) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 6), mat); if (axis === 'z') b.rotation.x = Math.PI / 2; else if (axis === 'x') b.rotation.z = Math.PI / 2; b.position.set(x, y, z); g.add(b); return b; };
+    const DX = 0.4, DY = 0.5;
+    const flangeY = (y) => { cylY(0.13, 0.03, steelL, DX, y, 0, 10); };
+    const flangeZ = (z) => { const f = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.03, 10), steelL); f.rotation.x = Math.PI / 2; f.position.set(DX, DY, z); g.add(f); };
+    cylY(0.075, 0.36, steel, DX, CY - R + 0.03 - 0.18, 0, 10);
+    flangeY(0.64); flangeY(0.6);
+    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; hex(gun, DX + 0.105 * Math.cos(a), 0.62, 0.105 * Math.sin(a), 0.011, 0.09); }
+    const el = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), steel); el.position.set(DX, DY, 0); g.add(el);
+    const run1 = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.44, 10), steel); run1.rotation.x = Math.PI / 2; run1.position.set(DX, DY, 0.22); g.add(run1);
+    flangeZ(0.3); flangeZ(0.34);
+    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; hex(gun, DX + 0.105 * Math.cos(a), DY + 0.105 * Math.sin(a), 0.32, 0.011, 0.09, 'z'); }
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.22, 10), steel); body.rotation.x = Math.PI / 2; body.position.set(DX, DY, 0.55); g.add(body);
+    cylY(0.07, 0.22, steel, DX, DY + 0.16, 0.55, 10);
+    cylY(0.1, 0.03, steelL, DX, DY + 0.13, 0.55, 10);
+    cylY(0.02, 0.3, gun, DX, DY + 0.36, 0.55, 8);
+    const wh = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.018, 6, 14), red); wh.rotation.x = Math.PI / 2; wh.position.set(DX, DY + 0.46, 0.55); g.add(wh);
+    bx(0.27, 0.02, 0.025, red, DX, DY + 0.46, 0.55); bx(0.025, 0.02, 0.27, red, DX, DY + 0.46, 0.55);
+    const run2 = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.36, 10), steel); run2.rotation.x = Math.PI / 2; run2.position.set(DX, DY, 0.84); g.add(run2);
+    flangeZ(1.03);
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4; hex(gun, DX + 0.1 * Math.cos(a), DY + 0.1 * Math.sin(a), 1.055, 0.011, 0.03, 'z'); }
+    bx(0.05, 0.1, 0.004, rust, DX, DY - 0.16, 1.047);
+    arc(R + 0.012, DX - 0.12, DX + 0.12, 3 * Math.PI / 2 - 0.35, 0.7, rust, 4);
+    bx(0.3, 0.02, 0.3, M(0x8a7a5c, 'ground', 0.95, 0), DX, 0.01, 1.0);
+  }
   // north side stub
   const stub = new THREE.Mesh(new THREE.LatheGeometry([V2(0, 0), V2(0.05, 0), V2(0.05, 0.18), V2(0.09, 0.18), V2(0.09, 0.22), V2(0, 0.22)], 8), steel);
   stub.rotation.x = -Math.PI / 2; stub.position.set(1.6, CY - 0.6, -R + 0.15); g.add(stub);
@@ -147,6 +162,74 @@ export default function (THREE) {
   const plate = bx(0.5, 0.3, 0.02, M(0x2f4d66, 'metal', 0.8, 0.2), 1.5, CY + 0.3, 0);
   plate.rotation.x = -Math.asin(0.3 / R); plate.position.z = Math.sqrt(R * R - 0.09) + 0.005;
   bx(0.5, 0.1, 0.006, rust, 0, -0.2, 0.012, plate);
+  // ---- r4 detail pass: saddle straps with bolted tabs, lifting lugs, bolted nozzle flanges with a relief valve and a
+  // gauge, blind flange on the east head, axial weld seam with drips, manway davit, ladder carried to the ground on a
+  // pad, belly stain band. The drain assembly above was rebuilt in the same pass.
+  {
+    const hex = (mat, x, y, z, r, h, axis) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 6), mat); if (axis === 'z') b.rotation.x = Math.PI / 2; else if (axis === 'x') b.rotation.z = Math.PI / 2; b.position.set(x, y, z); g.add(b); return b; };
+    const steelD = M(tint(STEEL, 0.9), 'metal', 0.84, 0.3);
+    const shellD = M(tint(TANK, 0.84), 'metal', 0.86, 0.2);
+    // saddle straps over the vessel, bolted to tabs on the cradle edges
+    for (const sx of [-1, 1]) {
+      const x = sx * 2.0;
+      const geo = new THREE.TorusGeometry(R + 0.05, 0.022, 5, 24, 4.64); geo.rotateZ(-0.75); geo.rotateY(Math.PI / 2);
+      const st = new THREE.Mesh(geo, steelD); st.position.set(x, CY, 0); g.add(st);
+      for (const sz of [-1, 1]) {
+        bx(0.1, 0.16, 0.03, steelL, x, 1.1, sz * 0.89);
+        hex(gun, x, 1.06, sz * 0.91, 0.016, 0.03, 'z'); hex(gun, x, 1.15, sz * 0.91, 0.016, 0.03, 'z');
+        bx(0.07, 0.26, 0.006, rust, x + 0.01 * sx, 0.89, sz * 0.907);
+      }
+    }
+    // lifting lugs on top, either side of the nozzles
+    for (const sx of [-1, 1]) {
+      const x = sx * 1.3;
+      bx(0.26, 0.2, 0.03, steelL, x, CY + R + 0.07, 0);
+      const rnd = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.03, 12), steelL); rnd.rotation.x = Math.PI / 2; rnd.position.set(x, CY + R + 0.17, 0); g.add(rnd);
+      for (const sz of [-1, 1]) { const h = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.01, 10), gun); h.rotation.x = Math.PI / 2; h.position.set(x, CY + R + 0.19, sz * 0.018); g.add(h); }
+      for (const dx of [-0.16, 0.16]) bx(0.04, 0.04, 0.16, steelD, x + dx, CY + R + 0.01, 0);
+      arc(R + 0.012, x - 0.18, x + 0.18, Math.PI / 2 - 0.65, 0.5, rust, 3);
+    }
+    // relief nozzle: six flange bolts, a relief valve with a side outlet and cap
+    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; hex(gun, 1.0 + 0.08 * Math.cos(a), CY + R + 0.25, 0.08 * Math.sin(a), 0.01, 0.03); }
+    cylY(0.045, 0.16, steelD, 1.0, CY + R + 0.32, 0, 10);
+    const out = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.16, 8), steelD); out.rotation.z = Math.PI / 2; out.position.set(1.09, CY + R + 0.36, 0); g.add(out);
+    cylY(0.055, 0.03, gun, 1.0, CY + R + 0.415, 0, 10);
+    // second nozzle with a pressure gauge facing south
+    const nz2 = new THREE.Mesh(nz.geometry, steel); nz2.position.set(-0.5, CY + R - 0.02, 0); g.add(nz2);
+    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; hex(gun, -0.5 + 0.08 * Math.cos(a), CY + R + 0.25, 0.08 * Math.sin(a), 0.01, 0.03); }
+    cylY(0.015, 0.1, gun, -0.5, CY + R + 0.29, 0, 6);
+    const gauge = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.03, 12), steelD); gauge.rotation.x = Math.PI / 2; gauge.position.set(-0.5, CY + R + 0.37, 0); g.add(gauge);
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.006, 12), M(tint(TANK, 1.12), 'metal', 0.7, 0.1)); face.rotation.x = Math.PI / 2; face.position.set(-0.5, CY + R + 0.37, 0.018); g.add(face);
+    arc(R + 0.012, -0.58, -0.42, Math.PI / 2, 0.5, rust, 3);
+    // blind flange on the east head
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.16, 12), shellD); hub.rotation.z = Math.PI / 2; hub.position.set(L / 2 + R - 0.05, CY, 0); g.add(hub);
+    const bf = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.04, 12), steelD); bf.rotation.z = Math.PI / 2; bf.position.set(L / 2 + R + 0.04, CY, 0); g.add(bf);
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4 + Math.PI / 8; hex(gun, L / 2 + R + 0.07, CY + 0.155 * Math.cos(a), 0.155 * Math.sin(a), 0.012, 0.03, 'x'); }
+    const hr = bx(0.008, 0.3, 0.1, rust, L / 2 + R - 0.04, CY - 0.33, 0); hr.rotation.z = -0.25;
+    // axial weld seam along the sun side at 45 degrees, with drips below it
+    const seamB = bx(L + 0.1, 0.02, 0.03, shellD, 0, CY + (R + 0.006) * Math.SQRT1_2, (R + 0.006) * Math.SQRT1_2); seamB.rotation.x = Math.PI / 4;
+    for (const x of [-2.2, -1.0, 0.3, 1.5, 2.4]) arc(R + 0.01, x - 0.04, x + 0.04, Math.PI / 4 - 0.4, 0.34, rust, 3);
+    // manway davit and handle
+    bx(0.04, 0.44, 0.04, steel, MX + 0.4, CY + R + 0.16, 0.05);
+    bx(0.44, 0.035, 0.035, steelD, MX + 0.18, CY + R + 0.38, 0.05);
+    bx(0.03, 0.15, 0.03, steelD, MX, CY + R + 0.29, 0.05);
+    for (const dz of [-0.06, 0.06]) bx(0.06, 0.04, 0.04, steelL, MX - 0.29, CY + R + 0.2, dz);
+    bx(0.16, 0.03, 0.04, gun, MX, CY + R + 0.225, 0);
+    arc(R + 0.012, MX + 0.35, MX + 0.45, Math.PI / 2 - 0.55, 0.45, rust, 3);
+    // ladder carried to the ground: rail extensions, foot plates, concrete pad, low rungs, sand
+    bx(0.8, 0.12, 0.36, conc, LX, 0.06, LZ);
+    bx(0.7, 0.01, 0.28, sand, LX, 0.125, LZ + 0.02);
+    for (const sx of [-1, 1]) {
+      cylY(0.02, 0.74, galv, LX + sx * 0.2, 0.49, LZ, 6);
+      bx(0.1, 0.02, 0.12, steel, LX + sx * 0.2, 0.13, LZ);
+      hex(gun, LX + sx * 0.2 + sx * 0.035, 0.145, LZ + 0.04, 0.01, 0.014);
+      bx(0.05, 0.08, 0.004, rust, LX + sx * 0.2, 0.08, LZ + 0.182);
+    }
+    for (const y of [0.44, 0.72]) { const rg = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 0.4, 6), galv); rg.rotation.z = Math.PI / 2; rg.position.set(LX, y, LZ); g.add(rg); }
+    bx(1.0, 0.08, 0.5, sand, LX, 0.04, LZ + 0.12);
+    // belly stain band
+    arc(R + 0.008, -L / 2 + 0.1, L / 2 - 0.1, 3 * Math.PI / 2 - 0.45, 0.9, M(tint(TANK, 0.74), 'metal', 0.9, 0.15, true), 6);
+  }
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by

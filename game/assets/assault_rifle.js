@@ -55,6 +55,8 @@ export default function (THREE) {
   const rubber = M(0x222325, null, 0.80, 0.02);        // buttpad, rail cover ribs: near black, unnamed on purpose
   const tape = M(0xb0a07c, 'fabric', 0.85, 0.0);
   const tapeD = M(0xa09270, 'fabric', 0.85, 0.0);
+  const rustM = M(0x6b4426, 'metal', 0.80, 0.30);      // round 4: the drip under every fixing
+  const lensG = M(0x27363a, null, 0.45, 0.2);          // laser box lenses, unnamed like glass
   // the window: matte and nearly clear, so a muzzle flash cannot light it into an opaque glow
   const glass = M(0x2a3a44, null, 0.95, 0.0, { transparent: true, opacity: 0.14, depthWrite: false });
   const reticle = M(0x3a0e08, null, 0.6, 0.0, { emissive: 0xff4a30, emissiveIntensity: 2.2 });
@@ -292,6 +294,80 @@ export default function (THREE) {
   for (let i = 0; i < 4; i++) cyl(0.017, 0.004, fdeD, 0, -0.030 - i * 0.018, 0, 'y', 10, fg);
   cyl(0.014, 0.008, fdeL, 0, -0.102, 0, 'y', 10, fg);
   box(0.038, 0.008, 0.010, steel, 0, -0.006, 0.060, fg);               // hand stop ahead of the grip
+
+  // ---- round 4 detail pass: the in service kit a CoD carbine carries, and the fixings the style lock wants ----
+  // a cylinder between two points, for cables
+  const rod = (r, a, b, mat, parent, seg) => {
+    const d = new THREE.Vector3().subVectors(b, a), L = d.length();
+    const mm = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, seg || 6), mat);
+    mm.position.copy(a).addScaledVector(d, 0.5);
+    mm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+    (parent || g).add(mm); return mm;
+  };
+  const drip = (w, h, x, y, z, parent, rx, ry) => { const d = box(w, h, 0.0015, rustM, x, y, z, parent); if (rx) d.rotation.x = rx; if (ry) d.rotation.y = ry; return d; };
+  // IR laser box (PEQ) on the top rail ahead of the optic, behind the front sight: tan polymer, two lenses, rotary switch, clamp
+  const peq = new THREE.Group(); peq.position.set(0, 0.036, 0.062); hg.add(peq);
+  box(0.030, 0.008, 0.050, steelD, 0, 0.004, 0, peq);                  // rail clamp
+  box(0.038, 0.030, 0.062, fde, 0, 0.023, 0, peq);                     // body
+  box(0.039, 0.003, 0.063, fdeL, 0, 0.0385, 0, peq);                   // sun catches the top edge
+  box(0.039, 0.003, 0.063, fdeD, 0, 0.0095, 0, peq);                   // underside
+  box(0.040, 0.010, 0.006, fdeD, 0, 0.023, 0.030, peq);                // front bezel
+  cyl(0.0065, 0.004, recess, -0.010, 0.023, 0.032, 'z', 8, peq);       // lens housings
+  cyl(0.0065, 0.004, recess, 0.010, 0.023, 0.032, 'z', 8, peq);
+  cyl(0.0045, 0.002, lensG, -0.010, 0.023, 0.034, 'z', 8, peq);        // the lenses
+  cyl(0.0045, 0.002, lensG, 0.010, 0.023, 0.034, 'z', 8, peq);
+  cyl(0.0060, 0.006, worn, 0, 0.041, -0.014, 'y', 8, peq);             // rotary mode switch
+  box(0.003, 0.004, 0.007, recess, 0, 0.044, -0.014, peq);             // its pointer slot
+  box(0.010, 0.006, 0.012, fdeD, -0.012, 0.041, 0.010, peq);           // fire button
+  cyl(0.0035, 0.006, worn, 0.017, 0.004, -0.015, 'x', 6, peq);         // clamp screw, right
+  drip(0.004, 0.012, 0.0195, -0.004, -0.015, peq, 0, Math.PI / 2);     // rust run under the clamp screw
+  box(0.006, 0.014, 0.024, fdeD, 0.020, 0.023, -0.014, peq);           // battery cap boss, right
+  cyl(0.0055, 0.004, worn, 0.024, 0.023, -0.014, 'x', 8, peq);
+  // pressure pad on the left rail, ahead of the rail cover, with a coiled cable up to the laser box and two cable ties
+  box(0.006, 0.020, 0.050, rubber, -0.037, 0.0, 0.092, hg);            // the pad
+  box(0.007, 0.022, 0.008, tape, -0.037, 0.0, 0.070, hg);              // tape at each end holds it
+  box(0.007, 0.022, 0.008, tape, -0.037, 0.0, 0.114, hg);
+  rod(0.0018, new THREE.Vector3(-0.037, 0.008, 0.066), new THREE.Vector3(-0.030, 0.052, 0.040), rubber, hg);
+  rod(0.0018, new THREE.Vector3(-0.030, 0.052, 0.040), new THREE.Vector3(-0.012, 0.059, 0.032), rubber, hg);
+  const coil = new THREE.Mesh(new THREE.TorusGeometry(0.006, 0.0018, 5, 10), rubber);
+  coil.position.set(-0.034, 0.030, 0.052); coil.rotation.y = Math.PI / 2; coil.rotation.x = 0.4; hg.add(coil);
+  for (const z of [0.062, 0.118]) {                                      // cable ties round the handguard: an octagon hugging the rail crests and cutting the open corners
+    box(0.028, 0.003, 0.004, rubber, 0, 0.0345, z, hg);
+    box(0.028, 0.003, 0.004, rubber, 0, -0.0345, z, hg);
+    box(0.003, 0.028, 0.004, rubber, -0.0345, 0, z, hg);
+    box(0.003, 0.028, 0.004, rubber, 0.0345, 0, z, hg);
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) { const d = box(0.031, 0.003, 0.004, rubber, sx * 0.0235, sy * 0.0235, z, hg); d.rotation.z = -sx * sy * Math.PI / 4; }
+    box(0.006, 0.004, 0.006, rubber, -0.0365, 0.006, z, hg);           // the tie head, cut tail
+  }
+  // rail cover retaining clips, both ends of each cover
+  for (const z of [-0.076, 0.034]) { box(0.004, 0.010, 0.008, worn, -0.040, 0, z, hg); box(0.010, 0.004, 0.008, worn, 0, -0.040, z, hg); }
+  // holo mount: two socket head clamp screws on the left, the side the player sees
+  for (const z of [-0.026, 0.026]) { cyl(0.0040, 0.005, worn, -0.0245, 0.014, z, 'x', 8, sight); cyl(0.0020, 0.002, recess, -0.0275, 0.014, z, 'x', 6, sight); }
+  // bolt carrier visible through the open ejection port
+  box(0.0015, 0.013, 0.048, bright, 0.0222, -0.002, 0.03, upper);
+  cyl(0.0015, 0.020, worn, 0.0230, -0.002, 0.03, 'z', 6, upper);       // the cam pin track catches light
+  // magazine: rear spine rib and a fabric pull tab on the floor plate
+  box(0.012, 0.086, 0.003, steelD, 0, -0.045, -0.034, mag);
+  box(0.012, 0.096, 0.003, steelD, 0, -0.050, -0.034, lowerMag);
+  box(0.016, 0.004, 0.030, tapeD, 0, -0.110, 0.012, lowerMag);         // strap over the plate
+  const pull = new THREE.Mesh(new THREE.TorusGeometry(0.009, 0.0025, 5, 10), tape);
+  pull.position.set(0, -0.116, 0.036); pull.rotation.y = Math.PI / 2; lowerMag.add(pull);
+  // stock: QD swivel socket on the left with a swivel in it and a khaki sling tail folded along the body through a tri glide
+  cyl(0.0065, 0.004, worn, -0.028, 0.0, 0.025, 'x', 10, st);
+  cyl(0.0030, 0.002, recess, -0.031, 0.0, 0.025, 'x', 6, st);
+  const qd = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.002, 5, 10), steel);
+  qd.position.set(-0.033, -0.004, 0.025); qd.rotation.y = Math.PI / 2; st.add(qd);
+  box(0.004, 0.024, 0.100, fde, -0.030, -0.012, -0.025, st);           // sling tail lying along the stock
+  box(0.004, 0.024, 0.008, fdeD, -0.030, -0.012, 0.012, st);           // fold shadow
+  box(0.006, 0.027, 0.010, worn, -0.031, -0.012, -0.040, st);          // tri glide buckle
+  box(0.003, 0.021, 0.003, recess, -0.0345, -0.012, -0.040, st);
+  // rust under the fixings: front sight taper pins, delta ring, stock sling pin, castle nut, buffer tube end plate
+  drip(0.004, 0.012, -0.0115, -0.012, 0.0, fsb, 0, Math.PI / 2);
+  drip(0.004, 0.012, 0.0115, -0.012, 0.0, fsb, 0, Math.PI / 2);
+  box(0.008, 0.002, 0.018, rustM, 0, B - 0.0305, 0.040);
+  drip(0.004, 0.014, -0.0265, 0.004, -0.04, st, 0, Math.PI / 2);
+  drip(0.004, 0.014, 0.0265, 0.004, -0.04, st, 0, Math.PI / 2);
+  box(0.006, 0.0015, 0.014, rustM, 0, B - 0.0115, -0.238);              // under the end plate, along the tube underside
 
   // ---- sockets ----
   const sock = (name, x, y, z, parent) => { const o = new THREE.Object3D(); o.name = 'socket_' + name; o.position.set(x, y, z); (parent || g).add(o); return o; };

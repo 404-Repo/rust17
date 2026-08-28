@@ -110,7 +110,7 @@ export default function (THREE) {
     const t = mesh(g, tyreGeo, TYRE, x, y, z, out * PI / 2, 0, 0); if (flat) t.scale.set(1.15, 1, 0.72);
     mesh(g, rimGeo, RIM, x, y, z, out * PI / 2, 0, 0);
     for (let k = 0; k < 5; k++) { const a = k / 5 * PI * 2; cyl(g, 0.012, 0.02, GUN, x + Math.cos(a) * 0.14, y + Math.sin(a) * 0.14, z + out * 0.045, PI / 2, 0, 0, { seg: 6 }); }
-    fillet(g, 0.7, 0.12, 0.1, x, 0, z + out * 0.05, z > 0 ? 0 : PI);
+    fillet(g, 0.9, 0.18, 0.05, x, 0, z + out * 0.05, z > 0 ? 0 : PI);   // r4: lower and longer, the old wedge read as a pyramid at 1.5 m
   }
   wheel(1.75, 0.8); wheel(1.75, -0.8); wheel(-1.35, 0.8); wheel(-1.35, -0.8, true);
   fillet(g, 1.0, 0.15, 0.16, -1.35, 0, -0.9, PI); fillet(g, 0.8, 0.3, 0.14, -1.35, 0, -0.65, 0);
@@ -177,6 +177,27 @@ export default function (THREE) {
   mesh(g, plate(rect(-0.25, -0.85, 0.25, 0.85), [], 0.05), BN, -2.35, 0.735, 0, PI / 2, 0, 0);
   for (let i = 0; i < 3; i++) box(g, 0.44, 0.02, 0.05, BN, -2.35, 0.77, -0.5 + i * 0.5); dust(g, 0.5, 1.7, -2.35, 0.76, 0, 0.05, 0.006);
   box(g, 0.08, 0.1, 1.7, STEEL, -2.15, 0.42, 0);
+  // ---- r4 detail pass: the small stuff that makes a stripped pickup a pickup. Spare tyre and a jerrycan in the bed, tie down
+  //      hooks, U bolt plates on the springs, exhaust with a muffler, tow ball, fuel filler with its rust run, tail lamp
+  //      housings, number plate, wipers, bonnet hinge stubs, a bolt row along both wing ledges, radiator support bar, tow
+  //      hook, drip rail on the shade side. ----
+  const mOlive = M(tint(P.olive, 0.15), 'metal', { roughness: 0.88, metalness: 0.05 });
+  mesh(g, tyreGeo, TYRE, -1.05, 0.87, 0.15); mesh(g, rimGeo, RIM, -1.05, 0.87, 0.15, PI, 0, 0.0);
+  box(g, 0.17, 0.47, 0.35, mOlive, -1.75, 0.985, -0.5); box(g, 0.03, 0.05, 0.12, mOlive, -1.75, 1.245, -0.5); box(g, 0.03, 0.05, 0.12, mOlive, -1.75, 1.245, -0.38);
+  streak(g, 'pz', -1.75, 0.8, -0.325, 0.04, 0.3);
+  for (const bx of [-1.9, -0.7]) for (const sz of [-1, 1]) { box(g, 0.05, 0.05, 0.07, GUN, bx, 1.1, sz * 0.89); streak(g, sz > 0 ? 'pz' : 'nz', bx, 1.075, sz * 0.925, 0.12, 0.05); }
+  for (const sz of [-1, 1]) { box(g, 0.12, 0.08, 0.1, GUN, -1.35, 0.35, sz * 0.55); for (const dx of [-0.04, 0.04]) cyl(g, 0.008, 0.1, GUN, -1.35 + dx, 0.37, sz * 0.55, 0, 0, 0, { seg: 6 }); }
+  cyl(g, 0.025, 1.5, STEEL, 0.55, 0.22, -0.45, 0, 0, PI / 2); cyl(g, 0.08, 0.5, STEEL, -0.4, 0.25, -0.45, 0, 0, PI / 2); cyl(g, 0.025, 1.5, STEEL, -1.45, 0.22, -0.45, 0, 0, PI / 2);
+  cyl(g, 0.03, 0.15, RUST, -2.15, 0.22, -0.45, 0, 0, PI / 2);
+  box(g, 0.15, 0.06, 0.06, STEEL, -2.24, 0.38, 0); cyl(g, 0.025, 0.05, GUN, -2.29, 0.44, 0, 0, 0, 0, { seg: 8 }); box(g, 0.02, 0.09, 0.3, BR, -2.2, 0.42, 0.35);
+  cyl(g, 0.045, 0.02, GUN, -0.95, 0.95, 0.935, PI / 2, 0, 0, { seg: 10 }); streak(g, 'pz', -0.95, 0.9, 0.925, 0.3, 0.09);
+  for (const sz of [-1, 1]) box(g, 0.04, 0.14, 0.1, GUN, -2.11, 0.9, sz * 0.88);
+  for (const sz of [-1, 1]) box(g, 0.02, 0.02, 0.45, GUN, 1.06, 1.165, sz * 0.4, 0.4 * sz, 0, 0);
+  for (const sz of [-1, 1]) box(g, 0.08, 0.04, 0.06, GUN, 1.28, 1.13, sz * 0.6);
+  for (let i = 0; i < 5; i++) for (const sz of [-1, 1]) { cyl(g, 0.01, 0.012, GUN, 1.4 + i * 0.21, 1.086, sz * 0.86, 0, 0, 0, { seg: 6 }); if (i % 2) streak(g, sz > 0 ? 'pz' : 'nz', 1.4 + i * 0.21, 1.05, sz * 0.925, 0.1 + 0.05 * i, 0.03); }
+  box(g, 0.06, 0.05, 1.6, STEEL, 2.2, 1.08, 0); cyl(g, 0.02, 0.5, RUBBER, 1.95, 0.9, -0.4, 0, 0, PI / 2);
+  box(g, 0.12, 0.05, 0.05, GUN, 2.5, 0.42, -0.35); mesh(g, new THREE.TorusGeometry(0.035, 0.008, 6, 10), GUN, 2.58, 0.42, -0.35, 0, PI / 2, 0);
+  box(g, 1.75, 0.03, 0.04, RUST, 0.375, 1.76, -0.91);
   fillet(g, 3.6, 0.1, 0.12, 0.1, 0, -0.94, PI);
 
   // ---- contract: base at y = 0, centred on x and z, measured from vertices ----

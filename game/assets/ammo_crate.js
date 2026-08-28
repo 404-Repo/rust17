@@ -1,6 +1,9 @@
-// ammo_crate candidate 1: profiles. The body is the end profile (a rectangle with a pressed
-// rib line) extruded along x, the lid is a profile with the rim lip and the two raised ribs
-// built into it and extruded along x. Handles are half tori, latch and hinges are small parts.
+// ammo_crate candidate 1, round 4 detail pass. The body is the end profile (a rectangle with a
+// pressed rib line) extruded along x, the lid is a profile with the rim lip and the two raised
+// ribs built into it. Round 4 adds what the concept and the Rust toolbox carry: two hasps, rolled
+// corner reinforcement on the four vertical corners and lid corner caps, a row of rivets round
+// the lid rim, riveted hinge straps down the back, a gasket line under the lid, a second stencil
+// plate on the lid, paint scuff patches and rust under every latch.
 export default function (THREE) {
   const g = new THREE.Group();
   const C = { sandS: 0xcdb88e, rust: 0x6b4426, olive: 0x4e5238, gun: 0x3a3d40 };
@@ -28,9 +31,13 @@ export default function (THREE) {
   const oliveS = mat(tint(C.olive, 1.08), 'metal');
   const oliveTop = mat(tint(C.olive, 1.04), 'metal');
   const oliveDark = mat(tint(C.olive, 0.8), 'metal');
+  const scuff = mat(tint(C.olive, 1.2), 'metal', 0.85, 0.1);
   const gun = mat(C.gun, 'metal', 0.65, 0.5);
+  const gunL = mat(tint(C.gun, 1.2), 'metal', 0.65, 0.5);
   const rustM = mat(C.rust, 'metal', 0.9, 0.1, THREE.DoubleSide);
+  const stainM = mat(new THREE.Color(C.olive).lerp(new THREE.Color(C.rust), 0.55).getHex(), 'metal', 0.9, 0.1, THREE.DoubleSide);
   const dustM = mat(C.sandS, 'ground', 0.95, 0);
+  const rivetGeo = new THREE.CylinderGeometry(0.004, 0.0045, 0.004, 6);
 
   // body profile: box outline with a pressed swage line at 0.1 on both faces
   const h = D / 2;
@@ -48,35 +55,73 @@ export default function (THREE) {
   box(0.012, 0.008, D + 0.02, oliveDark, -W / 2 - 0.004, H + 0.004, 0);
   box(0.16, 0.005, 0.09, dustM, -0.15, H + 0.0105, 0);
   box(0.16, 0.005, 0.09, dustM, 0.18, H + 0.0105, 0);
-  // latch: hasp on the lid edge, staple and spring on the body
-  box(0.04, 0.05, 0.006, oliveDark, 0, bodyH + 0.006, l + 0.003);
-  box(0.05, 0.06, 0.006, gun, 0, bodyH - 0.035, h + 0.003);
-  cyl(0.006, 0.006, 0.035, 8, gun, 0, bodyH - 0.02, h + 0.012);
-  box(0.03, 0.02, 0.004, gun, 0, bodyH - 0.05, h + 0.014);
+  // gasket line where the lid meets the body: a dark rubber strip all round
+  box(W + 0.002, 0.004, 0.003, gun, 0, bodyH - 0.002, h + 0.0015);
+  box(W + 0.002, 0.004, 0.003, gun, 0, bodyH - 0.002, -h - 0.0015);
+  box(0.003, 0.004, D + 0.002, gun, W / 2 + 0.0015, bodyH - 0.002, 0);
+  box(0.003, 0.004, D + 0.002, gun, -W / 2 - 0.0015, bodyH - 0.002, 0);
+  // rivets round the lid rim: six per long side, three per end
+  for (const x of [-0.24, -0.14, -0.05, 0.05, 0.14, 0.24]) for (const s of [-1, 1]) {
+    const r = add(rivetGeo, gunL, x, bodyH + 0.014, s * (l + 0.001)); r.rotation.x = s * Math.PI / 2;
+  }
+  for (const z of [-0.1, 0, 0.1]) for (const s of [-1, 1]) {
+    const r = add(rivetGeo, gunL, s * (W / 2 + 0.011), bodyH + 0.014, z); r.rotation.z = -s * Math.PI / 2;
+  }
+  // rolled corner reinforcement: angle strips on the four vertical corners, caps on the lid corners
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    box(0.022, bodyH - 0.006, 0.004, gun, sx * (W / 2 - 0.009), bodyH / 2, sz * (h + 0.003));
+    box(0.004, bodyH - 0.006, 0.022, gun, sx * (W / 2 + 0.003), bodyH / 2, sz * (h - 0.009));
+    for (const fy of [0.2, 0.75]) add(rivetGeo, gunL, sx * (W / 2 - 0.009), bodyH * fy, sz * (h + 0.006)).rotation.x = sz * Math.PI / 2;
+    box(0.03, lidT + 0.012, 0.004, gun, sx * (W / 2 - 0.004), bodyH + lidT / 2 + 0.002, sz * (l + 0.003));
+    box(0.004, lidT + 0.012, 0.03, gun, sx * (W / 2 + 0.013), bodyH + lidT / 2 + 0.002, sz * (l - 0.004));
+    box(0.03, 0.004, 0.03, gun, sx * (W / 2 - 0.004), H + 0.01, sz * (l - 0.004));
+    // rust run from the lowest corner rivet, ending 30 mm above the body base so nothing hangs into the sand
+    drip(0.05, 0.02, rustM, sx * (W / 2 - 0.009), bodyH * 0.3, sz * (h + 0.005), sz > 0 ? 0 : Math.PI);
+  }
+  // two latches: hasp on the lid edge, staple and spring clip on the body, rust bleeding under each
+  for (const x of [-0.16, 0.16]) {
+    box(0.04, 0.05, 0.006, oliveDark, x, bodyH + 0.006, l + 0.003);
+    box(0.05, 0.06, 0.006, gun, x, bodyH - 0.035, h + 0.003);
+    cyl(0.006, 0.006, 0.035, 8, gun, x, bodyH - 0.02, h + 0.012);
+    box(0.03, 0.02, 0.004, gun, x, bodyH - 0.05, h + 0.014);
+    add(rivetGeo, gunL, x - 0.016, bodyH - 0.06, h + 0.007).rotation.x = Math.PI / 2;
+    add(rivetGeo, gunL, x + 0.016, bodyH - 0.06, h + 0.007).rotation.x = Math.PI / 2;
+    // a stain under the staple, not a spike: a short dark run that stops well above the swage line
+    drip(0.045, 0.028, stainM, x, bodyH - 0.068, h + 0.002, 0);
+    box(0.02, 0.02, 0.002, stainM, x, bodyH - 0.078, h + 0.0025);
+  }
   // handles: pressed bracket and a wire loop, each end
   for (const s of [-1, 1]) {
     box(0.006, 0.05, 0.08, oliveDark, s * (W / 2 + 0.003), bodyH * 0.55, 0);
     const loop = add(new THREE.TorusGeometry(0.035, 0.005, 6, 10, Math.PI), gun, s * (W / 2 + 0.012), bodyH * 0.5, 0);
     loop.rotation.y = s * Math.PI / 2; loop.rotation.z = Math.PI;
     box(0.012, 0.012, 0.09, gun, s * (W / 2 + 0.009), bodyH * 0.53, 0);
+    for (const z of [-0.03, 0.03]) add(rivetGeo, gunL, s * (W / 2 + 0.007), bodyH * 0.55 + 0.018, z).rotation.z = -s * Math.PI / 2;
     drip(0.06, 0.02, rustM, s * (W / 2 + 0.001), bodyH * 0.52 - 0.04, 0, s * Math.PI / 2);
   }
-  // hinges at the back with rust
+  // hinges at the back with riveted straps running down the body, rust below each
   for (const x of [-0.18, 0.18]) {
     cyl(0.009, 0.009, 0.07, 8, gun, x, bodyH + 0.002, -l + 0.002).rotation.z = Math.PI / 2;
     box(0.06, 0.04, 0.005, oliveDark, x, bodyH - 0.025, -h - 0.003);
+    box(0.035, 0.11, 0.004, oliveDark, x, bodyH - 0.095, -h - 0.003);
     box(0.06, 0.008, 0.03, oliveDark, x, H - 0.005, -l + 0.01);
+    for (const y of [bodyH - 0.06, bodyH - 0.1, bodyH - 0.14]) add(rivetGeo, gunL, x, y, -h - 0.006).rotation.x = -Math.PI / 2;
     box(0.02, 0.02, 0.008, rustM, x, bodyH - 0.008, -h - 0.005);
     drip(0.12, 0.04, rustM, x, bodyH - 0.02, -h - 0.004, Math.PI);
   }
-  // name plate and rivets
+  // name plate and rivets on the front, a second smaller stencil plate on the lid
   box(0.15, 0.08, 0.004, oliveDark, -0.12, 0.18, h + 0.004);
   for (const px of [-0.065, 0.065]) for (const py of [-0.03, 0.03]) cyl(0.004, 0.004, 0.004, 6, gun, -0.12 + px, 0.18 + py, h + 0.008).rotation.x = Math.PI / 2;
-  // scuffs to gunmetal along the edges
+  box(0.1, 0.004, 0.05, oliveDark, 0.17, H + 0.002, 0.11);
+  // paint scuffed to bare steel: edge lines and three worn patches
   box(W + 0.02, 0.004, 0.004, gun, 0, H, l);
   box(0.004, bodyH, 0.004, gun, W / 2, bodyH / 2, h);
   box(0.004, bodyH, 0.004, gun, -W / 2, bodyH / 2, h);
   box(W, 0.004, 0.004, gun, 0, 0.002, h);
+  box(0.07, 0.025, 0.003, scuff, 0.2, 0.12, h + 0.0035);
+  box(0.05, 0.018, 0.003, scuff, -0.24, 0.2, h + 0.0035);
+  box(0.09, 0.003, 0.03, scuff, -0.02, H + 0.0095, 0.12);
+  box(0.04, 0.02, 0.003, gun, 0.08, 0.06, h + 0.0035);
   const fill = mat(C.sandS, 'ground', 0.95, 0, THREE.DoubleSide);
   const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(0.012, 0); s.lineTo(0, 0.03); s.closePath();
   const fg = new THREE.ExtrudeGeometry(s, { depth: 0.5, bevelEnabled: false }); fg.translate(0, 0, -0.25);

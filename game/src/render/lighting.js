@@ -49,15 +49,36 @@ import { getTier } from './quality.js';
 /** Sun placement, MAP-PLAN section 1: azimuth 250 degrees, elevation 22. */
 export const SUN_AZIMUTH_DEG = 250;
 export const SUN_ELEVATION_DEG = 22;
-export const SUN_COLOR = 0xffd8b0;   // was 0xffd2a0; the critic's tells included a red ORANGE derrick and orange sand, so the key is a shade less saturated
+export const SUN_COLOR = 0xffdab4;   // was 0xffd2a0; the critic's tells included a red ORANGE derrick and orange sand, so the key is a shade less saturated. round 4: a hair yellower (0xffd8b0 -> 0xffdab4), the reference's lit sand is yellow tan (218,185,123), not orange
 export const SUN_INTENSITY = 5.6;   // round 2: was 5.6 at EXPOSURE 1.15, and lit sand measured 205 to 233 luma on the critic frames (bar 170 to 205, palette sand 0xcdb88e); the sun and the exposure both come down a step, the fill does not, so shade lifts relative to sun
-export const SKY_COLOR = 0x7d9de8;   // hemisphere sky term, blue grey (the cyan leaning contract value 0x8fb0d8 went green on sand)
-export const GROUND_COLOR = 0x7f8080;   // round 2: was 0xa08a66 (warm sand). With the objects finally taking diffuse light (see the VRM note below) a warm ground term made every shade side brown; the reference has cool shade on the structures as well as the sand, so the bounce is a neutral grey and the sky carries the shade
-export const SKY_INTENSITY = 0.50;  // round 2: 0.35 -> 0.42 with ENV_* up a third: the critic measured object shade sides crushed near black (0.06 to 0.10 luma) while shade sand sat at 0.35; the fill is the same on both, the objects' albedo is darker, so the fill rises and the sun falls
+/**
+ * ROUND 4, the fill re-solved against eyedrops of the reference (work/r4/render/ref_eyedrops.txt). In the
+ * CoD frames NOTHING in shade is blue: a shaded corrugated wall is (114,96,76), a shaded generator
+ * (104,90,56), sand in a container's shadow (134,122,105) down to (46,37,30), all at B minus R
+ * between -5 and -48. What makes the second colour temperature is the LIT side, which is far
+ * warmer than ours was: lit sand (218,185,123) at B minus R -96 against our -57. The round 3 fill
+ * (sky 0x7d9de8 at 0.5 plus a blue env) put blue into every shade AND into the lit sand, so shade
+ * read blue grey (the owner's galvanised complaint) and lit sand read pale and neutral. So:
+ *   sky term      dimmer and less saturated: shade on sand goes to a neutral grey and 0.35 to
+ *                 0.45 of lit sand, the lit sand loses its blue cast
+ *   ground term   dim warm: what an underside sees is the ground in its own shadow
+ *   GROUND BOUNCE a warm lit sand term added in the shader (bouncePatch) that peaks on VERTICAL
+ *                 faces and is cut to a third on undersides: a wall in shade sees half a hemisphere
+ *                 of sunlit sand, the underside of a catwalk sees mostly its own shadow. This is
+ *                 the asymmetry the reference has (vertical shade at 65 to 115 luma while sand in
+ *                 shadow drops to 45) and a HemisphereLight alone cannot make: its ground colour
+ *                 lights undersides more than walls.
+ */
+export const SKY_COLOR = 0x8c98b8;   // hemisphere sky term: a desaturated blue grey (round 3: 0x7d9de8 blue; the cyan leaning contract value 0x8fb0d8 went green on sand; iterations 1 to 3: 0x8c9bc0, 0x929cb4). Shade on sand should land a little warm of neutral, the reference's is (134,122,105) to (46,37,30), B minus R -16 to -28; iteration 3 measured -22 to -29 on the shadowed frames
+export const GROUND_COLOR = 0x6e6c68;   // the ground an underside sees: its own shadow, near neutral, dim. Round 4 iteration 1 tried warm (0x7c6a54) and the frame's darkest quarter went as warm as its brightest (warmCool +5); the reference's deep shade is neutral (B minus R -5 to -12), so the underside terms are neutral and only the wall bounce is warm
+export const SKY_INTENSITY = 0.40;  // round 4: 0.50 -> 0.40 with the sky colour desaturated: shade on sand was 0.41 to 0.5 of lit sand and blue; the bar is 0.35 to 0.45 and neutral
+/** Lit sand bounce onto vertical faces, linear irradiance: the sun on flat sand is (2.1, 1.5, 1.0) x sand albedo (0.61, 0.48, 0.27) / pi = (0.41, 0.23, 0.09) radiance; a wall sees half that hemisphere, cut by the ground its own shadow covers. */
+export const BOUNCE_COLOR = [0.20, 0.14, 0.08];   // iteration 4: a touch less saturated than the pure sand bounce (0.21, 0.135, 0.062): the reference's shaded rust is (76,62,50), ours measured redder
+export const BOUNCE_UNDER = 0.25;   // fraction of the bounce an underside gets: the ground beneath a deck is that deck's shadow (0.35 in iteration 1: undersides read warm, the reference's are neutral dark)
 export const FOG_COLOR = 0xeadcc4;  // plain Fog colour for unpatched materials: the horizon haze after ACES
 export const FOG_NEAR = 35;
 export const FOG_FAR = 190;
-export const EXPOSURE = 0.88;       // round 2: 1.15 -> 0.88, lit sand was blown to near white (critic item 100); measured after the change in work/fix2_render/NOTES.md
+export const EXPOSURE = 0.85;       // round 2: 1.15 -> 0.88, lit sand was blown to near white (critic item 100); measured after the change in work/fix2_render/NOTES.md. round 4: 0.88 -> 0.85, the brightest 30 percent of the near sand measured 200 to 202 on the sun facing dune (bar 170 to 200) with 175 on flat ground; the ATMOS stops below were solved at 0.88 and land 2 to 3 units darker now, inside the reference spread
 
 /**
  * Atmosphere palette, LINEAR radiance before the ACES curve (EXPOSURE 1.15).
@@ -72,10 +93,14 @@ export const ATMOS = {
   // and paler than before, the top of a level frame stays pale (the reference frames measure
   // 222,216,197 at 37 degrees), and the sky turns blue above 40 degrees so a frame pitched up
   // at the derrick crown has a blue zenith (critic item 7).
+  // round 4: the top of a level frame (37 degrees at fov 74) measured neutral in the build (B minus R +4 to -13)
+  // and warm in twelve reference frames (median -31, range -14 to -58: work/r4/render/ref_eyedrops.txt), so the low
+  // and mid stops warm up. The frame's brightest quarter is sky and lit sand; a neutral sky there was half of
+  // the missing warm side of claim 10. Solved with work/r4/render/solve_atmos.py.
   horizon: [1.833, 1.099, 0.510],   // 240,226,200 pale warm, 0 degrees
-  low:     [1.190, 0.936, 0.606],   // 228,220,204 at 12 degrees
-  mid:     [0.740, 0.723, 0.614],   // 210,209,202 at 35 degrees, the top of a level frame (reference 222,216,197 at 37; a touch less warm here so the warm horizon band reads against it)
-  high:    [0.350, 0.456, 0.715],   // 170,184,207 at 55 degrees, the blue starts
+  low:     [1.329, 0.906, 0.456],   // 232,219,192 at 12 degrees (was 228,220,204)
+  mid:     [0.772, 0.636, 0.414],   // 212,203,182 at 35 degrees, the top of a level frame (was 210,209,202; reference 222,216,197 at 37 and warmer still in most frames)
+  high:    [0.390, 0.471, 0.669],   // 176,186,204 at 55 degrees, the blue starts (was 170,184,207)
   zenith:  [0.134, 0.224, 0.511],   // 104,134,188 overhead
   haze:    [2.355, 1.413, 0.652],   // 244,233,212 the dust band, thickest at the horizon, gone by 9 degrees
   below:   [1.168, 0.799, 0.495],   // 228,214,194 the dome under the horizon: a little darker than the haze so the far ground edge is not a bright seam
@@ -92,9 +117,9 @@ export const ATMOS = {
  * light on top, shade on sand comes out near 0.33 of lit sand (sRGB luma) and
  * 80 to 90 B minus R units cooler than it.
  */
-export const ENV_ZENITH = [0.070, 0.125, 0.310];   // round 2: all three up (sky a third, ground a half): object shade sides were crushed to 0.06 to 0.10 luma
-export const ENV_HORIZON = [0.140, 0.195, 0.300];
-export const ENV_GROUND = [0.125, 0.120, 0.110];   // round 2: a dim, near neutral bounce (was warm sand): see GROUND_COLOR   // sand bounce seen by down facing surfaces: warm. An underside mostly sees the ground in its own shadow (neutral, sky lit) plus lit sand further out, so this sits at about half the lit sand radiance; a vertical shade face (half sky, half ground) still reads cool and only an underside reads warm
+export const ENV_ZENITH = [0.065, 0.100, 0.190];   // round 4: down and less blue (was 0.070, 0.125, 0.310): shade on sand is the sky's colour and the reference's is neutral grey, not blue
+export const ENV_HORIZON = [0.150, 0.145, 0.135];  // round 4: the horizon band as a light is the pale warm haze the dome shows, not a blue sky (was 0.140, 0.195, 0.300, which put blue into every wall)
+export const ENV_GROUND = [0.110, 0.102, 0.092];   // round 4: dim and near neutral: the ground an underside sees is its own shadow (round 2: 0.125, 0.120, 0.110; iteration 1 tried warm 0.140, 0.105, 0.065 and the darks went warm); the lit sand bounce onto walls is BOUNCE_COLOR in the shader
 export const ENV_SUN_LOBE = 0.05;
 
 /**
@@ -282,8 +307,8 @@ function vrmPatch(shader) {
  * it (cool), and the lit face gets the sun. Sand fillets, dust caps and the terrain (material
  * name 'ground') are skipped: they are the dust.
  */
-export const DUST_COLOR = [0.42, 0.40, 0.35];    // a thin film reads greyer than the drift it came from: sand sunlit 0xcdb88e linear (0.61, 0.48, 0.27) dulled and greyed. In the sun it goes warm with the sun; in shade it returns the sky
-export const DUST_SIDE = 0.15; // integrator r2: 0.28 -> 0.15 now the assets' own material pass carries the tone variation (render agent's own lever).                     // measured at 0.10 first: the shade side of a beam moved 3 luma units, invisible
+export const DUST_COLOR = [0.40, 0.39, 0.36];    // a thin film reads greyer than the drift it came from: sand sunlit 0xcdb88e linear (0.61, 0.48, 0.27) dulled and greyed. In the sun it goes warm with the sun; in shade it returns the sky. round 4: a touch greyer (was 0.42, 0.40, 0.35)
+export const DUST_SIDE = 0.22; // integrator r2: 0.28 -> 0.15 now the assets' own material pass carries the tone variation (render agent's own lever). round 4: 0.15 -> 0.22, the shade side of red oxide measured B minus R -41 against the reference's shaded rust at -26; the film is what greys it   // measured at 0.10 first: the shade side of a beam moved 3 luma units, invisible
 export const DUST_UP = 0.35;
 export const BLEACH_SOUTH = 0.06;
 export const VARY = 0.08;
@@ -341,6 +366,45 @@ function dustPatch(shader, uniforms, vertexPBR) {
     .replace('#include <fog_pars_fragment>', '#include <fog_pars_fragment>' + DUST_PARS_FS)
     .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>' + DUST_FS);
 }
+/**
+ * The ground bounce (round 4). Added to `irradiance` right after three's lights_fragment_begin,
+ * where the ambient and hemisphere terms have just been summed and before lights_fragment_end
+ * folds it through the material's Lambert term, so it is lit exactly as the hemisphere light is
+ * (albedo, dust film, metalness all apply) and is not a tint. Weight by the WORLD normal:
+ * 1 on a vertical face, 0 facing up (sand in shadow sees only sky), BOUNCE_UNDER facing down.
+ * Verified in work/r4/render/probe.html: a grey box's east face goes from blue grey (61,68,83)
+ * to warm grey, its top stays neutral, and the underside of the watchtower deck stays darker
+ * than its legs' shade side.
+ */
+const BOUNCE_PARS_FS = /* glsl */`
+uniform vec3 uBounce;
+uniform float uBounceUnder;`;
+const BOUNCE_FS = /* glsl */`
+{
+  vec3 bN = normalize( ( vec4( geometryNormal, 0.0 ) * viewMatrix ).xyz );
+  // walls only: nothing under 9 degrees of tilt (rippled ground in shadow measured 20 units warmer in the
+  // game than on the probe's flat plane before this gate: the ripple normals were collecting bounce), all of
+  // it past 55 degrees
+  float bW = smoothstep( 0.15, 0.6, 1.0 - abs( bN.y ) ) + clamp( -bN.y, 0.0, 1.0 ) * uBounceUnder;
+  irradiance += uBounce * bW;
+}`;
+const _bounceUniforms = {};
+function bounceUniforms(THREE) {
+  if (!_bounceUniforms.uBounce) {
+    _bounceUniforms.uBounce = { value: new THREE.Color(BOUNCE_COLOR[0], BOUNCE_COLOR[1], BOUNCE_COLOR[2]) };
+    _bounceUniforms.uBounceUnder = { value: BOUNCE_UNDER };
+  }
+  return _bounceUniforms;
+}
+function bouncePatch(shader, uniforms) {
+  // the CSM hook has already replaced the lights_pars_begin and lights_fragment_begin include lines
+  // with its own expanded text, so the hooks here are the neighbours that survive: `common` for the
+  // uniforms and `lights_fragment_maps` (still an include line, straight after the hemisphere sum)
+  Object.assign(shader.uniforms, uniforms);
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', '#include <common>' + BOUNCE_PARS_FS)
+    .replace('#include <lights_fragment_maps>', BOUNCE_FS + '\n#include <lights_fragment_maps>');
+}
 /** How much film each surface class holds, as a fraction of DUST_SIDE / DUST_UP: fronds and cloth shed it, paint and sheet keep it. */
 export const DUST_HOLD = { foliage: 0.3, fabric: 0.55, timber: 0.8, default: 1.0 };
 const _dustUniforms = {};
@@ -369,8 +433,8 @@ function isSand(m) {
 
 /**
  * Cull fade (round 2, critic item 100): main.js hides a block's clutter group when the
- * block's nearest edge passes FAR_CULL (55 m high, 60 phone) and its scatter group at
- * FAR_CULL_N (32 / 40). The switch was a visible pop. Meshes under a '#clutter' or '#nocast'
+ * block's nearest edge passes FAR_CULL (50 m high, 60 phone) and its scatter group at
+ * FAR_CULL_N (28 / 40), and its fine group (parts under 18 cm) at 22 / 20. The switch was a visible pop. Meshes under a '#clutter' or '#nocast'
  * group get a copy of their material that dithers the surface out over the last FADE_W
  * metres before the switch (Bayer 4 x 4 on the fragment position, in world distance), so by
  * the time main.js hides the group nothing of it is drawn. Same draw calls, one extra
@@ -378,13 +442,13 @@ function isSand(m) {
  * The distances follow the same URL knobs main.js reads ('far', 'farn'); rig.setCullFade()
  * lets the integrator drive them directly.
  */
-const FADE_W = { clutter: 10, scatter: 8 };
+const FADE_W = { clutter: 10, scatter: 8, fine: 6 };   // integrator r4: 'fine' is the small parts group (level/build.js), knob 'finecull'
 function defaultCullFade(T) {
-  let far = null, farn = null;
-  try { const q = new URLSearchParams(location.search); far = q.get('far'); farn = q.get('farn'); } catch (e) { /* no location */ }
+  let far = null, farn = null, finec = null;
+  try { const q = new URLSearchParams(location.search); far = q.get('far'); farn = q.get('farn'); finec = q.get('finecull'); } catch (e) { /* no location */ }
   const phone = T.name === 'phone';
-  const c = +(far || (phone ? 60 : 55)), n = +(farn || (phone ? 40 : 32));
-  return { clutter: [c - FADE_W.clutter, c], scatter: [n - FADE_W.scatter, n] };
+  const c = +(far || (phone ? 60 : 50)), n = +(farn || (phone ? 40 : 28)), f = +(finec || (phone ? 20 : 22));   // integrator r4: high 55/32 -> 50/28, fine 22
+  return { clutter: [c - FADE_W.clutter, c], scatter: [n - FADE_W.scatter, n], fine: [f - FADE_W.fine, f] };
 }
 const FADE_PARS_VS = /* glsl */`
 varying float vFadeD;`;
@@ -423,6 +487,7 @@ function fadeGroupOf(o) {
   const pn = o.parent ? String(o.parent.name) : '';
   if (pn.endsWith('#clutter')) return 'clutter';
   if (pn.endsWith('#nocast')) return 'scatter';
+  if (pn.endsWith('#fine')) return 'fine';
   return null;
 }
 
@@ -539,7 +604,7 @@ export function createLightingRig(THREE, { scene, renderer, camera, tier }) {
   // remembers which ones are done.
   const done = new WeakSet();
   const cullFade = defaultCullFade(T);
-  const fadeU = { clutter: { value: new THREE.Vector2(...cullFade.clutter) }, scatter: { value: new THREE.Vector2(...cullFade.scatter) } };
+  const fadeU = { clutter: { value: new THREE.Vector2(...cullFade.clutter) }, scatter: { value: new THREE.Vector2(...cullFade.scatter) }, fine: { value: new THREE.Vector2(...cullFade.fine) } };
   const fadeVariants = new WeakMap();   // source material -> { clutter: variant, scatter: variant }
   function setupMaterial(m) {
     if (!m || done.has(m)) return false;
@@ -548,6 +613,7 @@ export function createLightingRig(THREE, { scene, renderer, camera, tier }) {
     done.add(m);
     const dusty = lit && !isSand(m) && knob('dust') !== '0';
     const dustU = dusty ? dustUniforms(THREE, dustClassOf(m)) : null;
+    const bounce = lit && knob('bounce') !== '0' ? bounceUniforms(THREE) : null;   // `?bounce=0` for the A/B
     const vrm = lit && !!m.isVertexPBR;
     const fade = m.userData && m.userData.__cullFade && knob('fade') !== '0' ? fadeU[m.userData.__cullFade] : null;
     // CSM replaces onBeforeCompile. If a module (terrain, bake, fx) already
@@ -563,11 +629,12 @@ export function createLightingRig(THREE, { scene, renderer, camera, tier }) {
       if (hasPrev) prevHook.call(this, shader, r);
       if (csmHook) csmHook.call(this, shader, r);
       if (vrm) vrmPatch(shader);
+      if (bounce) bouncePatch(shader, bounce);
       if (foggable) aerialPatch(shader, atm);
       if (dusty) dustPatch(shader, dustU, vrm);
       if (fade) fadePatch(shader, fade);
     };
-    m.customProgramCacheKey = () => (hasPrev ? prevKey : '') + (csmHook ? '|csm' + T.cascades : '') + (vrm ? '|vrmfix' : '') + (foggable ? '|aer' : '') + (dusty ? '|dust' : '') + (fade ? '|fade' : '');   // the dust class only changes uniform values, not the program
+    m.customProgramCacheKey = () => (hasPrev ? prevKey : '') + (csmHook ? '|csm' + T.cascades : '') + (vrm ? '|vrmfix' : '') + (bounce ? '|bounce' : '') + (foggable ? '|aer' : '') + (dusty ? '|dust' : '') + (fade ? '|fade' : '');   // the dust class only changes uniform values, not the program
     m.needsUpdate = true;
     return true;
   }
@@ -604,6 +671,7 @@ export function createLightingRig(THREE, { scene, renderer, camera, tier }) {
   function setCullFade(r) {
     if (r && r.clutter) fadeU.clutter.value.set(r.clutter[0], r.clutter[1]);
     if (r && r.scatter) fadeU.scatter.value.set(r.scatter[0], r.scatter[1]);
+    if (r && r.fine) fadeU.fine.value.set(r.fine[0], r.fine[1]);
   }
   refresh();
 
@@ -638,7 +706,7 @@ export function createLightingRig(THREE, { scene, renderer, camera, tier }) {
 
   const rig = {
     sun, sky, fog, csm, sunDir, tier: T, scene, atmos: atm, environment: envTex,
-    update, setExposure, setupMaterial, refresh, setCullFade, cullFade: fadeU, dust: dustUniforms(THREE, 'default'), dispose,
+    update, setExposure, setupMaterial, refresh, setCullFade, cullFade: fadeU, dust: dustUniforms(THREE, 'default'), bounce: bounceUniforms(THREE), dispose,
   };
   try { globalThis.__RIG__ = rig; } catch (e) { /* no globalThis (tests) */ }
   return rig;

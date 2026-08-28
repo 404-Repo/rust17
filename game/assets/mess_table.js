@@ -72,7 +72,13 @@ export default function (THREE) {
   function plank(len, w, x, yTop, z, f) {
     mesh(plankGeo(len, w, PT - 0.012), mat(C.timber, 'timber', 0.88, 0, f), x, yTop - PT + 0.012, z);
     box(len, 0.012, w, mat(C.timber, 'timber', 0.9, 0, 0.78), x, yTop - PT + 0.006, z);
-    dust(len, w, x, yTop, z, 0.03);
+    // dust as two lens shaped drifts per plank, not one slab: the timber has to show between them at 1.5 m
+    const dw = w - 0.07, f2 = f || 1;
+    for (const [dl, dx] of [[len * (0.2 + 0.04 * f2), -len * 0.22], [len * (0.32 - 0.03 * f2), len * 0.2]]) {
+      const ls = new THREE.Shape(); ls.moveTo(-dl / 2, 0); ls.quadraticCurveTo(0, dw * 0.9, dl / 2, 0); ls.quadraticCurveTo(0, -dw * 0.9, -dl / 2, 0);
+      const lg = new THREE.ExtrudeGeometry(ls, { depth: 0.008, bevelEnabled: false, curveSegments: 4 }); lg.rotateX(Math.PI / 2);
+      mesh(lg, DUST(), x + dx, yTop + 0.008, z + (f2 > 1.05 ? 0.01 : -0.01));
+    }
   }
   for (let i = 0; i < 5; i++) {
     const z = -TW / 2 + 0.075 + i * 0.16;
@@ -119,12 +125,7 @@ export default function (THREE) {
     box(1.3, 0.025, 0.006, OLIVE, 0, 0.18, zc);
   }
   // items
-  const yT = TH + 0.006;
-  const tin = new THREE.Shape(); tin.moveTo(-0.085, -0.055); tin.lineTo(0.085, -0.055); tin.lineTo(0.085, 0.055); tin.lineTo(-0.085, 0.055); tin.closePath();
-  const tinHole = new THREE.Path(); tinHole.moveTo(-0.075, -0.045); tinHole.lineTo(-0.075, 0.045); tinHole.lineTo(0.075, 0.045); tinHole.lineTo(0.075, -0.045); tinHole.closePath(); tin.holes.push(tinHole);
-  const tg = new THREE.ExtrudeGeometry(tin, { depth: 0.05, bevelEnabled: false }); tg.rotateX(-Math.PI / 2);
-  mesh(tg, mat(C.galv, 'metal', 0.65, 0.55, 1.02, { side: DS }), -0.6, yT, -0.1);
-  box(0.15, 0.004, 0.09, mat(C.galv, 'metal', 0.65, 0.55, 0.9), -0.6, yT + 0.004, -0.1);
+  const yT = TH + 0.009;
   const mugPts = [new THREE.Vector2(0.001, 0), new THREE.Vector2(0.038, 0), new THREE.Vector2(0.04, 0.07), new THREE.Vector2(0.044, 0.08), new THREE.Vector2(0.036, 0.08), new THREE.Vector2(0.034, 0.005), new THREE.Vector2(0.001, 0.005)];
   for (const [x, z] of [[-0.3, 0.1], [0.1, -0.2]]) { mesh(new THREE.LatheGeometry(mugPts, 10), mat(C.cBlue, 'metal', 0.6, 0.1, 1.3, { side: DS }), x, yT, z); mesh(new THREE.TorusGeometry(0.02, 0.005, 5, 8), mat(C.cBlue, 'metal', 0.6, 0.1, 1.3), x + 0.045, yT + 0.045, z); }
   const canGeo = new THREE.LatheGeometry([new THREE.Vector2(0.001, 0), new THREE.Vector2(0.05, 0), new THREE.Vector2(0.06, 0.03), new THREE.Vector2(0.06, 0.15), new THREE.Vector2(0.035, 0.19), new THREE.Vector2(0.02, 0.2), new THREE.Vector2(0.02, 0.22), new THREE.Vector2(0.001, 0.22)], 12);
@@ -139,6 +140,64 @@ export default function (THREE) {
   mesh(new THREE.ExtrudeGeometry(gr, { depth: 0.004, bevelEnabled: false }), mat(C.sandbag, 'metal', 0.7, 0.3), 0.81, yT + 0.035, 0.28);
   for (const dx of [0.06, 0.085]) { const k = cyl(0.01, 0.01, 0.01, 8, GUN, 0.85 + dx, yT + 0.035, 0.285); k.rotation.x = Math.PI / 2; }
   { const ae = cyl(0.003, 0.003, 0.18, 5, GUN, 0.85, yT + 0.075, 0.17); ae.rotation.z = Math.PI / 2; }
+  // ---- r4 detail pass (second cut): end grain caps on every plank end and bearer end, two splits, bench end cleats,
+  // bearer side bolts, a bucket under the left end, an enamel plate with a spoon, a ration tin, and two real mess
+  // tins: rolled rim, folding wire handle on hinge lugs, stained floor, rust at the corner seams and the bottom
+  // seam, plus the lid of the second one lying open side up on the plank as a 14 mm tray with its own rim and handle.
+  (function () {
+    const END = mat(C.timber, 'timber', 0.92, 0, 0.42);      // sawn end grain: clearly darker than the plank faces
+    const CLEAT = mat(C.timber, 'timber', 0.9, 0, 0.8);
+    for (let i = 0; i < 5; i++) { const z = -TW / 2 + 0.075 + i * 0.16; for (const sx of [-1, 1]) box(0.006, PT - 0.003, 0.15, END, sx * (TL / 2 + 0.003), TH - PT / 2, z); }
+    for (const s of [-1, 1]) for (const dz of [-0.065, 0.065]) for (const sx of [-1, 1]) box(0.006, PT - 0.003, 0.115, END, sx * (1.1 + 0.003), 0.45 - PT / 2, s * 0.555 + dz);
+    for (const x of [-0.75, 0.75]) for (const sz of [-1, 1]) box(0.06, 0.045, 0.005, END, x, TH - PT - 0.0225, sz * (TW / 2 - 0.01 + 0.0025));
+    box(0.9, 0.002, 0.004, END, 0.3, TH + 0.009, -TW / 2 + 0.075 + 0.32 + 0.03).rotation.y = 0.015;
+    box(0.6, 0.002, 0.004, END, -0.7, TH + 0.009, -TW / 2 + 0.075 - 0.04).rotation.y = -0.02;
+    for (const s of [-1, 1]) for (const sx of [-1, 1]) box(0.05, 0.03, 0.26, CLEAT, sx * 1.02, 0.45 - PT - 0.015, s * 0.555);
+    for (const sx of [-1, 1]) for (const z of [-0.25, 0.25]) bolt(sx * 0.7805, TH - PT - 0.0225, z, sx > 0 ? 'x' : '-x', 0.006, z > 0 ? 0.05 : 0.03);
+    // bucket
+    const BK = mat(C.galv, 'metal', 0.72, 0.5, 0.95, { side: DS });
+    mesh(new THREE.LatheGeometry([new THREE.Vector2(0.001, 0), new THREE.Vector2(0.12, 0), new THREE.Vector2(0.125, 0.01), new THREE.Vector2(0.15, 0.28), new THREE.Vector2(0.16, 0.29), new THREE.Vector2(0.15, 0.3), new THREE.Vector2(0.144, 0.29), new THREE.Vector2(0.138, 0.02), new THREE.Vector2(0.001, 0.02)], 12), BK, -0.98, 0, 0.2);
+    const bail = mesh(new THREE.TorusGeometry(0.15, 0.005, 5, 12, Math.PI), GUN, -0.98, 0.29, 0.2); bail.rotation.y = 0.5;
+    box(0.31, 0.012, 0.31, RUST(), -0.98, 0.006, 0.2).rotation.y = 0.4;   // rust ring where it has stood
+    mound(-0.98, 0.2, 0.19, 0.02);
+    // enamel plate and spoon
+    mesh(new THREE.LatheGeometry([new THREE.Vector2(0.001, 0), new THREE.Vector2(0.09, 0), new THREE.Vector2(0.1, 0.012), new THREE.Vector2(0.11, 0.018), new THREE.Vector2(0.105, 0.021), new THREE.Vector2(0.095, 0.015), new THREE.Vector2(0.085, 0.004), new THREE.Vector2(0.001, 0.004)], 10), mat(C.tankB, 'metal', 0.6, 0.2, 1.06, { side: DS }), -0.15, yT, -0.22);
+    box(0.11, 0.004, 0.016, GUN, -0.13, yT + 0.007, -0.2).rotation.y = 0.5;
+    cyl(0.018, 0.018, 0.004, 8, GUN, -0.13 + 0.06 * Math.cos(0.5), yT + 0.007, -0.2 - 0.06 * Math.sin(0.5));
+    // ration tin with a rolled lid edge and a paper label plate
+    cyl(0.045, 0.045, 0.05, 10, mat(C.olive, 'metal', 0.8, 0.2, 1.2), 0.45, yT + 0.025, -0.25);
+    cyl(0.047, 0.047, 0.004, 10, GUN, 0.45, yT + 0.052, -0.25);
+    cyl(0.047, 0.047, 0.004, 10, GUN, 0.45, yT + 0.002, -0.25);
+    box(0.06, 0.02, 0.002, mat(C.sandbag, 'metal', 0.7, 0.3), 0.45, yT + 0.025, -0.204);
+    // mess tin: open rectangular tin L x W x H, wall 5 mm, rolled rim, hinge lugs and a folding wire handle on the
+    // +z long side (handle angle: 0 is folded flat out, negative lifts it), stained floor, rust at the seams
+    function messTin(x, y, z, ry, L, W, H, f, handle) {
+      const grp = new THREE.Group(); grp.position.set(x, y, z); grp.rotation.y = ry; g.add(grp);
+      const TIN = mat(C.galv, 'metal', 0.66, 0.55, f, { side: DS });
+      const TIN_IN = mat(C.galv, 'metal', 0.82, 0.4, f * 0.7, { side: DS });
+      const wall = 0.005;
+      const s = new THREE.Shape(); s.moveTo(-L / 2, -W / 2); s.lineTo(L / 2, -W / 2); s.lineTo(L / 2, W / 2); s.lineTo(-L / 2, W / 2); s.closePath();
+      const h = new THREE.Path(); h.moveTo(-L / 2 + wall, -W / 2 + wall); h.lineTo(-L / 2 + wall, W / 2 - wall); h.lineTo(L / 2 - wall, W / 2 - wall); h.lineTo(L / 2 - wall, -W / 2 + wall); h.closePath(); s.holes.push(h);
+      const geo = new THREE.ExtrudeGeometry(s, { depth: H, bevelEnabled: false }); geo.rotateX(-Math.PI / 2);
+      mesh(geo, TIN, 0, 0, 0, grp);
+      box(L - 2 * wall, 0.004, W - 2 * wall, TIN_IN, 0, 0.004, 0, grp);                                   // floor, stained
+      for (const sz of [-1, 1]) box(L + 0.006, 0.006, 0.008, TIN, 0, H - 0.003, sz * (W / 2 - 0.001), grp);   // rolled rim
+      for (const sx of [-1, 1]) box(0.008, 0.006, W + 0.006, TIN, sx * (L / 2 - 0.001), H - 0.003, 0, grp);
+      const ly = Math.max(0.007, H - 0.012), lh = Math.min(0.012, H - 0.002);
+      for (const sx of [-1, 1]) box(0.012, lh, 0.006, GUN, sx * (L / 2 - 0.03), ly, W / 2 + 0.004, grp);   // hinge lugs
+      const hd = new THREE.Group(); hd.position.set(0, ly, W / 2 + 0.007); hd.rotation.x = handle; grp.add(hd);
+      for (const sx of [-1, 1]) { const a = cyl(0.0025, 0.0025, 0.07, 5, GUN, sx * (L / 2 - 0.03), 0, 0.035, hd); a.rotation.x = Math.PI / 2; }
+      const cb = cyl(0.0025, 0.0025, L - 0.06 + 0.005, 5, GUN, 0, 0, 0.07, hd); cb.rotation.z = Math.PI / 2;
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(0.004, H - 0.006, 0.004, RUST(), sx * (L / 2), H / 2 - 0.001, sz * (W / 2), grp);   // corner seams
+      box(L + 0.002, 0.004, 0.003, RUST(), 0, 0.003, W / 2 + 0.0015, grp);                                // bottom seam, sun side
+      box(0.003, 0.004, W + 0.002, RUST(), L / 2 + 0.0015, 0.003, 0, grp);
+      if (H > 0.03) { streak(-L / 2 + 0.03, H - 0.012, -W / 2, '-z', H - 0.016, 0.012, grp); streak(L / 2 - 0.045, H - 0.02, W / 2, 'z', H - 0.024, 0.01, grp); }
+      return grp;
+    }
+    messTin(-0.6, yT, -0.1, 0, 0.17, 0.11, 0.05, 1.02, -1.25);          // first tin, handle up
+    messTin(-0.95, yT, 0.28, 0.35, 0.17, 0.11, 0.045, 0.96, -2.4);     // second tin, handle folded back over the top
+    messTin(-0.93, yT, 0.12, 0.55 + Math.PI, 0.176, 0.116, 0.014, 0.9, -0.35);   // its lid, open side up, handle out and lifted
+  })();
   fillet('left', TW + 0.1, 0, -TL / 2, 0.04, 0.05, 0.05);
   fillet('right', TW + 0.1, 0, TL / 2, 0.04, 0.05, 0.05);
   // contract: measure vertices, base at y=0, centred on x and z

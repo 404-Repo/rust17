@@ -78,7 +78,38 @@ export default function (THREE) {
   const rustDrip = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.012, 0.0008), rustM);
   rustDrip.position.set(0.0, cy + R * 0.92 - 0.008, R * 0.9); rustDrip.lookAt(0, cy + R * 0.92 - 0.008, R * 3); g.add(rustDrip);
 
+  // ---- round 4 detail pass ----
+  const bright = M(0x8e9294, 'metal', 0.45, 0.70);     // the seam scuffed to bare steel on the sun side
+  // hex fuze collar over the threaded collar, the M67's wrench flats
+  const hex = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.004, 6), gun);
+  hex.position.y = cy + R * 0.92 + 0.0035; g.add(hex);
+  const hexTop = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.0008, 6), worn);
+  hexTop.position.y = cy + R * 0.92 + 0.0059; g.add(hexTop);
+  // yellow marking ring at the crown edge of the body
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.0162, 0.0012, 5, 16), yellow);
+  band.rotation.x = Math.PI / 2; band.position.y = cy + (R * 0.92 - 0.004); g.add(band);
+  // the seam scuffed bright along the sun side arc
+  const scuff = new THREE.Mesh(new THREE.TorusGeometry(R + 0.0009, 0.0011, 5, 12, Math.PI * 0.8), bright);
+  scuff.rotation.x = Math.PI / 2; scuff.rotation.z = -0.3; scuff.position.y = cy + 0.0004; g.add(scuff);
+  // cotter pin legs spread on the far side of the fuze head
+  for (const s of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.0012, 0.0012), worn);
+    leg.position.set(-0.0155, cy + R * 0.92 + 0.03 + s * 0.0015, -0.006); leg.rotation.z = s * 0.28; g.add(leg);
+  }
+  // confidence clip: a wire U over the lever just below the head
+  const clip = new THREE.Mesh(new THREE.TorusGeometry(0.0068, 0.0008, 5, 8, Math.PI), worn);
+  clip.rotation.x = Math.PI / 2; clip.position.set(0, cy + R * 0.92 + 0.022, 0.0115); fz.parent && g.add(clip);
+  const clipPin = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.016, 6), worn);
+  clipPin.rotation.z = Math.PI / 2; clipPin.position.set(0, cy + R * 0.92 + 0.022, 0.0095); g.add(clipPin);
+  // the spoon tip curls out at the end of the lever
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.004, 0.0015), worn);
+  lip.position.set(0, -0.0098, 0.0012); lip.rotation.x = 0.8; link.add(lip);
+  // rust run under the pull pin hole on the fuze head
+  const pinRust = new THREE.Mesh(new THREE.BoxGeometry(0.0008, 0.008, 0.003), rustM);
+  pinRust.position.set(0.0115, cy + R * 0.92 + 0.024, -0.006); g.add(pinRust);
+
   // ---- contract: base at y=0, centred on x and z ----
+  const WEATHER_OPTS = { held: 1 };   // round 4: a grenade is carried, not planted. Without this the rust foot (floored at 0.4 m) covered the whole 0.11 m body and it rendered brown, not olive.
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by
@@ -88,7 +119,7 @@ export default function (THREE) {
   // keeps the author's colour where nothing has happened to it. Unnamed materials (glass, rubber) and
   // emissive lenses are untouched. WEATHER_OPTS may be set before this block.
   (function weather(root, opt) {
-    opt = Object.assign({ rustH: 0, mottle: 1, streak: 1, dust: 1, cut: 1.8, seed: 0, sand: 0 }, opt || {});
+    opt = Object.assign({ rustH: 0, mottle: 1, streak: 1, dust: 1, cut: 1.8, seed: 0, sand: 0, held: 0 }, opt || {});
     root.updateMatrixWorld(true);
     const bb = new THREE.Box3(), tb = new THREE.Box3();
     root.traverse((n) => { if (n.isMesh && n.geometry.attributes.position) { n.geometry.computeBoundingBox(); tb.copy(n.geometry.boundingBox).applyMatrix4(n.matrixWorld); bb.union(tb); } });
@@ -142,7 +173,9 @@ export default function (THREE) {
         const up = nv.y > 0.55, down = nv.y < -0.55;
         if (!up && !down) { if (nv.z > 0.4) k *= 1.06; else if (nv.z < -0.4) k *= 0.95; if (nv.x < -0.4) k *= 1.03; }
         if (down) k *= 0.92;
-        if (kind === 'metal' && !dark && !isRust) {
+        if (opt.held) {
+          // held asset (weapon, arms): never on the ground, so no rust foot, streaks, stain band or dust; mottle and facing only
+        } else if (kind === 'metal' && !dark && !isRust) {
           const foot = cl(1 - (p.y - y0) / rustH, 0, 1);
           const st = Math.max(0, noise(p.x * 13 + p.z * 9, p.y * 0.8, 7.7)) * opt.streak;    // vertical run marks
           let r = Math.pow(foot, 1.3) * (0.6 + 0.4 * cl(n1 + 0.5, 0, 1)) + st * 0.6 * (0.35 + 0.65 * foot) + Math.max(0, n2) * 0.18;

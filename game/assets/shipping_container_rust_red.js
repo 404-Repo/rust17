@@ -207,7 +207,7 @@ const CFG = { kind: 'red', livery: 0x9c4a3c, bleach: 0.28, plates: [{ on: 'door'
   }
   // door leaf: horizontal corrugation, built as a vertical profile then turned on its side
   function doorLeaf(parent, sx, sz, lz) {
-    const geo = corrExtrude(wallH, 1.0, 0.45, 0.02, 0.03); geo.rotateZ(PI / 2); // ribs now run across z, bulge toward +z of the leaf's local frame
+    const geo = corrExtrude(1.0, wallH, 0.25, 0.02, 0.03); // r4: vertical ribs like the concept, bulge toward +z of the leaf's local frame
     mesh(parent, geo, mDoor, 0, wallYc, lz, 0, sx * PI / 2, 0);
     for (const t of [0.3, 0.75]) {
       const bz = lz + sz * (0.52 - t);
@@ -220,6 +220,10 @@ const CFG = { kind: 'red', livery: 0x9c4a3c, bleach: 0.28, plates: [{ on: 'door'
       box(parent, 0.015, 0.14, 0.07, STEEL, sx * 0.045, 1.02, bz + sz * 0.06);
     }
     for (let h = 0; h < 4; h++) { box(parent, 0.07, 0.13, 0.05, STEEL, sx * 0.02, 0.45 + h * 0.6, sz * 0.02); streak(parent, sx > 0 ? 'px' : 'nx', sx * 0.045, 0.39 + h * 0.6, sz * 0.02, 0.2, 0.06); }
+    // r4: gasket strip on the meeting edge, seal lug and padlock on the handle retainer, a stiffener channel across the leaf foot
+    box(parent, 0.02, wallH - 0.04, 0.03, RUBBER, sx * 0.035, wallYc, lz + sz * 0.485);
+    box(parent, 0.03, 0.06, 0.9, STEEL, sx * 0.04, wallY0 + 0.26, lz); streak(parent, sx > 0 ? 'px' : 'nx', sx * 0.055, wallY0 + 0.23, lz, 0.12, 0.7);
+    if (sz > 0) { box(parent, 0.03, 0.05, 0.12, GALV, sx * 0.075, 1.16, lz + sz * 0.3); mesh(parent, new THREE.TorusGeometry(0.022, 0.006, 6, 10), GUN, sx * 0.09, 1.12, lz + sz * 0.3, 0, PI / 2, 0); streak(parent, sx > 0 ? 'px' : 'nx', sx * 0.045, 1.13, lz + sz * 0.3, 0.2, 0.06); }
     if (sz > 0) { const p = CFG.plates.find((q) => q.on === 'door'); if (p) box(parent, 0.012, p.h, p.w, M(tint(liv, 0.75), 'metal', { roughness: 0.85 }), sx * 0.035, 1.95, lz); }
     else box(parent, 0.012, 0.1, 0.15, M(tint(liv, 0.6), 'metal', { roughness: 0.85 }), sx * 0.035, 0.65, lz);
     if (CFG.rustHeavy) { box(parent, 0.01, 0.2, 1.0, RUST, sx * 0.035, wallY0 + 0.1, lz); box(parent, 0.01, 0.12, 1.0, RUST, sx * 0.035, wallY1 - 0.06, lz); }
@@ -229,6 +233,9 @@ const CFG = { kind: 'red', livery: 0x9c4a3c, bleach: 0.28, plates: [{ on: 'door'
     const xFace = sx * (L / 2 - 0.02), leaves = [];
     for (const sz of [-1, 1]) { const pv = new THREE.Group(); pv.position.set(xFace, 0, sz * 1.04); g.add(pv); leaves.push(pv); doorLeaf(pv, sx, sz, -sz * 0.52); }
     if (CFG.doorOpen) leaves[1].rotation.y = -CFG.doorOpen * PI / 180 * sx;
+    // r4: drip edge under the door header and a sill plate under the leaves
+    box(g, 0.03, 0.03, W - 0.3, RUST, sx * (L / 2 - 0.005), H - 0.145, 0);
+    box(g, 0.05, 0.04, W - 0.36, GUN, sx * (L / 2 - 0.01), 0.2, 0);
   }
   function openFrame(sx) {
     const x = sx * (L / 2 - 0.14);
@@ -243,10 +250,45 @@ const CFG = { kind: 'red', livery: 0x9c4a3c, bleach: 0.28, plates: [{ on: 'door'
   const sag = (x) => -0.03 * (1 - (x / 2.85) * (x / 2.85));
   const roofGeo = corrExtrude(panelL, W - 0.36, PITCH, 0.03, SHEET, sag); roofGeo.rotateX(-PI / 2); // ribs bulge toward +y
   mesh(g, roofGeo, mRoof, 0, H - 0.05, 0);
-  const dustGeo = corrExtrude(panelL - 0.08, W - 0.44, PITCH, 0.03, 0.004, sag); dustGeo.rotateX(-PI / 2);
-  mesh(g, dustGeo, mSandSheet, 0, H - 0.04, 0);
+  // r4: dust sheet with a shallower rib, lifted so its troughs clear the roof crests everywhere (the old one let every crest poke through as a stripe)
+  const dustGeo = corrExtrude(panelL - 0.08, W - 0.44, PITCH, 0.012, 0.004, sag); dustGeo.rotateX(-PI / 2);
+  mesh(g, dustGeo, mSandSheet, 0, H - 0.014, 0);
 
-  fillet(g, L - 0.5, 0.28, 0.16, 0, 0, W / 2, 0);
+  // ---- r4 detail pass: vent louvres, long rust runs down the rib crests, hazard placard, hazard bands on the corner posts,
+  //      rubble against the rails and a third sand fillet. Everything sits on a rib crest, never floating over a trough. ----
+  const mYel = M(tint(P.yellow, 0.2), 'metal', { roughness: 0.85, metalness: 0.05 });
+  const mRock = M(P.rockPale, 'ground', { roughness: 0.95, metalness: 0 });   // named ground so it takes the sand set: pale stones half buried, not concrete blocks
+  const zCrest = W / 2 - 0.01;
+  for (const sz of [-1, 1]) {
+    const face = sz > 0 ? 'pz' : 'nz';
+    for (const xl of [-2.45, 2.45]) {
+      const x = wx(sz, crestX(xl)), y = wallY1 - 0.24, z = sz * (zCrest + 0.006);
+      box(g, 0.16, 0.12, 0.012, mCast, x, y, z);
+      for (let k = 0; k < 3; k++) box(g, 0.13, 0.014, 0.01, GUN, x, y - 0.03 + k * 0.03, z + sz * 0.008);
+      streak(g, face, x, y - 0.06, sz * zCrest, 0.3 + 0.25 * rnd(), 0.09);
+    }
+    for (let i = 0; i < 5; i++) { const x = wx(sz, crestX(-2.2 + i * 1.1 + 0.5 * rnd())); streak(g, face, x, H - 0.13, sz * zCrest, 0.5 + 0.9 * rnd(), 0.05); }
+  }
+  if (CFG.kind === 'red' || CFG.kind === 'open') {
+    const x = wx(1, crestX(2.05));
+    box(g, 0.22, 0.22, 0.01, mYel, x, 1.95, zCrest + 0.005, 0, 0, PI / 4);
+    box(g, 0.1, 0.1, 0.008, GUN, x, 1.95, zCrest + 0.011, 0, 0, PI / 4);
+    streak(g, 'pz', x, 1.8, zCrest, 0.25, 0.06);
+  }
+  const bandEnds = CFG.kind === 'open' ? [-1, 1] : CFG.kind === 'blue' ? [1] : [];
+  for (const sx of bandEnds) for (const sz of [-1, 1]) {
+    const cz = sz * (W / 2 - 0.09), px = sx * (L / 2 + (CFG.open ? 0.006 : -0.004));
+    box(g, 0.01, 0.6, 0.15, mYel, px, 0.85, cz);
+    for (let k = 0; k < 3; k++) box(g, 0.008, 0.05, 0.16, GUN, px + sx * 0.005, 0.65 + k * 0.2, cz, PI / 4, 0, 0);
+  }
+  for (let i = 0; i < 9; i++) {
+    const end = rnd() < 0.35, s = 0.07 + 0.1 * rnd();
+    const x = end ? -L / 2 - 0.02 - 0.06 * rnd() : -2.6 + 5.2 * rnd(), z = end ? -1.0 + 2.0 * rnd() : W / 2 + 0.02 + 0.06 * rnd();
+    box(g, s, s * 0.6, s * 0.8, mRock, x, s * 0.12, z, 0, rnd() * PI, 0.1 * rnd());
+  }
+  fillet(g, 2.6, 0.1, 0.07, 1.4, 0, -W / 2, PI);
+  if (CFG.doorOpen) fillet(g, 0.9, 0.5, 0.05, L / 2 - 0.2, 0.2, 0.55, -PI / 2);
+  fillet(g, L - 0.5, 0.22, 0.16, 0, 0, W / 2, 0);
   fillet(g, W - 0.4, 0.3, 0.14, -L / 2, 0, 0, -PI / 2);
 
   // ---- contract: base at y = 0, centred on x and z, measured from vertices ----

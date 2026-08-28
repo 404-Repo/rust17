@@ -32,6 +32,8 @@ export default function (THREE) {
   const mDust = mat(P.sand, 'ground', 0.95, 0.0, true);
   const mSand = mat(P.sand, 'ground', 0.95, 0.0);
   const mDial = mat(P.galv, 'metal', 0.7, 0.2);
+  const mPlate = mat(P.tank, 'metal', 0.8, 0.15);
+  const mFlow = mat(shade(P.steel, 0.95), 'metal', 0.85, 0.25);
 
   // plate
   box(1.2, 0.07, 1.2, mConcS, 0, 0.035, 0);
@@ -92,6 +94,8 @@ export default function (THREE) {
     cyl(0.1, 0.12, 12, mBody, s * 0.17, 1.5, 0).rotation.z = PI / 2;
     for (const fx of [0.23, 0.27]) cyl(0.15, 0.04, 12, mFlange, s * fx, 1.5, 0).rotation.z = PI / 2;
     cyl(0.16, 0.015, 12, mRust, s * 0.25, 1.5, 0).rotation.z = PI / 2;
+    box(0.025, 0.08, 0.005, mRust, s * 0.2, 1.46, 0.103);
+    box(0.025, 0.12, 0.005, mRust, s * 0.33, 1.42, 0.108);
     for (let i = 0; i < 8; i++) { const a = i * PI / 4 + PI / 8; const b = cyl(0.012, 0.13, 6, mBolt, s * 0.25, 1.5 + 0.11 * Math.cos(a), 0.11 * Math.sin(a)); b.rotation.z = PI / 2; }
     // wing valve block
     box(0.2, 0.3, 0.14, mBlockS, s * 0.41, 1.5, 0.035); box(0.2, 0.3, 0.14, mBlockN, s * 0.41, 1.5, -0.035);
@@ -106,6 +110,30 @@ export default function (THREE) {
     cyl(0.035, 0.04, 8, mWheel, 0, 0, 0, w);
     cyl(0.016, 0.02, 6, mBolt, 0, 0.03, 0, w);
   }
+  // flowline off the +X wing: tee stub, flanged union with bolts and a rust ring, drop pipe to the cellar plate
+  // with a bottom flange and its own sand mound, clamp bar and U bolt tying it to the stack
+  cyl(0.06, 0.1, 10, mBody, 0.41, 1.31, 0);
+  for (const fy of [1.245, 1.21]) cyl(0.09, 0.03, 10, mFlange, 0.41, fy, 0);
+  cyl(0.095, 0.012, 10, mRust, 0.41, 1.228, 0);
+  for (let i = 0; i < 6; i++) { const a = i * PI / 3 + PI / 6; cyl(0.01, 0.07, 6, mBolt, 0.41 + 0.075 * Math.cos(a), 1.228, 0.075 * Math.sin(a)); }
+  box(0.02, 0.1, 0.005, mRust, 0.43, 1.14, 0.052);
+  cyl(0.05, 0.98, 10, mFlow, 0.41, 0.71, 0);
+  cyl(0.09, 0.03, 10, mFlange, 0.41, 0.215, 0);
+  cyl(0.095, 0.012, 10, mRust, 0.41, 0.235, 0);
+  add(new THREE.LatheGeometry([new THREE.Vector2(0, 0.25), new THREE.Vector2(0.1, 0.21), new THREE.Vector2(0.2, 0.16)], 10), mSand, 0.41, 0, 0);
+  box(0.2, 0.03, 0.16, mFlange, 0.28, 0.9, 0);
+  { const tg = new THREE.TorusGeometry(0.062, 0.008, 4, 8, PI); tg.rotateZ(-PI / 2); tg.rotateX(PI / 2); add(tg, mStem, 0.41, 0.9, 0); }
+  for (const s of [-1, 1]) { cyl(0.008, 0.08, 6, mStem, 0.31, 0.9, s * 0.062).rotation.z = PI / 2; cyl(0.014, 0.012, 6, mBolt, 0.27, 0.9, s * 0.062).rotation.z = PI / 2; }
+  box(0.02, 0.08, 0.005, mRust, 0.3, 0.84, 0.083);
+  // tag plates on the master and second valve, stencil plate on the third, gauge line down the stack with clips
+  box(0.08, 0.05, 0.005, mPlate, -0.1, 0.82, 0.133);
+  box(0.08, 0.05, 0.005, mPlate, 0.1, 1.2, 0.133);
+  box(0.14, 0.08, 0.006, mPlate, 0, 1.86, 0.133);
+  cyl(0.006, 0.56, 6, mStem, -0.16, 2.0, 0.16);
+  cyl(0.006, 0.12, 6, mStem, -0.11, 2.28, 0.135).rotation.z = PI / 2;
+  for (const cy of [2.05, 1.8]) box(0.02, 0.02, 0.03, mBolt, -0.16, cy, 0.15);
+  // lifting eyes on the top flange
+  for (const ex of [-0.12, 0.12]) add(new THREE.TorusGeometry(0.025, 0.007, 4, 8), mFlange, ex, 2.23, 0);
   studRing(1.63, 0.21, 8);
   // third valve
   block(0.34, 0.3, 0.26, 1.86);

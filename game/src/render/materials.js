@@ -52,10 +52,16 @@ import { classify, RECIPES } from '../../surfaces.js';
  * surfaces.js name the lighting rig reads for its dust hold (DUST_HOLD) and its sand skip.
  */
 export const SETS = {
-  sand_sunlit:           { scale: 3.0, normal: 1.3, albedo: 1.0, rough: 0.8, recipe: 'ground' },
-  sand_packed:           { scale: 2.0, normal: 1.0, albedo: 1.0, rough: 0.8, recipe: 'ground' },
+  // round 4 (owner): the sand ripples read too large and too even, like wrinkled cloth, at a 3 m tile with a
+  // 1.3 normal. Real ripples are 5 to 15 cm apart and a centimetre high: the tile drops to 1 m (the same
+  // micro tile the terrain samples, so a fillet and the ground it sits on carry the same ripple) and the
+  // relief to 0.5. The macro 12 m sample on the terrain carries the drift scale variation.
+  sand_sunlit:           { scale: 1.0, normal: 0.5, albedo: 1.0, rough: 0.8, recipe: 'ground' },
+  sand_packed:           { scale: 2.0, normal: 0.7, albedo: 1.0, rough: 0.8, recipe: 'ground' },
   red_oxide_steel:       { scale: 2.0, normal: 0.8, albedo: 1.0, rough: 1.0, recipe: 'metal' },
-  galvanised_corrugated: { scale: 1.2, normal: 0.9, albedo: 1.0, rough: 1.0, recipe: 'metal' },
+  // round 4 (owner): zinc sheet in shade went blue grey. The fill is now warm neutral (lighting.js) and the set
+  // takes a small warm bias on top: dust and rust bloom on twenty year old galvanising
+  galvanised_corrugated: { scale: 1.2, normal: 0.9, albedo: 1.0, rough: 1.0, recipe: 'metal', tint: [1.04, 1.0, 0.92] },
   concrete_bleached:     { scale: 2.5, normal: 0.9, albedo: 1.0, rough: 0.9, recipe: 'stone' },
   timber_weathered:      { scale: 1.0, normal: 0.9, albedo: 1.0, rough: 0.9, recipe: 'timber' },
   canvas_tan:            { scale: 0.5, normal: 0.8, albedo: 0.9, rough: 0.8, recipe: 'fabric' },
@@ -74,6 +80,15 @@ const HERO_1024 = new Set(['sand_sunlit', 'red_oxide_steel']);
 const GALVANISED_ASSETS = /corrugated|shipping_container|barbed_wire|caged_ladder|catwalk|ibc_tote|mud_pump_shed|pump_house|bunkhouse|watchtower|floodlight_mast|steel_shelving|locker_bank/;
 /** Assets whose 'stone' is rock, not concrete. */
 const ROCK_ASSETS = /rock_outcrop|culvert|debris_scatter/;
+/**
+ * Per asset tint on a recipe (round 4, owner): the palm trunk read paler than lit sand. Its vertex
+ * colours run grey 0x8f8a7e to tan and, being a vertical cylinder, it takes the low sun at 2.5x the
+ * irradiance of flat ground; the reference trunk is a dark grey brown. The asset is not touched:
+ * the multiplier goes onto the part's colour here, before it is baked into the vertices.
+ */
+const ASSET_TINT = [
+  { asset: /palm_tree/, recipe: 'timber', k: [0.58, 0.56, 0.52] },
+];
 
 // ------------------------------------------------------------------------------------------ textures
 const TEX = {};                  // set -> { map, normal, rough, mean: Color, roughMean }
@@ -222,6 +237,7 @@ uniform sampler2D uTriNormal;
 uniform sampler2D uTriRough;
 uniform vec4 uTriK;          // x: 1 / metres per tile, y: normal strength, z: albedo strength, w: roughness strength
 uniform vec3 uTriMean;       // mean linear albedo of the tile
+uniform vec3 uTriTint;       // per set colour bias (SETS[].tint), 1 for most sets
 uniform float uTriRoughMean;
 uniform float uTriLocal;
 uniform float uTriNFlip;
@@ -280,7 +296,7 @@ vec3 triN; float triR;
     rgh += texture2D( uTriRough, uv ).r * bw.z;
   }
   vec3 ratio = clamp( alb / max( uTriMean, vec3( 0.02 ) ), 0.2, 3.0 );
-  diffuseColor.rgb *= mix( vec3( 1.0 ), ratio, uTriK.z );
+  diffuseColor.rgb *= mix( vec3( 1.0 ), ratio, uTriK.z ) * uTriTint;
   triN = normalize( nrm );
   triR = clamp( mix( 1.0, rgh / max( uTriRoughMean, 0.05 ), uTriK.w ), 0.2, 1.6 );
 }`;
@@ -317,6 +333,7 @@ export class TriplanarMaterial extends VertexPBRMaterial {
     const detail = this.userData.triDetail || 1;   // < 1 = a smaller tile: weapons and the viewmodel are seen at 0.3 m
     shader.uniforms.uTriK = { value: new THREE.Vector4(1 / (S.scale * detail), S.normal, S.albedo, T.rough ? S.rough : 0) };
     shader.uniforms.uTriMean = { value: T.mean };
+    shader.uniforms.uTriTint = { value: new THREE.Color(...(S.tint || [1, 1, 1])) };
     shader.uniforms.uTriRoughMean = { value: T.roughMean };
     shader.uniforms.uTriLocal = { value: this.userData.triLocal ? 1 : 0 };
     shader.uniforms.uTriNFlip = { value: NORMAL_FLIP };
@@ -394,6 +411,7 @@ export function applyMaterials(root, opts = {}) {
       mm.name = src.name;
       mm.map = T.map; mm.normalMap = T.normal; mm.roughnessMap = T.rough || null;
       mm.normalScale = new THREE.Vector2(1, 1);
+      for (const t of ASSET_TINT) if (t.asset.test(asset) && (src.name === t.recipe || SETS[set].recipe === t.recipe)) mm.color.multiply(new THREE.Color(...t.k));
       clones.set(ck, mm);
     }
     o.material = mm;
@@ -486,13 +504,14 @@ uniform sampler2D uTrSand; uniform sampler2D uTrSandN; uniform sampler2D uTrSand
 uniform sampler2D uTrPack; uniform sampler2D uTrPackN; uniform sampler2D uTrPackR;
 uniform vec4 uTrMean; uniform vec4 uTrMeanP; uniform float uTrNFlip;
 float trRough;`;
-// micro 2 m and macro 12 m for sand; the packed tile (tyre tracks) at 2 m with a 9 m macro
+// micro 1 m (round 4, was 2 m: the owner read the 2 m ripples as wrinkled cloth) and macro 12 m for sand;
+// the packed tile (tyre tracks) at 2 m with a 9 m macro
 // uv = (x, -z): the same lay as the triplanar Y projection on every sand fillet, so ripples run the
 // same way on the ground and on the drift against a wall; three's tangent frame here has +v toward +z
 // (vNormalMapUv), so the sampled normal's green is flipped back below
 const TERRAIN_ALB_FS = /* glsl */`
 vec2 trWP = vec2( vDerrickWP.x, -vDerrickWP.y );
-vec2 trUvS = trWP * 0.5, trUvSM = trWP * ( 1.0 / 12.0 ) + 0.37;
+vec2 trUvS = trWP * 1.0, trUvSM = trWP * ( 1.0 / 12.0 ) + 0.37;
 vec2 trUvP = trWP * 0.5, trUvPM = trWP * ( 1.0 / 9.0 ) + 0.61;
 vec3 trS = texture2D( uTrSand, trUvS ).rgb / max( uTrMean.rgb, 0.02 );
 vec3 trSM = texture2D( uTrSand, trUvSM ).rgb / max( uTrMean.rgb, 0.02 );
@@ -515,8 +534,11 @@ const TERRAIN_NRM_FS = /* glsl */`
   vec3 trNA = texture2D( uTrSandN, trUvS ).xyz * 2.0 - 1.0;
   vec3 trNB = texture2D( uTrSandN, trUvSM ).xyz * 2.0 - 1.0;
   vec3 trNP = texture2D( uTrPackN, trUvP ).xyz * 2.0 - 1.0;
-  float trRip = mix( 0.8, 1.5, dTex.a );
-  vec3 trNS = normalize( vec3( trNA.xy * trRip + trNB.xy * 0.4, trNA.z * trNB.z ) );
+  // round 4: ripple relief cut (was 0.8 to 1.5 micro, 0.4 macro): a centimetre high ripple does not shade
+  // like a fold of cloth; the crests no longer catch the sun to white and the troughs no longer fall into
+  // the frame's darkest quarter
+  float trRip = mix( 0.35, 0.7, dTex.a );
+  vec3 trNS = normalize( vec3( trNA.xy * trRip + trNB.xy * 0.25, trNA.z * trNB.z ) );
   vec3 mapN = normalize( mix( trNS, trNP, trPk ) );
   mapN.y *= -uTrNFlip;
   mapN.xy *= normalScale * ( 1.0 - smoothstep( 25.0, 60.0, length( vViewPosition ) ) );

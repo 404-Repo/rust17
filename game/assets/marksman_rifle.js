@@ -23,6 +23,7 @@ export default function (THREE) {
   const oliveS = M(0x585c40, 'fabric', 0.70, 0.1);
   const cloth = M(0xb0a07c, 'fabric', 0.85, 0.0);
   const clothD = M(0xa09270, 'fabric', 0.85, 0.0);
+  const khaki = M(0x7a6a4c, 'fabric', 0.86, 0.0);      // round 4: the riser strap, militia khaki webbing
   const glass = new THREE.MeshStandardMaterial({ color: 0x2a3a44, roughness: 0.95, metalness: 0.0, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide });   // see through: ADS looks THROUGH the optic
   const reticle = new THREE.MeshStandardMaterial({ color: 0x3a0e08, roughness: 0.6, metalness: 0.0, emissive: 0xff4a30, emissiveIntensity: 2.2 });
   const dark = M(0x34373a, 'metal', 0.65, 0.25, true);
@@ -202,6 +203,67 @@ export default function (THREE) {
   box(0.052, 0.142, 0.004, worn, 0, -0.035, -0.248, st);
   box(0.006, 0.008, 0.014, gun, 0, -0.104, -0.17, st);
   ring(0.008, 0.002, gun, 0, -0.115, -0.17, st, 10);
+
+  // ---- round 4 detail pass ----
+  // stock: the A2 profile tapers under the comb to the toe. A sloped wedge closes the step between body and toe,
+  // worn edge strips break the black slab, the trapdoor shows on the buttplate, a QD loop on the end plate.
+  const wedge = box(0.046, 0.012, 0.088, rubber, 0, -0.074, -0.055, st); wedge.rotation.x = -0.62;
+  const wedgeL = box(0.047, 0.003, 0.088, rubberL, 0, -0.0805, -0.055, st); wedgeL.rotation.x = -0.62;   // its worn lower edge
+  box(0.048, 0.003, 0.16, rubberL, 0, -0.0995, -0.17, st);              // toe bottom edge, worn
+  box(0.003, 0.062, 0.25, rubberL, 0.0225, -0.02, -0.125, st);          // sun side edge of the body
+  box(0.003, 0.042, 0.16, rubberL, 0.0235, -0.08, -0.17, st);
+  box(0.030, 0.080, 0.002, dark, 0, -0.040, -0.2815, st);               // trapdoor outline on the buttplate
+  box(0.026, 0.074, 0.003, rubber, 0, -0.040, -0.282, st);              // the door itself, proud
+  cyl(0.0030, 0.030, worn, 0, 0.002, -0.2825, 'x', 6, st);              // trapdoor hinge pin
+  cyl(0.0030, 0.004, worn, 0, -0.082, -0.283, 'z', 6, st);              // latch button
+  const qd = ring(0.007, 0.002, gun, -0.026, 0.0, 0.0, st, 10); qd.rotation.y = Math.PI / 2;   // QD sling loop, left of the end plate
+  cyl(0.0040, 0.004, worn, -0.022, 0.0, 0.0, 'x', 6, st);
+  // cheek riser strap: a khaki webbing loop round body and riser with a buckle on the left
+  box(0.040, 0.003, 0.012, khaki, 0, 0.0505, -0.12, st);
+  box(0.003, 0.104, 0.012, khaki, -0.0235, -0.001, -0.12, st);
+  box(0.003, 0.104, 0.012, khaki, 0.0235, -0.001, -0.12, st);
+  box(0.048, 0.003, 0.012, khaki, 0, -0.0525, -0.12, st);
+  box(0.006, 0.016, 0.014, worn, -0.0245, 0.020, -0.12, st);            // ladder lock buckle
+  box(0.003, 0.010, 0.005, dark, -0.0275, 0.020, -0.12, st);
+  // scope: four clamp screws per ring, open flip up lens caps on the bell and the ocular, knurled turret rings
+  for (const z of [-0.06, 0.03]) for (const sx of [-1, 1]) for (const dz of [-0.006, 0.006]) {
+    cyl(0.0028, 0.010, worn, sx * 0.0235, 0.042, z + dz, 'y', 6, sc);
+    cyl(0.0012, 0.002, dark, sx * 0.0235, 0.0475, z + dz, 'y', 6, sc);
+  }
+  box(0.004, 0.006, 0.014, rustM, -0.026, 0.031, -0.06, sc);           // rust under the left ring bolts too
+  box(0.004, 0.006, 0.014, rustM, -0.026, 0.031, 0.03, sc);
+  const flipCap = (y, z, open, r) => {
+    const h = new THREE.Group(); h.position.set(0, y, z); h.rotation.x = open; sc.add(h);
+    cyl(0.0030, 0.014, worn, 0, 0, 0, 'x', 6, h);                       // hinge
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.003, 12), gunS);
+    disc.rotation.x = Math.PI / 2; disc.position.set(0, r, 0); h.add(disc);
+    const rim = ring(r, 0.002, rubber, 0, r, 0, h, 12);
+    const inner = new THREE.Mesh(new THREE.CylinderGeometry(r - 0.004, r - 0.004, 0.002, 12), dark);
+    inner.rotation.x = Math.PI / 2; inner.position.set(0, r, open > 0 ? -0.002 : 0.002); h.add(inner);   // matte inside face
+    return h;
+  };
+  flipCap(0.064, 0.170, -1.26, 0.027);                                   // objective cap, open, leaning back over the bell
+  flipCap(0.059, -0.161, 1.26, 0.022);                                   // ocular cap, open, leaning forward
+  ring(0.0115, 0.0015, worn, 0, 0.070, -0.015, sc, 12).rotation.x = Math.PI / 2;   // elevation turret knurl
+  box(0.002, 0.006, 0.004, dark, 0, 0.076, -0.004, sc);                 // index line
+  const wk = ring(0.0115, 0.0015, worn, 0.034, 0.038, -0.015, sc, 12); wk.rotation.y = Math.PI / 2;   // windage knurl
+  // bipod: lock knobs at the head, rust under the adapter bolts
+  cyl(0.0050, 0.006, worn, -0.025, -0.020, 0, 'x', 8, bp);
+  cyl(0.0050, 0.006, worn, 0.025, -0.020, 0, 'x', 8, bp);
+  box(0.004, 0.006, 0.010, rustM, -0.017, -0.014, -0.015, bp);
+  box(0.004, 0.006, 0.010, rustM, 0.017, -0.014, 0.015, bp);
+  // handguard: rust under the left panel bolts, a folded flip up front sight on the rail ahead of the panels
+  for (const z of [-0.04, 0.04]) box(0.004, 0.006, 0.02, rustM, -0.031, -0.01, z, hg);
+  box(0.022, 0.008, 0.024, gun, 0, 0.036, 0.13, hg);
+  box(0.018, 0.005, 0.020, gunD, 0, 0.0425, 0.13, hg);
+  cyl(0.0030, 0.024, worn, 0, 0.036, 0.121, 'x', 6, hg);
+  box(0.003, 0.002, 0.020, worn, 0, 0.0455, 0.13, hg);                  // the folded post catches the sun
+  // muzzle brake: cross bolt through the ring, port cuts between the prongs
+  cyl(0.0025, 0.030, worn, 0, 0, 0.04, 'x', 6, mb);
+  for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3 + Math.PI / 6; const p = box(0.006, 0.003, 0.030, dark, Math.cos(a) * 0.013, Math.sin(a) * 0.013, 0.012, mb); p.rotation.z = a; }
+  // magazine floor plate lip
+  box(0.034, 0.003, 0.074, worn, 0, -0.1615, 0, mag);
+  box(0.012, 0.150, 0.003, gunD, 0, -0.085, -0.0355, mag);              // rear spine rib
 
   // ---- sockets ----
   const sock = (name, x, y, z, parent) => { const o = new THREE.Object3D(); o.name = 'socket_' + name; o.position.set(x, y, z); (parent || g).add(o); return o; };

@@ -1,3 +1,7 @@
+// watchtower_gantry r4 detail pass: a framed grating hatch lid standing open on hinges, a yellow
+// plated ID panel on the south fascia, the floodlight cable down the SE canopy post to a junction
+// box, a conduit with saddle clamps down the SE leg, knee braces at the canopy posts, gusset ribs
+// and nuts at the feet, one kicked infill panel on the north face.
 // watchtower_gantry candidate 2: a different reading. Heavier I section legs, a deep
 // fascia plate round the deck with rust running down it as in the concept, the deck
 // as a 0.25 m both ways bar mesh over a dark plate, infill panels in two courses of
@@ -29,6 +33,9 @@ export default function (THREE) {
   const gun = M(0x3a3d40, 'metal', 0.50, 0.60);   // machined: holds no dust film
   const oxR = M(0x6f4732, 'metal', 0.90, 0.12);   // plates gone to rust
   const lens = M(0xc9a227, null, 0.5, 0.0, false, 0xffd9a0);
+  const yel = M(0xc9a227, 'metal', 0.80, 0.15);   // plated ID panel
+  const jbox = M(0x9c988c, 'metal', 0.80, 0.20);  // junction box
+  const rub = M(0x1d1e20, null, 0.90, 0.0);       // cable: unnamed so surfaces.js skips it
 
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
   const box = (w, h, d, mat, x, y, z, parent) => { const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); mm.position.set(x, y, z); (parent || g).add(mm); return mm; };
@@ -67,7 +74,8 @@ export default function (THREE) {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
     const x = sx * w, z = sz * w;
     box(0.34, 0.024, 0.34, ox, x, 0.012, z);
-    for (const bx of [-1, 1]) for (const bz of [-1, 1]) cyl(0.014, 0.05, gun, x + bx * 0.13, 0.04, z + bz * 0.13, 'y', 6);
+    for (const bx of [-1, 1]) for (const bz of [-1, 1]) { cyl(0.014, 0.05, gun, x + bx * 0.13, 0.04, z + bz * 0.13, 'y', 6); box(0.045, 0.014, 0.045, gun, x + bx * 0.13, 0.031, z + bz * 0.13); }
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; const rb = box(0.012, 0.14, 0.08, oxR, 0, 0, 0); rb.position.set(x + 0.1 * Math.sin(a), 0.094, z + 0.1 * Math.cos(a)); rb.rotation.y = a; }
     const mound = new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.16, 7), dust); mound.position.set(x - sx * 0.16, 0.08, z - sz * 0.16); g.add(mound);
     const m2 = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.1, 6), dust); m2.position.set(x - sx * 0.25, 0.05, z - sz * 0.2); g.add(m2);
     box(0.08, 0.2, 0.006, rust, x, 0.15, z + sz * 0.083);
@@ -131,6 +139,19 @@ export default function (THREE) {
     if (u > HX0 && u < HX1) box(0.016, 0.03, HZ0 + D - 0.04, galvD, u, Y2 - 0.015, (HZ0 - D) / 2); else box(0.016, 0.03, 2 * D - 0.04, galvD, u, Y2 - 0.015, 0);
   }
   box(HX1 - HX0 + 0.08, 0.1, 0.03, galv, 0, Y2 + 0.03, HZ0 - 0.015); box(0.03, 0.1, HZ1 - HZ0, galv, HX0 - 0.015, Y2 + 0.03, (HZ0 + HZ1) / 2); box(0.03, 0.1, HZ1 - HZ0, galv, HX1 + 0.015, Y2 + 0.03, (HZ0 + HZ1) / 2);
+  // ---- hatch lid: a framed grating leaf standing open on two hinge knuckles at the north edge, leaning 10 degrees past vertical ----
+  { const lid = new THREE.Group(); lid.position.set(0, Y2 + 0.08, HZ0 - 0.04); lid.rotation.x = -(Math.PI / 2 + 0.17); g.add(lid);
+    const LW = HX1 - HX0 + 0.04, LD = HZ1 - HZ0 - 0.02;
+    box(LW, 0.04, 0.04, galvS, 0, 0, 0.02, lid); box(LW, 0.04, 0.04, galvS, 0, 0, LD - 0.02, lid);
+    box(0.04, 0.04, LD, galvS, -LW / 2 + 0.02, 0, LD / 2, lid); box(0.04, 0.04, LD, galvS, LW / 2 - 0.02, 0, LD / 2, lid);
+    for (let i = 1; i < 4; i++) box(LW - 0.06, 0.03, 0.016, galv, 0, 0, i * LD / 4, lid);
+    for (let i = 1; i < 4; i++) box(0.016, 0.03, LD - 0.06, galvD, -LW / 2 + i * LW / 4, 0, LD / 2, lid);
+    box(0.5, 0.03, 0.05, gun, 0, 0.035, LD - 0.1, lid);                        // grab bar
+    for (const hx of [-0.3, 0.3]) box(0.08, 0.06, 0.06, gun, hx, 0, 0, lid);   // hinge knuckles
+  }
+  for (const hx of [-0.3, 0.3]) { box(0.06, 0.04, 0.1, gun, hx, Y2 + 0.09, HZ0 - 0.08); box(0.04, 0.1, 0.005, rust, hx, Y2 + 0.02, HZ0 - 0.13); }   // hinge leaves on the deck
+  // yellow plated ID panel on the south fascia, dark frame, rust run below it
+  box(0.36, 0.26, 0.008, gun, 0.9, FY + 0.02, D + 0.004); box(0.32, 0.22, 0.012, yel, 0.9, FY + 0.02, D + 0.012); box(0.06, 0.16, 0.005, rust, 0.9, FY - 0.19, D + 0.007);
 
   // ---- handrail, flat bar posts, infill in two courses on N, E, W ----
   const E = D - 0.05, TOP = 1.1;
@@ -149,6 +170,7 @@ export default function (THREE) {
         const u = -1.08 + k * 0.72;
         const pnl = ribbed(0.68, ch, (k + (cy > Y2 + 0.5 ? 1 : 0)) % 2 ? galvS : galv);
         if (nz) { pnl.rotation.y = nz > 0 ? 0 : Math.PI; pnl.position.set(u, cy, nz * (E - 0.03)); }
+        if (f === 'N' && k === 1 && cy < Y2 + 0.5) { pnl.rotation.x = 0.14; pnl.position.z -= 0.05; box(0.6, 0.02, 0.01, rust, u, cy - ch / 2 + 0.01, nz * (E + 0.03)); }   // one sheet kicked out at the bottom
         else { pnl.rotation.y = nx > 0 ? Math.PI / 2 : -Math.PI / 2; pnl.position.set(nx * (E - 0.03), cy, u); }
         box(nz ? 0.03 : 0.004, 0.08, nz ? 0.004 : 0.03, rust, nz ? u : nx * (E - 0.035), cy - 0.2, nz ? nz * (E - 0.035) : u);
       }
@@ -162,6 +184,10 @@ export default function (THREE) {
     box(0.06, ph, 0.06, steel, sx * (E - 0.02), Y2 + ph / 2, sz * (E - 0.02));
     box(0.1, 0.012, 0.1, steel, sx * (E - 0.02), Y2 + 0.006, sz * (E - 0.02));
     box(0.05, 0.16, 0.005, rust, sx * (E - 0.02), Y2 + 0.14, sz * (E - 0.02) + 0.033);
+    // knee braces from the post to the canopy frame, both ways
+    bar(V(sx * (E - 0.02), CY - 0.9 - sz * 0.05, sz * (E - 0.02)), V(sx * (E - 0.55), CY - 0.15 - sz * 0.07, sz * (E - 0.02)), 0.035, 0.035, steel);
+    bar(V(sx * (E - 0.02), CY - 0.9 - sz * 0.05, sz * (E - 0.02)), V(sx * (E - 0.02), CY - 0.15 - sz * 0.03, sz * (E - 0.55)), 0.035, 0.035, steel);
+    box(0.1, 0.06, 0.1, steel, sx * (E - 0.02), CY - 0.9 - sz * 0.05, sz * (E - 0.02));
   }
   const can = new THREE.Group(); can.position.set(0, CY - 0.05, 0); can.rotation.x = tilt; g.add(can);
   const sheet = ribbed(CW, CW, galv, can, true); sheet.rotation.x = -Math.PI / 2; sheet.position.y = 0.02;
@@ -183,6 +209,14 @@ export default function (THREE) {
   box(0.03, 0.3, 0.03, steel, E - 0.35, CY - 0.25, E - 0.12);
   box(0.06, 0.03, 0.2, steel, E - 0.35, CY - 0.1, E - 0.12);
   box(0.03, 0.14, 0.005, rust, E - 0.35, CY - 0.55, E - 0.11);
+  // ---- floodlight cable: from the box along the bracket to the SE canopy post, down its inner face on cable ties to a junction box, then a conduit down the SE leg to the sand ----
+  { const cb = frame(V(E - 0.35, CY - 0.5, E - 0.2), V(E - 0.06, CY - 0.75, E - 0.02)); cyl(0.01, cb.len, rub, 0, 0, 0, 'y', 5, cb.gr);
+    cyl(0.01, CY - 0.75 - (Y2 + 0.24), rub, E - 0.06, (CY - 0.75 + Y2 + 0.24) / 2, E - 0.02, 'y', 5);
+    for (const y of [Y2 + 0.6, Y2 + 1.2, Y2 + 1.8]) box(0.03, 0.02, 0.07, galv, E - 0.055, y, E - 0.02);
+    box(0.1, 0.16, 0.08, jbox, E - 0.11, Y2 + 0.16, E - 0.02); box(0.11, 0.02, 0.09, steel, E - 0.11, Y2 + 0.25, E - 0.02); box(0.04, 0.12, 0.005, rust, E - 0.11, Y2 + 0.03, E + 0.022);
+    cyl(0.015, Y2 - 0.35, galv, w - 0.03, (Y2 - 0.35) / 2 + 0.1, w + 0.095, 'y', 6);
+    for (const y of [0.9, 2.1, 3.3]) { box(0.06, 0.03, 0.03, steel, w - 0.03, y, w + 0.09); box(0.04, 0.14, 0.005, rust, w - 0.03, y - 0.1, w + 0.1); }
+  }
 
   // ---- caged ladder inside the south face, octagonal flat bar hoops ----
   const LZ = D - 0.3;

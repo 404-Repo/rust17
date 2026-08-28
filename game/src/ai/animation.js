@@ -584,6 +584,22 @@ export class SoldierRig {
       out.tx += 0.012 * br * still; out.wy += 0.006 * br * still;
       this.headScan += dt;
       out.hy += still * 0.30 * Math.sin(this.headScan * 0.55) * Math.sin(this.headScan * 0.23 + 1.0);
+      // fix4 ai: a slow weight shift from one foot to the other (pelvis roll, the loaded knee
+      // straighter, the free knee softer) so a standing figure is a different silhouette two
+      // seconds apart instead of a statue
+      const ws = Math.sin(this.t * 0.45 + this.headScan * 0.1) * still * (1 - c);
+      out.pz += 0.035 * ws; out.tz += -0.02 * ws;
+      out.knL += 0.05 * Math.max(0, ws); out.knR += 0.05 * Math.max(0, -ws);
+      out.abL += 0.02 * ws; out.abR += -0.02 * ws;
+      out.lift -= 0.006 * Math.abs(ws);
+    }
+    // fix4 ai: an alert figure holding the shoulder scans the muzzle a little and breathes
+    const holdW = (1 - mw) * (st === 'aim' ? 1 : 0);
+    if (holdW > 0.01) {
+      const br = Math.sin(this.t * 1.5);
+      out.tx += 0.008 * br * holdW; out.wy += 0.004 * br * holdW;
+      const sc = Math.sin(this.t * 0.7) * Math.sin(this.t * 0.31 + 0.8) * holdW;
+      out.ty += 0.06 * sc; out.fx += 0.05 * sc; out.pz += 0.02 * Math.sin(this.t * 0.4) * holdW;
     }
     // the head stays on the aim: it cancels the pelvis and torso twist and most of the lean
     out.hy += -(out.ty + out.py) * 0.85;

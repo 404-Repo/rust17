@@ -9,6 +9,7 @@
  * Lane waypoints are listed west to east; militia walk them in reverse.
  */
 import * as THREE from 'three';
+import { Bot } from './bot.js';   // fix4 ai: corpse ageing
 
 export const LANES = {
   north: [[-58, -16], [-44, -14], [-36, -26], [-22, -33], [-4, -33], [8, -30], [20, -30], [30, -24], [46, -36], [58, -16]],
@@ -36,6 +37,11 @@ export class SquadManager {
     this.time = 0;
     this._pending = new Set();
     this.desiredAlive = 5;
+    // fix4 ai: read only probe for the filmstrip tools (bot state, rig state, speed per bot); harmless in play
+    if (typeof window !== 'undefined') {
+      const reg = (window.__DBGAI_SQUADS__ ||= []); reg.push(this);
+      window.__DBGAI__ = () => reg.flatMap((s) => s.bots.map((b) => ({ id: b.id, team: b.team, st: b.state, rig: b.rig ? b.rig.state : '-', spd: +b.speed.toFixed(1), hp: Math.round(b.hp), tgt: b.target ? (b.target.id || 'player') : null, peek: b.peek, cr: b.crouched, x: +b.pos.x.toFixed(1), z: +b.pos.z.toFixed(1) })));
+    }
   }
 
   laneCount(lane) { let n = 0; for (const b of this.bots) if (b.alive && b.objective && b.objective.lane === lane) n++; return n; }
@@ -142,6 +148,7 @@ export class SquadManager {
 
   update(dt, ctx) {
     this.time = ctx && ctx.time !== undefined ? ctx.time : this.time + dt;
+    Bot.updateCorpses(this.time);
     // shared intel: anything any bot can see
     for (const b of this.bots) {
       if (b.alive && b.target) { this.intel.pos.copy(b.target.pos); this.intel.t = this.time; }

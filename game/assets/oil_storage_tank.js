@@ -177,6 +177,91 @@ export default function (THREE) {
   pipe(0.08, 0.04, steelL, 0.6, 0.32, R + 0.06, 'z', 8);
   bx(0.14, 0.3, 0.008, rust, 0.6, 0.15, R + 0.006);
   bx(0.4, 0.02, 0.35, M(0x8a7a5c, 'ground', 0.95, 0), 0.6, 0.25, R + 0.35);
+  // ---- r4 detail pass: shell manway with davit, anchor chairs, bolted inlet flanges and valve bonnet, pipe support,
+  // sight glass with two valves, roof hatch, rain cap, bracket plate bolts, second seam row on the two eye height courses,
+  // nameplate. Every new fixing carries a rust run below it.
+  {
+    const hex = (mat, x, y, z, parent, r, h, axis) => {
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(r || 0.018, r || 0.018, h || 0.024, 6), mat);
+      if (axis === 'z') b.rotation.x = Math.PI / 2; else if (axis === 'x') b.rotation.z = Math.PI / 2;
+      b.position.set(x, y, z); (parent || g).add(b); return b;
+    };
+    const shellD = M(tint(TANK, 0.86), 'metal', 0.86, 0.2);
+    const shellM = M(tint(TANK, 0.94), 'metal', 0.85, 0.2);
+    const steelD = M(tint(STEEL, 0.92), 'metal', 0.84, 0.3);
+    const galvS = M(tint(GALV, 0.94), 'metal', 0.76, 0.5);
+    // shell manway on the bottom course, east south east, between the seam rows
+    {
+      const s = swing(Math.PI / 4), my = 0.55;
+      const ring = cyl(0.3, 0.3, 0.07, shellD, 0, my, R + 0.02, 20, false, s); ring.rotation.x = Math.PI / 2;
+      const cover = cyl(0.26, 0.26, 0.05, shellM, 0, my, R + 0.08, 20, false, s); cover.rotation.x = Math.PI / 2;
+      for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6 + Math.PI / 12; hex(gun, 0.25 * Math.cos(a), my + 0.25 * Math.sin(a), R + 0.075, s, 0.016, 0.04, 'z'); }
+      for (const dy of [0.09, -0.09]) bx(0.1, 0.05, 0.06, steelL, 0.32, my + dy, R + 0.07, s);      // hinge blocks
+      bx(0.05, 0.95, 0.05, steel, 0.5, my + 0.3, R + 0.06, s);                                        // davit post
+      bx(0.56, 0.04, 0.04, steelD, 0.24, my + 0.75, R + 0.1, s);                                      // davit arm
+      bx(0.035, 0.3, 0.035, steelD, 0, my + 0.58, R + 0.1, s);                                        // drop to the cover
+      bx(0.16, 0.03, 0.05, gun, 0, my + 0.07, R + 0.12, s);                                           // lifting handle
+      bx(0.06, 0.16, 0.006, rust, 0.5, my - 0.25, R + 0.09, s);                                       // drip off the davit foot
+      bx(0.44, 0.34, 0.008, rust, 0.03, my - 0.46, R + 0.008, s);                                     // heavy run below the ring
+      bx(0.14, 0.2, 0.008, rust, 0.3, my - 0.36, R + 0.009, s);
+    }
+    // anchor chairs every 30 degrees round the foot (none behind the inlet)
+    for (let k = 0; k < 12; k++) {
+      if (k === 6) continue;
+      const s = swing(k * Math.PI / 6);
+      bx(0.24, 0.03, 0.16, steelL, 0, 0.5, R + 0.08, s);
+      for (const dx of [-0.1, 0.1]) bx(0.02, 0.36, 0.14, k % 2 ? steel : steelD, dx, 0.32, R + 0.07, s);
+      bx(0.05, 0.05, 0.05, gun, 0, 0.54, R + 0.09, s);
+      bx(0.04, 0.04, 0.04, gun, 0, 0.585, R + 0.09, s);
+      bx(0.05, 0.2 + 0.04 * (k % 3), 0.008, rust, 0.14, 0.4, R + 0.008, s);
+      bx(0.04, 0.16, 0.008, rust, -0.15, 0.42, R + 0.008, s);
+    }
+    // inlet: bolts on both flanges, a bonnet on the valve, a concrete support block with a clamp under the drop
+    for (const z of [R + 0.12, R + 0.5]) for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 + Math.PI / 6; hex(gun, 0.165 * Math.cos(a), 0.55 + 0.165 * Math.sin(a), z + (z < R + 0.3 ? 0.035 : -0.035), N, 0.014, 0.03, 'z'); }
+    cyl(0.13, 0.13, 0.03, steel, 0, 0.735, R + 0.7, 10, false, N);
+    cyl(0.1, 0.1, 0.12, steelL, 0, 0.8, R + 0.7, 10, false, N);
+    bx(0.5, 0.28, 0.5, conc, 0.45, 0.14, R + 0.95, N); bx(0.44, 0.012, 0.44, sand, 0.45, 0.286, R + 0.95, N);
+    bx(0.1, 0.06, 0.32, steel, 0.2, 0.42, R + 0.95, N); hex(gun, 0.2, 0.46, R + 0.95, N, 0.014, 0.03);
+    bx(0.2, 0.1, 0.006, rust, 0.3, 0.22, R + 1.204, N);
+    // sight glass: a galvanised gauge pipe on three brackets with a valve top and bottom
+    {
+      const s = swing(-Math.PI / 4 - 0.12);
+      cyl(0.03, 0.03, 3.7, galvS, 0, 2.35, R + 0.22, 10, false, s);
+      for (const y of [0.9, 2.2, 3.5]) { bx(0.06, 0.05, 0.2, steel, 0, y, R + 0.12, s); bx(0.05, 0.16, 0.006, rust, 0, y - 0.13, R + 0.008, s); }
+      for (const y of [0.55, 4.15]) {
+        pipe(0.035, 0.24, steel, 0, y, R + 0.11, 'z', 8, s);
+        bx(0.12, 0.12, 0.12, steel, 0, y, R + 0.22, s);
+        const w = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.012, 5, 10), red); w.rotation.y = Math.PI / 2; w.position.set(0.11, y, R + 0.22); s.add(w);
+        hex(gun, 0.085, y, R + 0.22, s, 0.012, 0.06, 'x');
+        bx(0.08, 0.14, 0.006, rust, 0.05, y - 0.15, R + 0.008, s);
+      }
+    }
+    // roof hatch on the north slope, bolted, hinged up slope, with a rust run down slope
+    {
+      const s = swing(Math.PI + 0.35), slope = Math.atan2(0.6, R + 0.08);
+      const hatch = cyl(0.3, 0.3, 0.14, shellM, 0, 4.79, 2.3, 16, false, s); hatch.rotation.x = slope;
+      for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; hex(gun, 0.25 * Math.cos(a), 0.08, 0.25 * Math.sin(a), hatch, 0.014, 0.03); }
+      bx(0.1, 0.03, 0.06, steelL, -0.14, 0.085, -0.3, hatch); bx(0.1, 0.03, 0.06, steelL, 0.14, 0.085, -0.3, hatch);
+      bx(0.16, 0.03, 0.03, gun, 0, 0.085, 0.3, hatch);
+      const run = bx(0.4, 0.006, 0.3, rust, 0, 4.7, 2.78, s); run.rotation.x = slope;
+    }
+    // rain cap on the vent, three legs
+    for (let k = 0; k < 3; k++) { const a = k * 2 * Math.PI / 3; bx(0.02, 0.08, 0.02, steel, 0.16 * Math.cos(a), H + 0.6 + 0.29 + 0.055, 0.16 * Math.sin(a)); }
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.16, 14), steelD); cap.position.y = H + 0.6 + 0.29 + 0.095 + 0.08; g.add(cap);
+    // bolt heads on the twelve lower bracket plates
+    for (let k = 0; k < 12; k++) { const s = swing(k * Math.PI / 6 + Math.PI / 12); for (const dx of [-0.05, 0.05]) bx(0.035, 0.035, 0.03, gun, dx, H - 0.95, R + 0.04, s); }
+    // second seam row on the bottom two courses, rivets from above the chairs up to the second seam
+    for (let k = 0; k < 6; k++) {
+      if (k === 3) continue;
+      const s = swing(k * Math.PI / 3);
+      bx(0.14, 2 * C - 0.06, 0.02, seam, 0, C, R + 0.01, s);
+      for (let i = 2; i < 8; i++) bx(0.05, 0.05, 0.03, steelL, 0.035 * ((i & 1) ? 1 : -1), 0.115 + i * 0.23, R + 0.03, s);
+      bx(0.05, 0.22, 0.008, rust, 0.03, C + 0.25, R + 0.024, s);
+      bx(0.05, 0.18, 0.008, rust, -0.03, 0.72, R + 0.024, s);
+    }
+    // nameplate on the shade side
+    { const s = swing(5 * Math.PI / 4); bx(0.5, 0.3, 0.02, M(0x2f4d66, 'metal', 0.8, 0.2), 0, 2.1, R + 0.012, s); for (const dx of [-0.2, 0.2]) for (const dy of [-0.1, 0.1]) bx(0.03, 0.03, 0.02, gun, dx, 2.1 + dy, R + 0.03, s); bx(0.46, 0.14, 0.006, rust, 0, 1.87, R + 0.01, s); }
+  }
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by

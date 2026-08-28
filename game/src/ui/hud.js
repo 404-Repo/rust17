@@ -118,7 +118,7 @@ function esc(s) { return String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;
 function fmtTime(s) { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
 
 export class HUD {
-  constructor(container, { round = 'r3', playerName = 'You', playerTeam = 'rangers', compass = true } = {}) {
+  constructor(container, { round = 'r4', playerName = 'You', playerTeam = 'rangers', compass = true } = {}) {
     ensureStyle();
     this.container = container || document.body;
     this.playerName = playerName; this.playerTeam = playerTeam;

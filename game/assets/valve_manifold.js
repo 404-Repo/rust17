@@ -32,6 +32,11 @@ export default function (THREE) {
   const mSand = mat(P.sand, 'ground', 0.95, 0.0);
   const mStand = mat(shade(P.steel, 1.0), 'metal', 0.8, 0.3);
   const mDial = mat(P.galv, 'metal', 0.7, 0.2);
+  const mPlate = mat(P.tank, 'metal', 0.8, 0.15);
+  const mLever = mat(shade(P.red, 1.05), 'metal', 0.85, 0.1);
+  // gusset plate: right angle at the origin, one edge out along local +x, one edge down; ry turns local +x
+  // to world +z (ry = -PI/2), -z (ry = PI/2), +x (0) or -x (PI); the plate is 12 mm thick
+  const gusset = (x, y, z, out, down, m, ry, parent = g) => { const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(out, 0); s.lineTo(0, -down); s.closePath(); const geo = new THREE.ExtrudeGeometry(s, { depth: 0.012, bevelEnabled: false }); geo.translate(0, 0, -0.006); const o = add(geo, m, x, y, z, parent); o.rotation.y = ry; return o; };
 
   const R = 0.15, AX = 0.8, L = 2.4, FT = 0.05, FR = 0.22;
   const hs = add(new THREE.CylinderGeometry(R, R, L - 2 * FT, 12, 1, true, -PI / 2, PI), mPipeS, 0, AX, 0); hs.rotation.z = PI / 2;
@@ -66,6 +71,24 @@ export default function (THREE) {
     wedge(0.4, 0.2, 0.1, mSand, sx + 0.18, 0, 0, 0);
     wedge(0.4, 0.2, 0.1, mSand, sx - 0.18, 0, 0, PI);
   }
+  // four gusset plates on each stanchion foot
+  for (const sx of [-0.8, 0.8]) {
+    gusset(sx, 0.15, 0.045, 0.1, 0.13, mStand, -PI / 2); gusset(sx, 0.15, -0.045, 0.1, 0.13, mStand, PI / 2);
+    gusset(sx + 0.045, 0.15, 0, 0.1, 0.13, mStand, 0); gusset(sx - 0.045, 0.15, 0, 0.1, 0.13, mStand, PI);
+  }
+  // bypass line under the header: two drops, a 60 mm run with flanged unions and a lever ball valve in the middle
+  for (const dx of [-0.6, 0.6]) { cyl(0.03, 0.22, 8, mPipe, dx, AX - R - 0.1, 0); cyl(0.036, 0.07, 8, mPipe, dx, 0.45, 0); cyl(0.036, 0.02, 8, mRust, dx, AX - R - 0.02, 0); }
+  cyl(0.03, 1.2, 8, mPipe, 0, 0.45, 0).rotation.z = PI / 2;
+  for (const ux of [-0.22, 0.22]) { cyl(0.05, 0.03, 8, mFlange, ux, 0.45, 0).rotation.z = PI / 2; cyl(0.036, 0.02, 8, mRust, ux + (ux > 0 ? 0.03 : -0.03), 0.45, 0).rotation.z = PI / 2; box(0.02, 0.05, 0.005, mRust, ux, 0.41, 0.027); }
+  cyl(0.06, 0.14, 10, mBody, 0, 0.45, 0).rotation.z = PI / 2;
+  cyl(0.012, 0.05, 6, mStem, 0, 0.5, 0);
+  cyl(0.02, 0.02, 8, mLever, 0, 0.53, 0);
+  box(0.22, 0.012, 0.02, mLever, 0.1, 0.53, 0.03).rotation.y = 0.3;
+  // tag plate on each valve body, stencil plate on the header south face, isolation cock under the gauge
+  for (const bx of [-0.9, -0.3, 0.3, 0.9]) box(0.06, 0.04, 0.005, mPlate, bx - 0.06, 1.37, 0.083);
+  { const p = box(0.25, 0.1, 0.006, mPlate, 0.6, AX + R * Math.sin(0.15), R * Math.cos(0.15) + 0.004); p.rotation.x = -0.15; }
+  cyl(0.02, 0.03, 8, mBody, -1.06, AX + 0.43, 0.1);
+  box(0.05, 0.006, 0.01, mLever, -1.035, AX + 0.445, 0.1);
   const wheel = (x, y, z, rad, m, axisZ) => {
     const w = new THREE.Group(); w.position.set(x, y, z); if (axisZ) w.rotation.x = PI / 2; g.add(w);
     const rim = add(new THREE.TorusGeometry(rad, 0.013, 6, 14), m, 0, 0, 0, w); rim.rotation.x = PI / 2;

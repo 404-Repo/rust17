@@ -289,15 +289,69 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
   }
   progress(0.05, 'checking assets');
 
+  let fineParam = null;
+  try { fineParam = new URLSearchParams(location.search).get('fine'); } catch (e) { /* no location */ }
+  const FINE_SIZE = fineParam === null ? 0.18 : +fineParam;
+  // integrator r4: screen size cull. The asset pass added bolts, rivets, nails, hinge leaves, drips and
+  // tabs, each its own small mesh; a 6 cm bolt is 3 px at 15 m and an 18 cm part 4 px at 22 m, and the
+  // judges' own notes say these parts read only inside a few metres. Once per asset the part tree is
+  // loaded, every mesh whose box is under FINE_SIZE on all three axes goes to a fine half and the rest
+  // to a coarse half, and each half is collapsed by material (the same merge loadPrototype does), so a
+  // placement still clones a handful of meshes. The fine halves are baked into a '#fine' group per
+  // block, which main.js hides past FINE_CULL (block edge distance, fade in lighting.js) and which
+  // never casts. Nothing is decimated and nothing is removed: within its reading distance every part
+  // draws. Instanced meshes (foliage cards), lamps and glass stay in the coarse half. '?fine=0' turns
+  // the split off for the A/B.
+  const splitProtos = new Map();
+  let fineMeshes = 0;
+  function loadSplit(name) {
+    if (!splitProtos.has(name)) splitProtos.set(name, buildSplit(name));   // the promise, so parallel callers share one build
+    return splitProtos.get(name);
+  }
+  async function buildSplit(name) {
+    const tree = await ASSET(url(name), { keepHierarchy: true, surfaces: true });
+    tree.updateMatrixWorld(true);
+    const size = new THREE.Box3().setFromObject(tree).getSize(new THREE.Vector3());   // what assetSize() would report
+    const _b = new THREE.Box3(), _s = new THREE.Vector3();
+    const fine = [];
+    tree.traverse((o) => {
+      if (!o.isMesh || !o.geometry || o.isInstancedMesh) return;
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (m && (m.transparent || (m.emissive && m.emissive.getHex && m.emissive.getHex()))) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      _b.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); _b.getSize(_s);
+      if (Math.max(_s.x, _s.y, _s.z) < FINE_SIZE) fine.push(o);
+    });
+    const fineRoot = new THREE.Group();
+    for (const m of fine) {
+      const w = m.matrixWorld.clone();
+      m.removeFromParent();
+      fineRoot.add(m);
+      m.matrix.copy(w); m.matrix.decompose(m.position, m.quaternion, m.scale);
+    }
+    fineMeshes += fine.length;
+    return { coarse: bakeStatic(tree), fine: fine.length ? bakeStatic(fineRoot) : null, fineParts: fine.length, size };
+  }
   // 3. preload in chunks so the loading bar moves
   const toLoad = names.filter((n) => present.has(n));
-  for (let i = 0; i < toLoad.length; i += 6) {
-    await preloadAssets(toLoad.slice(i, i + 6).map(url));
-    progress(0.05 + 0.5 * ((i + 6) / Math.max(1, toLoad.length)), 'loading assets');
-  }
   const sizes = new Map();
-  for (const n of toLoad) {
-    try { sizes.set(n, await assetSize(url(n))); } catch (e) { console.warn('[level] assetSize failed', n, e.message); }
+  const movingNames = new Set(placements.filter((p) => p.moving).map((p) => p.asset));
+  for (let i = 0; i < toLoad.length; i += 6) {
+    const chunk = toLoad.slice(i, i + 6);
+    if (FINE_SIZE > 0) {
+      // integrator r4: one build per asset. The split prototype is the only load path for static props;
+      // movers still take the plain merged prototype for their size.
+      await Promise.all(chunk.map(async (n) => {
+        try {
+          if (movingNames.has(n)) { await preloadAssets([url(n)]); sizes.set(n, await assetSize(url(n))); }
+          else sizes.set(n, (await loadSplit(n)).size);
+        } catch (e) { console.warn('[level] load failed', n, e.message); }
+      }));
+    } else {
+      await preloadAssets(chunk.map(url));
+      for (const n of chunk) { try { sizes.set(n, await assetSize(url(n))); } catch (e) { console.warn('[level] assetSize failed', n, e.message); } }
+    }
+    progress(0.05 + 0.5 * ((i + 6) / Math.max(1, toLoad.length)), 'loading assets');
   }
 
   // 4. place
@@ -319,7 +373,10 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
     i++;
     if (i % 40 === 0) progress(0.55 + 0.3 * (i / placements.length), 'placing');
     if (!present.has(p.asset)) { stats.skipped++; continue; }
-    const obj = await ASSET(url(p.asset), p.moving ? { keepHierarchy: true, surfaces: true } : { surfaces: true });
+    // integrator r4: static props come from the split prototype (coarse and fine halves, each already
+    // collapsed by material, see loadSplit above); movers keep their part tree as before
+    const split = (!p.moving && FINE_SIZE > 0) ? await loadSplit(p.asset) : null;
+    const obj = split ? split.coarse.clone(true) : await ASSET(url(p.asset), p.moving ? { keepHierarchy: true, surfaces: true } : { surfaces: true });
     let meshes = 0;
     obj.traverse((o) => { if (o.isMesh) meshes++; });
     if (!meshes) { console.warn(`[level] asset ${p.asset} loaded empty, placement ${p.tag} skipped`); stats.empty++; continue; }
@@ -357,7 +414,21 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
     let g = blockGroups.get(gkey);
     if (!g) { g = new THREE.Group(); g.name = 'block_' + gkey; blockGroups.set(gkey, g); }
     g.add(obj);
+    if (split && split.fine && !gkey.endsWith('#nocast')) {
+      // integrator r4: the fine half, same transform, its own group of the block (scatter stays whole)
+      const fobj = split.fine.clone(true);
+      fobj.position.copy(obj.position); fobj.quaternion.copy(obj.quaternion); fobj.scale.copy(obj.scale);
+      fobj.name = p.tag + '#fine';
+      fobj.userData.asset = p.asset;
+      fobj.userData.block = p.block;
+      applyMaterials(fobj, { asset: p.asset });
+      const fkey = p.block + '#fine';
+      let fg = blockGroups.get(fkey);
+      if (!fg) { fg = new THREE.Group(); fg.name = 'block_' + fkey; blockGroups.set(fkey, fg); }
+      fg.add(fobj);
+    }
   }
+  stats.fineMeshes = fineMeshes;
   // size sanity against the TSV numbers carried in the collider specs (a wrong size is a
   // collider that does not match what you see)
   for (const [n, s] of sizes) {
@@ -397,7 +468,7 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
   const blocks = new Map();
   let staticMeshes = 0;
   for (const [gkey, g] of blockGroups) {
-    const noCast = gkey.endsWith('#nocast');
+    const noCast = gkey.endsWith('#nocast') || gkey.endsWith('#fine');   // integrator r4: small parts never cast
     const key = gkey.split('#')[0];
     const names = new Set();
     for (const child of g.children) if (child.userData && child.userData.asset) names.add(child.userData.asset);

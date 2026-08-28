@@ -198,7 +198,87 @@ export default function (THREE) {
   box(cd, 0.04, 0.1, 0.06, STEEL, 0, 0.2, -0.05); box(cd, 0.04, 0.1, 0.06, STEEL, 0, -0.2, -0.05); streak(cd, 'nx', -0.02, 0.15, -0.05, 0.3, 0.06);
   mesh(g, channel(2.3, 0.12, 0.1, 0.02), STEEL, -4.0, 0.75, 0, 0, PI / 2, 0);
   box(g, 0.08, 0.3, 0.06, STEEL, -3.95, 0.9, 0.7); box(g, 0.08, 0.3, 0.06, STEEL, -3.95, 0.9, -0.7);
-  for (const sz of [-1, 1]) { box(g, 0.03, 0.1, 0.15, mRed(-0.1), -4.06, 0.75, sz * 1.0); box(g, 0.03, 0.5, 0.45, RUBBER, -3.35, 0.45, sz * 0.95); }
+  for (const sz of [-1, 1]) {
+    box(g, 0.03, 0.1, 0.15, mRed(-0.1), -4.06, 0.75, sz * 1.0); box(g, 0.03, 0.5, 0.45, RUBBER, -3.35, 0.45, sz * 0.95);
+    // r4b: mudflap bracket, a steel top strip bolted through the flap and an arm out from the chassis rail
+    box(g, 0.05, 0.03, 0.47, STEEL, -3.35, 0.715, sz * 0.95); box(g, 0.05, 0.04, 0.5, STEEL, -3.35, 0.735, sz * 0.75);
+    for (const dz of [-0.15, 0.15]) { cyl(g, 0.012, 0.008, GUN, -3.379, 0.715, sz * 0.95 + dz, 0, 0, PI / 2, { seg: 6 }); streak(g, 'nx', -3.365, 0.7, sz * 0.95 + dz, 0.2, 0.04); }
+  }
+  // ---- r4 detail pass: what makes a tanker a tanker. Bolted saddle straps over the shell with foot plates and tie rods to
+  //      outrigger beams, a grated walkway with a handrail beside the manhole, a longitudinal weld seam, a discharge pipe with
+  //      flanges to the valve cabinet, rear light housings and a hazard plate, a spare wheel and air reservoirs under the
+  //      chassis, an exhaust stack behind the cab, cab steps, wipers, marker lamps and hub nuts. ----
+  const mYel = M(tint(P.yellow, -0.15), 'metal', { roughness: 0.88, metalness: 0.05 });
+  const strapGeo = new THREE.CylinderGeometry(1.14, 1.14, 0.08, 20, 1, true, -0.45, PI + 0.9);
+  for (const bx of [0.7, -0.9, -2.7]) {
+    const st = new THREE.Mesh(strapGeo, bx < -2.2 ? SCORCH : GUN); st.rotation.z = PI / 2; st.scale.set(0.68, 1, 1); st.position.set(bx, 0, 0); st.castShadow = st.receiveShadow = true; tank.add(st);
+    box(g, 0.14, 0.08, 2.2, FRAME, bx, 1.17, 0);                                                   // outrigger beam under the saddle
+    for (const sz of [-1, 1]) {
+      const fy = 2.05 - 0.75 * Math.sin(0.45), fz = sz * 1.1 * Math.cos(0.45);
+      box(g, 0.12, 0.08, 0.1, GUN, bx, fy - 0.02, fz + sz * 0.04);                                  // strap foot plate
+      cyl(g, 0.014, fy - 1.22, STEEL, bx, (fy + 1.21) / 2, fz + sz * 0.06);                         // tie rod down to the beam
+      cyl(g, 0.02, 0.03, GUN, bx, fy + 0.02, fz + sz * 0.1, PI / 2, 0, 0, { seg: 6 });               // nut
+      box(g, 0.1, 0.06, 0.1, GUN, bx, 1.24, fz + sz * 0.06);                                        // rod foot on the beam end
+      if (bx > -2.2) streak(g, sz > 0 ? 'pz' : 'nz', bx, 1.2, sz * 1.1, 0.3, 0.12);
+    }
+  }
+  for (const sz of [-1, 1]) box(g, 5.2, 0.03, 0.02, RUST, -1.35, 2.05, sz * 1.105);                 // longitudinal weld seam at the equator
+  // walkway with a handrail beside the manhole
+  box(g, 2.4, 0.04, 0.5, GALV, -0.3, 2.82, 0.42);
+  for (let i = 0; i < 12; i++) box(g, 0.02, 0.03, 0.46, GUN, -1.4 + i * 0.2, 2.855, 0.42);
+  for (const px of [-1.4, -0.3, 0.8]) { cyl(g, 0.015, 0.5, STEEL, px, 3.06, 0.64); box(g, 0.05, 0.03, 0.05, GUN, px, 2.83, 0.64); }
+  cyl(g, 0.015, 2.3, STEEL, -0.3, 3.3, 0.64, 0, 0, PI / 2); cyl(g, 0.012, 2.3, STEEL, -0.3, 3.05, 0.64, 0, 0, PI / 2);
+  box(g, 0.5, 0.03, 0.03, STEEL, -1.4, 2.845, 0.7, 0, 0, 0); box(g, 0.5, 0.03, 0.03, STEEL, 0.8, 2.845, 0.7);
+  // r4b: seat the walkway on the shell. At each stanchion line an angle bracket drops from the plate underside to the shell with a foot
+  //      plate on the shell tangent and a rust run below it; a pad closes the 15 mm gap under the inboard edge. Shell: y = 2.05 + 0.748 sqrt(1 - (z/1.1)^2).
+  const shellY = (z) => 2.05 + 0.748 * Math.sqrt(1 - (z / 1.1) * (z / 1.1));
+  const shellTilt = (z) => Math.atan2(z / (1.1 * 1.1), (shellY(z) - 2.05) / (0.748 * 0.748));
+  for (const px of [-1.4, -0.85, -0.3, 0.25, 0.8]) {
+    const zo = 0.62, ys = shellY(zo), top = 2.80;
+    box(g, 0.04, top - ys, 0.04, GUN, px, (top + ys) / 2, zo);                                             // angle bracket
+    box(g, 0.1, 0.02, 0.09, GUN, px, ys + 0.004, zo, shellTilt(zo), 0, 0);                                  // foot plate on the shell
+    box(g, 0.03, 0.006, 0.16, RUST, px, shellY(0.72) + 0.004, 0.72, shellTilt(0.72), 0, 0);                 // rust run on the shell below the foot
+    box(g, 0.06, 0.03, 0.06, GUN, px, 2.79, 0.22);                                                          // pad under the inboard edge
+  }
+  // discharge pipe from the shell bottom to the valve cabinet, flanged at both ends
+  cyl(g, 0.05, 3.0, STEEL, -2.1, 1.27, 0.32, 0, 0, PI / 2);
+  for (const px of [-0.65, -3.55]) { cyl(g, 0.085, 0.03, RUST, px, 1.27, 0.32, 0, 0, PI / 2, { seg: 12 }); cyl(g, 0.085, 0.03, RUST, px + (px > -1 ? 0.06 : -0.06), 1.27, 0.32, 0, 0, PI / 2, { seg: 12 }); }
+  cyl(g, 0.05, 0.2, STEEL, -0.6, 1.37, 0.32); box(g, 0.06, 0.12, 0.1, GUN, -2.1, 1.2, 0.32); streak(g, 'pz', -2.1, 1.14, 0.37, 0.15, 0.08);
+  // rear light housings and a hazard plate on the bumper
+  // ---- r4b: rear lamp housings as real parts. One housing per side on a bracket off the bumper, three round lamps each set in a
+  //      bezel ring (stop red, indicator amber, reverse pale), a bolt with its rust run on every housing, bumper end plates with a bolt. ----
+  const LENS_R = M(tint(P.red, -0.3), 'metal', { roughness: 0.6, metalness: 0.1 });
+  const LENS_A = M(tint(P.yellow, -0.35), 'metal', { roughness: 0.6, metalness: 0.1 });
+  const LENS_W = M(tint(P.tank, 0.25), 'metal', { roughness: 0.6, metalness: 0.1 });
+  const bezelGeo = new THREE.TorusGeometry(0.048, 0.01, 6, 10);
+  for (const sz of [-1, 1]) {
+    const hz = sz * 0.85;
+    box(g, 0.12, 0.16, 0.36, GUN, -4.08, 0.9, hz);                                                          // housing
+    box(g, 0.006, 0.13, 0.33, INT, -4.143, 0.9, hz);                                                        // recessed face plate
+    box(g, 0.06, 0.05, 0.08, STEEL, -4.05, 0.815, hz); streak(g, 'nx', -4.09, 0.81, hz, 0.1, 0.08);         // bracket down to the bumper
+    [[LENS_R, -0.115], [LENS_A, 0], [LENS_W, 0.115]].forEach(([mat, dz]) => {
+      const bz = mesh(g, bezelGeo, RIM, -4.148, 0.9, hz + sz * dz, 0, PI / 2, 0);
+      cyl(g, 0.04, 0.012, mat, -4.15, 0.9, hz + sz * dz, 0, 0, PI / 2);                                     // lens
+    });
+    cyl(g, 0.012, 0.008, GUN, -4.144, 0.96, hz - sz * 0.16, 0, 0, PI / 2, { seg: 6 }); streak(g, 'nx', -4.14, 0.948, hz - sz * 0.16, 0.12, 0.035);
+    cyl(g, 0.012, 0.008, GUN, -4.144, 0.84, hz + sz * 0.16, 0, 0, PI / 2, { seg: 6 });
+    box(g, 0.025, 0.14, 0.05, GUN, -4.04, 0.75, sz * 1.16); cyl(g, 0.012, 0.008, GUN, -4.056, 0.75, sz * 1.16, 0, 0, PI / 2, { seg: 6 });   // bumper end plate and bolt
+    streak(g, 'nx', -4.052, 0.735, sz * 1.16, 0.08, 0.035);
+  }
+  box(g, 0.01, 0.2, 0.2, mYel, -4.13, 0.93, 0.35, PI / 4, 0, 0); box(g, 0.008, 0.09, 0.09, GUN, -4.14, 0.93, 0.35, PI / 4, 0, 0);
+  // spare wheel slung under the chassis, air reservoirs outboard of the rails
+  mesh(g, tyreGeo, TYRE, 0.4, 0.58, 0); mesh(g, rimGeo, RIM, 0.4, 0.58, 0, PI, 0, 0);
+  for (const sz of [-1, 1]) box(g, 1.2, 0.04, 0.05, STEEL, 0.4, 0.42, sz * 0.3);
+  for (const sz of [-1, 1]) { cyl(g, 0.13, 0.6, STEEL, -0.6, 0.72, sz * 0.66, 0, 0, PI / 2); for (const dx of [-0.2, 0.2]) cyl(g, 0.14, 0.03, GUN, -0.6 + dx, 0.72, sz * 0.66, 0, 0, PI / 2); }
+  // exhaust stack behind the cab with a rain cap, rust at the foot
+  cyl(g, 0.05, 1.9, STEEL, 1.45, 1.95, -1.25); cyl(g, 0.056, 0.15, RUST, 1.45, 1.08, -1.25); cyl(g, 0.02, 0.06, STEEL, 1.45, 2.93, -1.25, 0, 0, 0, { rt: 0.09 });
+  box(g, 0.06, 0.04, 0.12, GUN, 1.45, 2.4, -1.15); box(g, 0.06, 0.04, 0.12, GUN, 1.45, 1.4, -1.15);
+  // cab: steps, wipers, marker lamps, number plate recess, hub nuts
+  for (const sz of [-1, 1]) { box(cab, 0.35, 0.04, 0.4, GALV, 0.45, 0.72, sz * 1.22); box(cab, 0.04, 0.3, 0.04, STEEL, 0.45, 0.88, sz * 1.36); }
+  for (const sz of [-1, 1]) box(cab, 0.02, 0.02, 0.5, GUN, 1.045, 1.62, sz * 0.45, 0.35 * sz, 0, 0);
+  for (const z of [-0.7, 0, 0.7]) box(cab, 0.06, 0.05, 0.1, mYel, 0.95, 2.63, z);
+  box(cab, 0.01, 0.12, 0.5, mTan(0.3), 1.46, 0.67, 0);
+  for (const [wx_, wz] of [[-1.5, 1.1], [-1.5, -1.1], [-2.8, 1.1], [-2.8, -1.1], [2.5, 1.05]]) cyl(g, 0.05, 0.06, GUN, wx_, 0.525, wz + (wz > 0 ? 0.17 : -0.17), PI / 2, 0, 0, { seg: 8 });
   fillet(g, 5.0, 0.2, 0.18, -0.8, 0, -1.1, PI);
   fillet(g, 2.2, 0.2, 0.12, -0.8, 0, 1.05, 0);
   box(g, 4.6, 0.08, 1.3, SAND, -0.5, 0.04, 0);

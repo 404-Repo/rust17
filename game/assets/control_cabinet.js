@@ -144,6 +144,55 @@ export default function (THREE) {
   fillet('front', W - 0.1, 0, D / 2 - 0.015, 0.03, 0.05, 0.05);
   fillet('left', D - 0.06, 0, -W / 2 + 0.02, 0.04, 0.06, 0.05);
   fillet('right', D - 0.06, 0, W / 2 - 0.02, 0.04, 0.05, 0.05);
+  // ---- r4 detail pass: rain hood, lifting eyes, E stop, hazard plate, hasp and padlock, earth stud and strap,
+  // second gland with a cable to the ground, conduit clamp bar with saddles, junction box, seam line, name plate,
+  // bent side panel, top bolts, back fillet.
+  (function () {
+    const YEL = mat(C.yellow, 'metal', 0.8, 0.15);
+    const RED = mat(C.cRed, 'metal', 0.75, 0.2, 1.1);
+    const RUB = mat(C.rubber, '', 0.9, 0);
+    const hood = box(W + 0.03, 0.012, 0.055, BLUE_S, 0, BY1 + 0.03, D / 2 + 0.02); hood.rotation.x = 0.12;
+    box(W + 0.03, 0.03, 0.012, BLUE_S, 0, BY1 + 0.02, D / 2 + 0.006);
+    for (const x of [-0.3, 0, 0.3]) { bolt(x, BY1 + 0.02, D / 2 + 0.0125, 'z', 0.005, 0); streak(x, BY1 - 0.002, D / 2 + 0.0006, 'z', 0.06, 0.012); }
+    for (const sx of [-1, 1]) { cyl(0.02, 0.02, 0.01, 8, GALV, sx * (W / 2 - 0.08), BY1 + 0.025, 0); mesh(new THREE.TorusGeometry(0.022, 0.005, 6, 12), GALV, sx * (W / 2 - 0.08), BY1 + 0.05, 0); }
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) bolt(sx * (W / 2 - 0.04), BY1 + 0.026, sz * (D / 2 - 0.04), 'y', 0.006, 0);
+    // E stop
+    const col = cyl(0.042, 0.042, 0.006, 12, YEL, 0, 0, 0); aim(col, 'z'); col.position.set(-0.2, 1.3, zf + 0.018);
+    const stem = cyl(0.022, 0.022, 0.012, 10, GUN, 0, 0, 0); aim(stem, 'z'); stem.position.set(-0.2, 1.3, zf + 0.023);
+    const mush = mesh(new THREE.LatheGeometry([new THREE.Vector2(0.001, 0), new THREE.Vector2(0.03, 0), new THREE.Vector2(0.032, 0.008), new THREE.Vector2(0.026, 0.018), new THREE.Vector2(0.012, 0.024), new THREE.Vector2(0.001, 0.026)], 12), RED, -0.2, 1.3, zf + 0.028); mush.rotation.x = Math.PI / 2;
+    // hazard plate with a triangle
+    box(0.1, 0.09, 0.003, YEL, -0.2, 0.56, zf + 0.017);
+    { const t = new THREE.Shape(); t.moveTo(-0.035, -0.03); t.lineTo(0.035, -0.03); t.lineTo(0, 0.03); t.closePath(); mesh(new THREE.ExtrudeGeometry(t, { depth: 0.002, bevelEnabled: false }), GUN, -0.2, 0.56, zf + 0.0185); }
+    for (const dx of [-0.04, 0.04]) bolt(-0.2 + dx, 0.595, zf + 0.02, 'z', 0.003, 0);
+    // hasp and padlock on the free edge
+    box(0.04, 0.04, 0.008, GUN, -0.3, 1.12, zf + 0.019);
+    const st = mesh(new THREE.TorusGeometry(0.012, 0.003, 6, 10), BOLT(), -0.3, 1.12, zf + 0.027); st.rotation.y = Math.PI / 2;
+    box(0.035, 0.03, 0.014, mat(C.gun, 'metal', 0.6, 0.5, 1.1), -0.3, 1.085, zf + 0.032);
+    mesh(new THREE.TorusGeometry(0.011, 0.003, 6, 10), BOLT(), -0.3, 1.11, zf + 0.032);
+    streak(-0.3, 1.065, zf + 0.016, 'z', 0.14, 0.03);
+    // earth stud and bonding strap to the ground on the left side
+    bolt(-W / 2 - 0.0005, 0.18, -0.02, '-x', 0.009, 0.1);
+    box(0.006, 0.03, 0.02, GALV, -W / 2 - 0.006, 0.18, -0.02);
+    { const c = new THREE.CatmullRomCurve3([new THREE.Vector3(-W / 2 - 0.008, 0.18, -0.02), new THREE.Vector3(-W / 2 - 0.02, 0.11, 0.0), new THREE.Vector3(-W / 2 - 0.03, 0.03, 0.04), new THREE.Vector3(-W / 2 - 0.028, 0.006, 0.07)]); mesh(new THREE.TubeGeometry(c, 12, 0.005, 5, false), GALV, 0, 0, 0); }
+    mound(-W / 2 - 0.012, 0.07, 0.03, 0.02);
+    // second gland at the back with a cable running to the ground on a saddle clamp
+    box(0.08, 0.06, 0.02, GUN, -0.15, 0.3, -D / 2 - 0.01);
+    cyl(0.014, 0.014, 0.02, 8, GUN, -0.15, 0.26, -D / 2 - 0.01);
+    { const c = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.15, 0.25, -D / 2 - 0.01), new THREE.Vector3(-0.15, 0.14, -D / 2 - 0.02), new THREE.Vector3(-0.15, 0.06, -D / 2 - 0.02), new THREE.Vector3(-0.13, 0.03, -D / 2 - 0.005)]); mesh(new THREE.TubeGeometry(c, 12, 0.011, 6, false), RUB, 0, 0, 0); }
+    box(0.04, 0.025, 0.02, GALV, -0.15, 0.16, -D / 2 - 0.012); bolt(-0.15, 0.16, -D / 2 - 0.0225, '-z', 0.004, 0.05);
+    // conduit clamp bar with three saddles, junction box at the conduit ends
+    box(0.34, 0.025, 0.012, GUN, -0.14, BY1 + 0.2, 0.03);
+    for (let i = 0; i < 3; i++) { const x = -0.24 + i * 0.1; box(0.075, 0.018, 0.058, GALV, x, BY1 + 0.2, 0.06); for (const dx of [-0.03, 0.03]) bolt(x + dx, BY1 + 0.2, 0.089, 'z', 0.004, dx > 0 ? 0.03 : 0); }
+    box(0.36, 0.1, 0.06, mat(C.cBlue, 'metal', 0.82, 0.2, 0.95), -0.14, 1.875 - 0.01, -D / 2 + 0.03);
+    for (const dx of [-0.15, 0.15]) for (const dy of [-0.035, 0.035]) bolt(-0.14 + dx, 1.865 + dy, -D / 2 - 0.0005, '-z', 0.005, dy < 0 ? 0.05 : 0);
+    dust(0.36, 0.06, -0.14, 1.915, -D / 2 + 0.03, 0.02);
+    // door seam line, name plate over the window, bent side panel
+    box(0.6, 0.004, 0.002, GUN, 0, 0.68, zf + 0.016);
+    box(0.16, 0.03, 0.003, PLATE, 0.08, 1.49, zf + 0.017);
+    for (const dx of [-0.065, 0.065]) bolt(0.08 + dx, 1.49, zf + 0.02, 'z', 0.003, 0);
+    box(0.003, 0.14, 0.18, BLUE_N, -W / 2 - 0.0015, 0.65, -0.05).rotation.y = 0.05;
+    fillet('back', W - 0.2, 0, -D / 2 + 0.015, 0.02, 0.05, 0.05);
+  })();
   // contract: measure vertices, base at y=0, centred on x and z
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length

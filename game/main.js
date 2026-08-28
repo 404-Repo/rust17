@@ -40,7 +40,7 @@ import { ASSET } from './assetlib.js';
 import { vertexiseMaterials } from './src/game/bake.js';
 import { preloadMaterials, applyTerrainMaterial } from './src/render/materials.js';   // materials r3
 
-const ROUND = 'r3';
+const ROUND = 'r4';
 const DEG = Math.PI / 180;
 const params = new URLSearchParams(location.search);
 
@@ -322,17 +322,26 @@ resize();
 // A prop 60 m away throws a shadow the haze swallows; drawing it into both cascades cost
 // more triangles than the whole main pass. Blocks (and bots) cast only within CAST_DIST of
 // the camera, measured to the block's nearest edge, so the sun still throws every near shadow.
-const CAST_DIST = +(params.get('cast') || (tier.name === 'phone' ? 26 : 28));   // integrator r1: high 30 -> 28 (see the budget note below)
+const CAST_DIST = +(params.get('cast') || (tier.name === 'phone' ? 26 : 26));   // integrator r1: high 30 -> 28; r4: 28 -> 26 (see the r4 budget note below)
 // integrator r1: two caster distances. Landmarks (tanks, towers, containers, palms, walls, the
 // derrick) throw 10 to 50 m shadows the critic wants to see at 40 m; clutter (drums, crates,
 // sandbags, pallets) throws 1 to 3 m and its shadow is a few pixels at 20 m.
 const CAST_L = +(params.get('castl') || CAST_DIST);
-const CAST_C = +(params.get('castc') || Math.min(CAST_DIST, tier.name === 'phone' ? 18 : 20));
+const CAST_C = +(params.get('castc') || Math.min(CAST_DIST, tier.name === 'phone' ? 18 : 14));   // integrator r4: high 20 -> 14
 // Clutter (and the no shadow scatter) in blocks whose nearest edge is beyond FAR_CULL is not
 // drawn: at 90 m the haze has taken a third of it and a drum is four pixels; landmarks stay.
-const FAR_CULL = +(params.get('far') || (tier.name === 'phone' ? 60 : 55));   // integrator r1: high 70 -> 55 (round 1 props put the peak view at 1.95 M)
+const FAR_CULL = +(params.get('far') || (tier.name === 'phone' ? 60 : 50));   // integrator r1: high 70 -> 55 (round 1 props put the peak view at 1.95 M); r4: 55 -> 50
 // shrubs, debris and wire fences (the no shadow group) go sooner: a shrub is 0.74 m tall
-const FAR_CULL_N = +(params.get('farn') || (tier.name === 'phone' ? 40 : 32));   // integrator r1: high 50 -> 32, same reason
+const FAR_CULL_N = +(params.get('farn') || (tier.name === 'phone' ? 40 : 28));   // integrator r1: high 50 -> 32, same reason; r4: 32 -> 28
+// integrator r4: the '#fine' group (parts under 18 cm on every axis, see level/build.js) is hidden past
+// this block edge distance; an 18 cm part is under 4 px at 22 m and a 6 cm bolt under 2 px. Fade in
+// lighting.js. '?finecull=' overrides.
+// Budget note (round 4): the asset pass put the probe views at 2.40 M (spawn) and 2.32 M (strafe) against
+// the 1.7 M budget, main pass 1.81 M alone; the four r1 knobs at their harshest (far 30, farn 20, cast 20,
+// castc 12) still left 1.97 M, so the fine split was added: 0.44 M out of the spawn main pass and 0.2 M out
+// of the cascade with nothing removed inside its reading distance. With it, cast 26 / castc 14 / far 50 /
+// farn 28 / finecull 22 put the six probe views at 1.61 to 1.65 M (work/game/tp_r4_*.txt).
+const FINE_CULL = +(params.get('finecull') || (tier.name === 'phone' ? 20 : 22));
 // Budget note (round 1): the six probe views in work/game/triprobe.mjs peaked at 1.95 M with
 // cast 30 / far 70 / farn 50 after the round 1 level, asset and sky additions. Measured there:
 // clutter casting at 20 m instead of 30 saves about 100 k in the cascade, landmarks at 28 m
@@ -354,7 +363,7 @@ function sweptShadowBox(g) {
   // shadow runs parallel to the frame edge is not pulled in by a union box's empty corner
   const b = new THREE.Box3();
   const tmp = new THREE.Box3();
-  for (const c of g.children) { if (String(c.name).endsWith('#nocast')) continue; tmp.setFromObject(c); if (!tmp.isEmpty()) b.union(tmp); }
+  for (const c of g.children) { const nm = String(c.name); if (nm.endsWith('#nocast') || nm.endsWith('#fine')) continue; tmp.setFromObject(c); if (!tmp.isEmpty()) b.union(tmp); }
   if (b.isEmpty()) return null;
   b.min.y -= 2; b.expandByScalar(1.0);
   const L = Math.max(0, b.max.y - b.min.y) * SHADOW_PER_M;
@@ -387,16 +396,17 @@ function updateShadowCasters() {
     const nearL = d < CAST_L && reach, nearC = d < CAST_C && reach;
     const shown = d < FAR_CULL;
     const shownN = d < FAR_CULL_N;
-    if (g.userData.shown !== shown || g.userData.shownN !== shownN) {
-      g.userData.shown = shown; g.userData.shownN = shownN;
-      for (const c of g.children) { if (c.name.endsWith('#clutter')) c.visible = shown; else if (c.name.endsWith('#nocast')) c.visible = shownN; }
+    const shownF = d < FINE_CULL;
+    if (g.userData.shown !== shown || g.userData.shownN !== shownN || g.userData.shownF !== shownF) {
+      g.userData.shown = shown; g.userData.shownN = shownN; g.userData.shownF = shownF;
+      for (const c of g.children) { if (c.name.endsWith('#clutter')) c.visible = shown; else if (c.name.endsWith('#nocast')) c.visible = shownN; else if (c.name.endsWith('#fine')) c.visible = shownF; }
     }
     if (g.userData.castingL !== nearL || g.userData.castingC !== nearC) {
       g.userData.castingL = nearL; g.userData.castingC = nearC; g.userData.casting = nearL || nearC;
       g.traverse((o) => {
         if (!o.isMesh) return;
         const pn = o.parent ? String(o.parent.name) : '';
-        if (pn.endsWith('#nocast')) return;
+        if (pn.endsWith('#nocast') || pn.endsWith('#fine')) return;   // a bolt's shadow is not a shadow anyone sees
         o.castShadow = pn.endsWith('#clutter') ? nearC : nearL;
       });
     }
@@ -591,6 +601,37 @@ window.__DIAG4__ = () => {
     if (main + casc > 0) out.push({ key, main: Math.round(main), casc: Math.round(casc), assets: g.userData.assets });
   }
   out.sort((a, b) => (b.main + b.casc) - (a.main + a.casc));
+  return out;
+};
+window.__DIAG5__ = () => {
+  // integrator r4: per block and per group (landmark, clutter, scatter) triangles in the main pass and cascade 0
+  const tri = (o) => { const g = o.geometry; if (!g) return 0; const n = g.index ? g.index.count : g.attributes.position.count; return (n / 3) * (o.isInstancedMesh ? o.count : 1); };
+  camera.updateMatrixWorld(true);
+  const fr = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+  const cam = rig.csm.lights[0].shadow.camera; cam.updateMatrixWorld(true);
+  const f2 = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+  const sph = new THREE.Sphere();
+  const cx = camera.position.x, cz = camera.position.z;
+  const out = [];
+  for (const [key, g] of level.blocks) {
+    const c = blockCenters.get(key);
+    const d = c ? Math.hypot(Math.max(0, Math.abs(cx - c.x) - 10), Math.max(0, Math.abs(cz - c.z) - 10)) : -1;
+    const acc = {};
+    g.traverse((o) => {
+      if (!o.isMesh) return;
+      let p = o, ok = true; while (p) { if (!p.visible) { ok = false; break; } p = p.parent; } if (!ok) return;
+      const pn = o.parent ? String(o.parent.name) : '';
+      const grp = pn.endsWith('#nocast') ? 'scatter' : pn.endsWith('#clutter') ? 'clutter' : pn.endsWith('#fine') ? 'fine' : 'landmark';
+      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      sph.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld);
+      const a = acc[grp] || (acc[grp] = { main: 0, casc: 0 });
+      if (fr.intersectsSphere(sph)) a.main += tri(o);
+      if (o.castShadow && f2.intersectsSphere(sph)) a.casc += tri(o);
+    });
+    const tot = Object.values(acc).reduce((s, a) => s + a.main + a.casc, 0);
+    if (tot > 0) out.push({ key, d: +d.toFixed(1), groups: acc, assets: g.userData.assets });
+  }
+  out.sort((a, b) => a.d - b.d);
   return out;
 };
 window.__DBG__.casters = () => [...blockCenters.entries()].map(([k, v]) => ({ k, casting: v.g.userData.casting, n: v.swept ? v.swept.length : 0, b0: v.swept ? v.swept[0].min.toArray().map((n) => +n.toFixed(0)).concat(v.swept[0].max.toArray().map((n) => +n.toFixed(0))) : null }));

@@ -1,9 +1,13 @@
-// ibc_tote candidate 1: a different reading. The bottle is a blow moulded rounded cube made
-// by pulling a subdivided box onto a superellipse, the cage is square section welded bar with
-// flat bar rings, the pallet is a pressed steel tray on six feet with open fork pockets.
+// ibc_tote candidate 1, round 4 detail pass. The bottle is a blow moulded rounded cube made by
+// pulling a subdivided box onto a superellipse, the cage is square section welded bar with flat
+// bar rings, the pallet is a pressed steel tray on six feet with open fork pockets. Round 4 adds
+// what the Rust IBCs carry: a label plate and document pouch on the front of the cage, two bars
+// across the top opening, bolts with rust at the four cage to pallet corners, a hose from the
+// valve running along the front base, a flanged valve with a cap, a spill run down the bottle,
+// lipped pallet side rails and a vent cap.
 export default function (THREE) {
   const g = new THREE.Group();
-  const C = { sandS: 0xcdb88e, rust: 0x6b4426, galv: 0x9ea3a1, concB: 0xb8ae9b, concS: 0x857c6c, red: 0x9c4a3c, gun: 0x3a3d40 };
+  const C = { sandS: 0xcdb88e, rust: 0x6b4426, galv: 0x9ea3a1, concB: 0xb8ae9b, concS: 0x857c6c, red: 0x9c4a3c, gun: 0x3a3d40, rubber: 0x1d1e20 };
   const tint = (hex, f) => new THREE.Color(hex).multiplyScalar(f).getHex();
   const mat = (hex, name, roughness = 0.8, metalness = 0.2, side) => {
     const m = new THREE.MeshStandardMaterial({ color: hex, roughness, metalness, side: side || THREE.FrontSide });
@@ -32,13 +36,18 @@ export default function (THREE) {
   const rustM = mat(C.rust, 'metal', 0.9, 0.1, THREE.DoubleSide);
   const red = mat(C.red, 'metal', 0.75, 0.2);
   const gun = mat(C.gun, 'metal', 0.7, 0.4);
+  const plateD = mat(tint(C.concS, 0.75), 'metal', 0.85, 0.1);
+  const rubber = new THREE.MeshStandardMaterial({ color: C.rubber, roughness: 0.92, metalness: 0.0 });
   const dustM = mat(C.sandS, 'ground', 0.95, 0);
+  const boltGeo = new THREE.CylinderGeometry(0.009, 0.009, 0.008, 6);
 
-  // pallet: tray deck, six feet, fork pockets open through both long sides
+  // pallet: tray deck, lipped side rails, six feet, fork pockets open through both long sides
   const PW = 1.2, PD = 1.0, PH = 0.16;
   box(PW, 0.04, PD, galv, 0, PH - 0.02, 0);
   box(PW, 0.03, 0.03, galvD, 0, PH - 0.055, PD / 2 - 0.015);
   box(PW, 0.03, 0.03, galvD, 0, PH - 0.055, -PD / 2 + 0.015);
+  box(0.03, 0.05, PD, galvD, PW / 2 - 0.015, PH + 0.005, 0);
+  box(0.03, 0.05, PD, galvD, -PW / 2 + 0.015, PH + 0.005, 0);
   for (const x of [-0.55, 0, 0.55]) for (const z of [-0.4, 0.4]) box(0.1, PH - 0.04, 0.16, galvD, x, (PH - 0.04) / 2, z);
   for (const x of [-0.55, 0, 0.55]) box(0.08, 0.03, PD - 0.2, galvD, x, 0.015, 0);
   for (const x of [-0.55, 0.55]) for (const s of [-1, 1]) drip(0.07, 0.03, rustM, x, PH - 0.04, s * (PD / 2 + 0.002), s > 0 ? 0 : Math.PI);
@@ -53,7 +62,6 @@ export default function (THREE) {
       p.setXYZ(i, u * k * (w / 2), vv * k * (h / 2), ww * k * (d / 2));
     }
     geo.computeVertexNormals();
-    // keep only the slab between y0 and y1 of the full cube by clamping vertices (a cheap split)
     for (let i = 0; i < p.count; i++) { const y = p.getY(i); p.setY(i, Math.min(Math.max(y, y0), y1)); }
     return geo;
   };
@@ -63,14 +71,32 @@ export default function (THREE) {
   box(B + 0.004, 0.03, B + 0.004, tide, 0, split, 0);
   for (let k = 1; k < 4; k++) { const y = bx0 + 0.25 * k; if (Math.abs(y - split) > 0.03) box(B - 0.03, 0.012, B + 0.004, plasticLo, 0, y, 0); }
   box(B - 0.16, 0.008, B - 0.16, dustM, 0, bx0 + B + 0.002, 0);
+  // fill cap with a vent cap beside it, and the spill that ran down the front from the cap
   cyl(0.09, 0.09, 0.012, 14, plasticLo, 0, bx0 + B + 0.004, 0);
   cyl(0.075, 0.075, 0.03, 14, gun, 0, bx0 + B + 0.02, 0);
-  // valve
-  const vb = box(0.06, 0.06, 0.09, galvD, 0, PH + 0.08, B / 2 + 0.03); void vb;
-  cyl(0.036, 0.036, 0.02, 10, gun, 0, PH + 0.08, B / 2 + 0.075).rotation.x = Math.PI / 2;
-  box(0.09, 0.016, 0.02, red, 0, PH + 0.13, B / 2 + 0.04);
-  box(0.016, 0.05, 0.016, red, 0, PH + 0.105, B / 2 + 0.04);
-  // cage: square bar verticals, flat bar rings, angle corner posts, boxed top frame
+  cyl(0.03, 0.03, 0.01, 10, plasticLo, 0.3, bx0 + B + 0.003, 0.25);
+  cyl(0.022, 0.022, 0.022, 10, gun, 0.3, bx0 + B + 0.012, 0.25);
+  box(0.06, 0.006, 0.38, tide, 0.06, bx0 + B + 0.003, 0.27);
+  drip(0.38, 0.07, tide, 0.06, bx0 + B - 0.01, B / 2 + 0.004, 0);
+  drip(0.2, 0.04, tide, 0.11, bx0 + B - 0.02, B / 2 + 0.004, 0);
+  // valve: flange on the bottle sump, body, butterfly with a red handle, a cap on the outlet, a drip
+  cyl(0.055, 0.055, 0.012, 12, galvD, 0, PH + 0.08, B / 2 + 0.006).rotation.x = Math.PI / 2;
+  box(0.07, 0.07, 0.07, galvD, 0, PH + 0.08, B / 2 + 0.04);
+  cyl(0.04, 0.04, 0.014, 12, gun, 0, PH + 0.08, B / 2 + 0.082).rotation.x = Math.PI / 2;
+  cyl(0.034, 0.034, 0.012, 12, gun, 0, PH + 0.08, B / 2 + 0.09).rotation.x = Math.PI / 2;
+  box(0.09, 0.016, 0.02, red, 0, PH + 0.135, B / 2 + 0.05);
+  box(0.016, 0.05, 0.016, red, 0, PH + 0.11, B / 2 + 0.05);
+  for (const bx of [-0.04, 0.04]) add(boltGeo, gun, bx, PH + 0.08, B / 2 + 0.002).rotation.x = Math.PI / 2;
+  drip(0.06, 0.03, rustM, 0, PH + 0.045, B / 2 + 0.004, 0);
+  // hose: clipped on the valve outlet, drops to the sand and runs off along the front of the pallet
+  const path = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, PH + 0.08, B / 2 + 0.09), new THREE.Vector3(0.03, PH + 0.02, B / 2 + 0.06), new THREE.Vector3(0.12, 0.05, 0.53),
+    new THREE.Vector3(0.3, 0.05, 0.525), new THREE.Vector3(0.5, 0.05, 0.5), new THREE.Vector3(0.62, 0.045, 0.45),
+  ]);
+  add(new THREE.TubeGeometry(path, 14, 0.019, 6, false), rubber);
+  cyl(0.024, 0.024, 0.03, 8, gun, 0.03, PH + 0.03, B / 2 + 0.07).rotation.x = Math.PI / 2 + 0.9;
+  cyl(0.022, 0.022, 0.04, 8, gun, 0.6, 0.046, 0.46).rotation.y = 0.9;
+  // cage: square bar verticals, flat bar rings, angle corner posts, boxed top frame, two top bars
   const half = 0.49, yb = PH, yt = 1.15;
   const vgeo = new THREE.BoxGeometry(0.02, yt - yb, 0.02);
   const positions = [-0.45, -0.3, -0.15, 0, 0.15, 0.3, 0.45];
@@ -83,6 +109,10 @@ export default function (THREE) {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
     box(0.03, yt - yb, 0.006, galvD, sx * (half + 0.005), (yt + yb) / 2, sz * (half + 0.017));
     box(0.006, yt - yb, 0.03, galvD, sx * (half + 0.017), (yt + yb) / 2, sz * (half + 0.005));
+    // bolted foot where the corner post meets the pallet: a plate, two hex bolts, rust running down the rail
+    box(0.06, 0.05, 0.006, galvD, sx * (half + 0.003), yb + 0.035, sz * (half + 0.021));
+    for (const dx of [-0.018, 0.018]) add(boltGeo, gun, sx * (half + 0.003) + dx, yb + 0.035, sz * (half + 0.026)).rotation.x = Math.PI / 2;
+    drip(0.1, 0.04, rustM, sx * (half + 0.003), yb + 0.012, sz * (half + 0.025), sz > 0 ? 0 : Math.PI);
   }
   const rings = [0.19, 0.34, 0.49, 0.64, 0.79, 0.94, 1.09];
   for (const y of rings) {
@@ -95,6 +125,12 @@ export default function (THREE) {
   box(2 * half + 0.04, 0.03, 0.03, galvD, 0, yt, -half - 0.005);
   box(0.03, 0.03, 2 * half + 0.04, galvD, half + 0.005, yt, 0);
   box(0.03, 0.03, 2 * half + 0.04, galvD, -half - 0.005, yt, 0);
+  for (const x of [-0.2, 0.2]) box(0.03, 0.006, 2 * half, galvD, x, yt + 0.012, 0);
+  // label plate with four rivets and a document pouch on the front of the cage, top left
+  box(0.22, 0.15, 0.004, plateD, -0.27, 0.98, half + 0.019);
+  for (const dx of [-0.095, 0.095]) for (const dy of [-0.06, 0.06]) cyl(0.004, 0.004, 0.004, 6, gun, -0.27 + dx, 0.98 + dy, half + 0.022).rotation.x = Math.PI / 2;
+  box(0.16, 0.11, 0.003, mat(tint(C.concB, 1.04), 'plaster', 0.85, 0.0), 0.05, 0.96, half + 0.019);
+  box(0.16, 0.012, 0.004, plateD, 0.05, 1.012, half + 0.02);
   for (const y of [0.34, 0.79, 1.09]) for (const p of positions) {
     drip(0.06, 0.022, rustM, p, y - 0.01, half + 0.017, 0);
     drip(0.06, 0.022, rustM, p, y - 0.01, -half - 0.017, Math.PI);

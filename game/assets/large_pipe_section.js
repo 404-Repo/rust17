@@ -33,6 +33,10 @@ export default function (THREE) {
   const mConc = mat(P.concB, 'stone', 0.95, 0.0);
   const mConcS = mat(P.concS, 'stone', 0.95, 0.0);
   const mTimber = mat(P.timber, 'timber', 0.9, 0.0);
+  const mStrap = mat(shade(P.galv, 0.85), 'metal', 0.8, 0.4, true);
+  const mPlate = mat(shade(P.steel, 1.1), 'metal', 0.8, 0.2);
+  const mYellow = mat(P.yellow, 'metal', 0.85, 0.1);
+  const mStem = mat(P.galv, 'metal', 0.6, 0.6);
 
   const R = 0.6, AX = 1.0, L = 8.0, SEC = 2.0;
   for (let i = 0; i < 4; i++) {
@@ -77,6 +81,23 @@ export default function (THREE) {
   const bulk = add(new THREE.CircleGeometry(R - 0.03, 20), mBore, -L / 2 + 1.0, AX, 0); bulk.rotation.y = -PI / 2;
   // primer patch on course two, high on the south flank
   cylX(R + 0.004, 0.6, 6, mOxide, -0.9, AX, 0, true, -0.1, 0.95);
+  // manway on the crown of course 3: neck, bolted cover, rust ring at the base, dust on the cover
+  add(new THREE.CylinderGeometry(0.2, 0.2, 0.14, 16), mBell, 1.0, AX + R + 0.03, 0);
+  add(new THREE.CylinderGeometry(0.25, 0.25, 0.03, 16), mFlange, 1.0, AX + R + 0.115, 0);
+  for (let k = 0; k < 8; k++) { const a = k * PI / 4; add(new THREE.CylinderGeometry(0.015, 0.015, 0.02, 6), mBolt, 1.0 + 0.22 * Math.cos(a), AX + R + 0.14, 0.22 * Math.sin(a)); }
+  add(new THREE.CylinderGeometry(0.205, 0.205, 0.03, 16), mRust, 1.0, AX + R - 0.02, 0);
+  add(new THREE.CircleGeometry(0.19, 16), mDust, 1.0, AX + R + 0.131, 0).rotation.x = -PI / 2;
+  // lifting lug with a ring on every course, rust run round its foot
+  for (const lx of [-3.6, -1.6, 0.4, 2.4]) {
+    box(0.16, 0.12, 0.02, mBell, lx, AX + R + 0.05, 0);
+    add(new THREE.TorusGeometry(0.035, 0.01, 4, 8), mBell, lx, AX + R + 0.12, 0);
+    cylX(R + 0.012, 0.22, 6, mRust, lx, AX, 0, true, PI / 2 - 0.25, 0.5);
+  }
+  // stencil plate on course 4, hazard plate at the open end, both on the south flank
+  { const a = 1.0, p = box(0.45, 0.22, 0.008, mPlate, 3.0, AX + R * Math.cos(a), R * Math.sin(a) + 0.004); p.rotation.x = -(PI / 2 - a); }
+  { const a = 1.2, p = box(0.3, 0.16, 0.008, mYellow, -3.4, AX + R * Math.cos(a), R * Math.sin(a) + 0.004); p.rotation.x = -(PI / 2 - a); }
+  // rolled rust lip on the cut end so it reads as sheet, not a disc
+  { const lip = add(new THREE.TorusGeometry(R - 0.01, 0.025, 6, 20, PI * 1.5), mRust, -L / 2 + 0.01, AX, 0); lip.rotation.y = PI / 2; }
   // saddles: two stacked blocks, stained lower, timber packer under the pipe, cheek blocks
   for (const sx of [-2.5, 2.5]) {
     box(0.7, 0.2, 1.5, mConcS, sx, 0.1, 0);
@@ -87,6 +108,18 @@ export default function (THREE) {
       box(0.6, 0.4, 0.2, mConc, sx, 0.6, s * 0.55);
       box(0.54, 0.006, 0.14, mDust, sx, 0.803, s * 0.55);
       box(0.03, 0.18, 0.008, mRust, sx + 0.1, 0.5, s * 0.655);
+    }
+    // hold down strap over the pipe, lug plates, tie rods and nuts into the cheek blocks, anchor bolts on the ledge
+    cylX(R + 0.022, 0.09, 20, mStrap, sx, AX, 0, true, PI / 2 - 1.85, 3.7);
+    for (const s of [-1, 1]) {
+      box(0.14, 0.02, 0.1, mBell, sx, 0.835, s * 0.6);
+      add(new THREE.CylinderGeometry(0.015, 0.015, 0.12, 6), mStem, sx, 0.8, s * 0.6);
+      add(new THREE.CylinderGeometry(0.028, 0.028, 0.025, 6), mBolt, sx, 0.86, s * 0.6);
+      box(0.03, 0.15, 0.006, mRust, sx - 0.1, 0.72, s * 0.655);
+      for (const bx of [-0.325, 0.325]) {
+        add(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 6), mBolt, sx + bx, 0.215, s * 0.7);
+        box(0.03, 0.12, 0.006, mRust, sx + bx, 0.14, s * 0.752);
+      }
     }
     wedge(1.5, 0.28, 0.14, mSand, sx + 0.35, 0, 0, 0);
     wedge(1.5, 0.28, 0.14, mSand, sx - 0.35, 0, 0, PI);

@@ -40,6 +40,15 @@ export default function (THREE) {
   const mYellow = mat(P.yellow, 'metal', 0.85, 0.1, true);
   const mDust = mat(P.sand, 'ground', 0.95, 0.0, true);
   const mSand = mat(P.sand, 'ground', 0.95, 0.0);
+  const mPlate = mat(P.tank, 'metal', 0.8, 0.15);
+  const mWheel = mat(P.red, 'metal', 0.85, 0.1);
+  const mStem = mat(P.galv, 'metal', 0.6, 0.6);
+  // gusset plate: right angle at the origin, one edge out along local +x, one edge down; ry turns local +x
+  // to +z (ry = -PI/2), -z (ry = PI/2), +x (0) or -x (PI); the plate is 12 mm thick
+  const gusset = (x, y, z, out, down, m, ry, parent, th = 0.02) => { const o = add(extrudeZ(poly([[0, 0], [out, 0], [0, -down]]), th), m, x, y, z, parent); o.rotation.y = ry; return o; };
+  // flat rust run lying on a horizontal face, from (x, y, z) outward along (dx, dz)
+  const flatDrip = (x, y, z, w, len, dx, dz, m, parent) => { const geo = new THREE.ExtrudeGeometry(poly([[-w / 2, 0], [w / 2, 0], [w / 6, len], [-w / 6, len]]), { depth: 0.004, bevelEnabled: false }); geo.rotateX(-PI / 2); const o = add(geo, m, x, y, z, parent); o.rotation.y = Math.atan2(-dx, -dz); return o; };
+  const hexNut = (r, h, x, y, z, parent) => cyl(r, h, 6, mBolt, x, y, z, parent);
 
   const O = new THREE.Group(); O.rotation.y = PI / 2; g.add(O);
   const ZP = 0.1, beamTilt = -0.08, crankAngle = 0.35;
@@ -66,6 +75,8 @@ export default function (THREE) {
     box(0.36, 0.05, 0.36, mOx, feet[i][0], footY - 0.025, feet[i][2], O);
     for (const c of [[0.13, 0.13], [-0.13, 0.13], [0.13, -0.13], [-0.13, -0.13]]) cyl(0.014, 0.02, 6, mBolt, feet[i][0] + c[0], footY + 0.005, feet[i][2] + c[1], O);
     box(0.03, 0.2, 0.008, mRust, feet[i][0], footY + 0.12, feet[i][2] + 0.12, O);
+    for (const s of [-1, 1]) { gusset(feet[i][0], footY + 0.24, feet[i][2] + s * 0.05, 0.24, 0.24, mOxD, s > 0 ? -PI / 2 : PI / 2, O); gusset(feet[i][0] + s * 0.05, footY + 0.24, feet[i][2], 0.24, 0.24, mOxD, s > 0 ? 0 : PI, O); }
+    for (const s of [-1, 1]) flatDrip(feet[i][0] + s * 0.06, footY + 0.001, feet[i][2] + 0.12, 0.05, 0.16, 0, 1, mRust, O);
   }
   const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   // ladder rungs between the front legs, ties and X braces between front and rear legs
@@ -80,7 +91,7 @@ export default function (THREE) {
   }
   // top bearing block
   box(0.8, 0.3, 0.55, mOx, 0, topY - 0.05, ZP, O);
-  for (const s of [-1, 1]) box(0.06, 0.4, 0.4, mOxD, s * 0.26, 4.5, ZP, O);
+  for (const s of [-1, 1]) { box(0.06, 0.4, 0.4, mOxD, s * 0.26, 4.5, ZP, O); for (const q of [-1, 1]) gusset(s * 0.29, 4.3, ZP + q * 0.21, 0.2, -0.2, mOxD, q > 0 ? -PI / 2 : PI / 2, O); }
   cyl(0.09, 0.7, 10, mSteel, 0, 4.5, ZP, O).rotation.z = PI / 2;
   box(0.7, 0.005, 0.48, mDust, 0, topY + 0.103, ZP, O);
   box(0.03, 0.2, 0.008, mRust, 0.2, topY - 0.25, ZP + 0.28, O);
@@ -112,19 +123,78 @@ export default function (THREE) {
   box(0.36, 0.03, 0.55, mOxS, 0, 0.73, zFront - 0.31, hh);
   box(0.3, 0.005, 0.5, mDust, 0, 0.748, zFront - 0.31, hh);
   box(0.03, 0.2, 0.006, mRust, 0.1, 0.45, zFront - 0.62, hh);
+  box(0.006, 0.3, 0.4, mPlate, 0.185, 0.22, zFront - 0.32, hh);
+  box(0.006, 0.3, 0.7, mPlate, 0.16, 0, 1.5, wb);
+  box(0.006, 0.3, 0.5, mPlate, -0.16, 0, -1.6, wb);
   const tangentTheta = -beamTilt;
   const br = new THREE.Group(); br.position.set(0, faceR * Math.sin(tangentTheta), faceR * Math.cos(tangentTheta)); br.rotation.x = -beamTilt; hh.add(br);
   const rodLen = 4.5 - 1.3;
   for (const s of [-1, 1]) cyl(0.015, rodLen, 6, mSteel, s * 0.1, -rodLen / 2, 0, br);
   box(0.36, 0.08, 0.12, mSteel, 0, -rodLen, 0, br);
   cyl(0.02, 0.62, 6, mRod, 0, -rodLen - 0.31, 0, br);
+  // polished rod clamp under the carrier bar, two clamp bolts
+  box(0.18, 0.08, 0.09, mSteel, 0, -rodLen - 0.1, 0, br);
+  for (const s of [-1, 1]) { cyl(0.014, 0.13, 6, mBolt, s * 0.06, -rodLen - 0.1, 0, br); hexNut(0.022, 0.02, s * 0.06, -rodLen - 0.03, 0, br); }
+  box(0.03, 0.12, 0.006, mRust, 0.03, -rodLen - 0.2, 0.048, br);
   const zWell = ZP + faceR;
-  cyl(0.13, 0.3, 10, mSteel, 0, 0.45, zWell, O);
-  cyl(0.19, 0.05, 10, mSteel, 0, 0.625, zWell, O);
-  cyl(0.08, 0.08, 8, mSteel, 0, 0.69, zWell, O);
-  for (let i = 0; i < 6; i++) { const a = i * PI / 3; cyl(0.012, 0.02, 6, mBolt, 0.15 * Math.cos(a), 0.66, zWell + 0.15 * Math.sin(a), O); }
-  cyl(0.04, 0.3, 8, mSteel, 0.22, 0.5, zWell, O).rotation.z = PI / 2;
-  box(0.02, 0.15, 0.03, mRust, 0.14, 0.4, zWell, O);
+  // wellhead: base ring on the slab, casing barrel, two bolted flanges with 8 studs each (nuts top and bottom,
+  // rust down the rim and the spool under every stud), a spool between them, a stuffing box with a hex gland nut
+  cyl(0.16, 0.05, 12, mSteel, 0, 0.325, zWell, O);
+  cyl(0.17, 0.012, 12, mRust, 0, 0.305, zWell, O);
+  cyl(0.13, 0.28, 12, mSteel, 0, 0.47, zWell, O);
+  for (const fy of [0.6, 0.79]) {
+    cyl(0.23, 0.05, 12, mSteel, 0, fy, zWell, O);
+    cyl(0.236, 0.012, 12, mRust, 0, fy - 0.022, zWell, O);
+    for (let i = 0; i < 8; i++) {
+      const a = i * PI / 4 + PI / 8, bx = 0.19 * Math.cos(a), bz = 0.19 * Math.sin(a);
+      cyl(0.011, 0.13, 6, mSteel, bx, fy, zWell + bz, O);
+      hexNut(0.018, 0.028, bx, fy + 0.04, zWell + bz, O); hexNut(0.018, 0.028, bx, fy - 0.04, zWell + bz, O);
+      const d1 = box(0.035, 0.05, 0.005, mRust, 0.232 * Math.cos(a), fy - 0.005, zWell + 0.232 * Math.sin(a), O); d1.rotation.y = PI / 2 - a;
+      const d2 = box(0.03, 0.11, 0.005, mRust, 0.133 * Math.cos(a), fy - 0.085, zWell + 0.133 * Math.sin(a), O); d2.rotation.y = PI / 2 - a;
+    }
+  }
+  cyl(0.13, 0.14, 12, mSteel, 0, 0.695, zWell, O);
+  cyl(0.10, 0.17, 10, mSteel, 0, 0.9, zWell, O);
+  hexNut(0.12, 0.05, 0, 1.0, zWell, O);
+  cyl(0.035, 0.08, 8, mSteel, 0, 1.06, zWell, O);
+  cyl(0.02, 0.05, 6, mBolt, 0.1, 0.9, zWell - 0.03, O).rotation.z = PI / 2;
+  box(0.03, 0.14, 0.005, mRust, -0.06, 0.86, zWell + 0.082, O);
+  // flowline off the spool: bolted union, gate valve with a bonnet flange, yoke and red wheel, second union, run to
+  // an elbow and a drop to the slab with a union on the drop and a rust ring at the foot
+  const yF = 0.695;
+  const union = (x, y, vertical) => {
+    for (const s of [-1, 1]) { const f = cyl(0.085, 0.024, 10, mSteel, vertical ? x : x + s * 0.017, vertical ? y + s * 0.017 : y, zWell, O); if (!vertical) f.rotation.z = PI / 2; }
+    const rr = cyl(0.088, 0.008, 10, mRust, x, y, zWell, O); if (!vertical) rr.rotation.z = PI / 2;
+    for (let i = 0; i < 4; i++) {
+      const a = i * PI / 2 + PI / 4, u = 0.062 * Math.cos(a), v = 0.062 * Math.sin(a);
+      const b = cyl(0.009, 0.1, 6, mSteel, vertical ? x + u : x, vertical ? y : y + u, zWell + v, O); if (!vertical) b.rotation.z = PI / 2;
+      for (const s of [-1, 1]) { const n = hexNut(0.015, 0.02, vertical ? x + u : x + s * 0.045, vertical ? y + s * 0.045 : y + u, zWell + v, O); if (!vertical) n.rotation.z = PI / 2; }
+    }
+    box(0.03, 0.1, 0.005, mRust, x + (vertical ? 0.0 : 0.02), y - 0.13, zWell + 0.048, O);
+  };
+  cyl(0.045, 0.24, 8, mSteel, 0.25, yF, zWell, O).rotation.z = PI / 2;
+  union(0.38, yF, false);
+  cyl(0.07, 0.18, 10, mSteel, 0.5, yF, zWell, O).rotation.z = PI / 2;
+  cyl(0.06, 0.08, 10, mSteel, 0.5, yF + 0.1, zWell, O);
+  cyl(0.085, 0.024, 10, mSteel, 0.5, yF + 0.15, zWell, O);
+  for (let i = 0; i < 4; i++) { const a = i * PI / 2 + PI / 4; hexNut(0.015, 0.024, 0.5 + 0.065 * Math.cos(a), yF + 0.172, zWell + 0.065 * Math.sin(a), O); }
+  for (const s of [-1, 1]) member([0.5 + s * 0.065, yF + 0.16, zWell], [0.5 + s * 0.03, yF + 0.37, zWell], 0.024, 0.02, mSteel, O);
+  hexNut(0.036, 0.045, 0.5, yF + 0.38, zWell, O);
+  cyl(0.01, 0.32, 6, mStem, 0.5, yF + 0.3, zWell, O);
+  add(new THREE.TorusGeometry(0.09, 0.012, 6, 12), mWheel, 0.5, yF + 0.45, zWell, O).rotation.x = PI / 2;
+  for (let i = 0; i < 3; i++) box(0.17, 0.01, 0.014, mWheel, 0.5, yF + 0.45, zWell, O).rotation.y = i * PI / 3;
+  cyl(0.02, 0.03, 8, mWheel, 0.5, yF + 0.45, zWell, O);
+  box(0.03, 0.1, 0.005, mRust, 0.5, yF - 0.02, zWell + 0.072, O);
+  union(0.62, yF, false);
+  cyl(0.045, 0.28, 8, mSteel, 0.79, yF, zWell, O).rotation.z = PI / 2;
+  add(new THREE.SphereGeometry(0.052, 8, 6), mSteel, 0.93, yF, zWell, O);
+  cyl(0.045, yF - 0.31, 8, mSteel, 0.93, (yF + 0.31) / 2, zWell, O);
+  union(0.93, 0.5, true);
+  cyl(0.07, 0.03, 10, mSteel, 0.93, 0.325, zWell, O);
+  cyl(0.075, 0.012, 10, mRust, 0.93, 0.31, zWell, O);
+  flatDrip(0.93, 0.306, zWell + 0.07, 0.06, 0.18, 0, 1, mRust, O);
+  flatDrip(0.16, 0.306, zWell, 0.08, 0.22, 1, 0, mRust, O);
+  flatDrip(-0.16, 0.306, zWell, 0.08, 0.2, -1, 0, mRust, O);
 
   // gearbox on a pedestal with an access ladder, axle
   const zG = -3.8, yAxle = 1.6;
@@ -133,6 +203,14 @@ export default function (THREE) {
   box(0.84, 0.005, 1.14, mDust, 0, 1.803, zG, O);
   for (const s of [-1, 1]) { box(0.02, 0.5, 0.7, mOxD, s * 0.455, 1.3, zG, O); for (const bz of [-0.28, 0, 0.28]) for (const by of [1.1, 1.5]) cyl(0.014, 0.02, 6, mBolt, s * 0.475, by, zG + bz, O).rotation.z = PI / 2; box(0.006, 0.25, 0.03, mRust, s * 0.466, 0.98, zG + 0.28, O); }
   box(0.9, 0.08, 0.06, mOxD, 0, 1.0, zG + 0.61, O);
+  // nameplate on the gearbox front, brake lever with a knob on the -X side, base flange with anchor bolts
+  box(0.4, 0.26, 0.012, mPlate, 0, 1.42, zG + 0.606, O);
+  box(0.012, 0.3, 0.2, mPlate, 0.471, 1.3, zG + 0.14, O);
+  box(0.06, 0.12, 0.08, mSteel, -0.48, 1.05, zG + 0.35, O);
+  member([-0.5, 1.05, zG + 0.35], [-0.58, 1.55, zG + 0.55], 0.03, 0.03, mSteel, O);
+  cyl(0.03, 0.06, 8, mBolt, -0.58, 1.57, zG + 0.55, O);
+  box(0.86, 0.04, 1.16, mOxD, 0, 0.32, zG, O);
+  for (const bx of [-0.4, 0.4]) for (const bz of [-0.55, 0.55]) { cyl(0.018, 0.02, 6, mBolt, bx, 0.35, zG + bz, O); box(0.05, 0.004, 0.06, mRust, bx + Math.sign(bx) * 0.03, 0.342, zG + bz, O); flatDrip(bx + Math.sign(bx) * 0.43, 0.306, zG + bz, 0.07, 0.3, Math.sign(bx), 0, mRust, O); flatDrip(bx, 0.306, zG + bz + Math.sign(bz) * 0.03, 0.07, 0.22, 0, Math.sign(bz), mRust, O); }
   for (const r of [0.55, 0.8, 1.05, 1.3, 1.55]) box(0.4, 0.03, 0.03, mSteel, 0, r, zG - 0.62, O);
   for (const s of [-1, 1]) box(0.03, 1.2, 0.03, mSteel, s * 0.2, 1.1, zG - 0.62, O);
   cyl(0.1, 1.5, 10, mSteel, 0, yAxle, zG, O).rotation.z = PI / 2;
@@ -148,6 +226,7 @@ export default function (THREE) {
     box(0.006, 0.2, 0.03, mRust, s * 0.735, 0.55, 0.15, crank);
   }
   cyl(0.05, 1.3, 8, mSteel, 0, 0.95, 0, crank).rotation.z = PI / 2;
+  for (const s of [-1, 1]) cyl(0.075, 0.05, 8, mBolt, s * 0.755, 0.95, 0, crank).rotation.z = PI / 2;
   const pinWorldY = yAxle + 0.95 * Math.cos(crankAngle), pinWorldZ = zG + 0.95 * Math.sin(crankAngle);
   const eqY = 4.5 + (-0.1) * Math.cos(beamTilt) - (zRear + 0.05) * Math.sin(beamTilt);
   const eqZ = ZP + (-0.1) * Math.sin(beamTilt) + (zRear + 0.05) * Math.cos(beamTilt);
@@ -160,10 +239,20 @@ export default function (THREE) {
   box(0.6, 0.55, 0.8, mOlive, 0.95, 0.575, -4.05, O);
   box(0.54, 0.005, 0.74, mDust, 0.95, 0.853, -4.05, O);
   cyl(0.28, 0.06, 12, mOlive, 0.95, 0.575, -4.05, O).rotation.z = PI / 2;
+  // junction box on the motor with a conduit across to the gearbox side plate
+  box(0.16, 0.12, 0.1, mOlive, 0.95, 0.91, -4.05, O);
+  box(0.14, 0.004, 0.08, mDust, 0.95, 0.972, -4.05, O);
+  member([0.95, 0.9, -3.98], [0.47, 1.1, zG + 0.3], 0.03, 0.03, mBolt, O);
   const guard = new THREE.Group(); guard.position.set(0.6, 1.1, -3.72); guard.rotation.x = Math.atan2(0.65, 1.0); O.add(guard);
   box(0.12, 1.1, 0.5, mOxD, 0, 0, 0, guard);
   cyl(0.28, 0.12, 12, mOxD, 0, 0.55, 0, guard).rotation.z = PI / 2;
   cyl(0.25, 0.12, 12, mOxD, 0, -0.55, 0, guard).rotation.z = PI / 2;
+  // stiffening ribs across the guard face and a stencil plate on it
+  for (const ry of [-0.3, 0.3]) box(0.26, 0.04, 0.54, mOxS, 0, ry, 0, guard);
+  for (const s of [-1, 1]) box(0.26, 1.0, 0.04, mOxS, 0, 0, s * 0.25, guard);
+  box(0.26, 0.04, 0.54, mOxS, 0, 0, 0, guard);
+  box(0.006, 0.22, 0.4, mPlate, 0.064, 0.15, 0, guard);
+  for (const s of [-1, 1]) box(0.03, 0.12, 0.006, mRust, s * 0.13, -0.38, 0.1, guard);
   box(0.03, 0.15, 0.008, mRust, 0.95, 0.4, -3.646, O);
 
   g.userData.joints = { walkingBeam: wb, crank, pitman };

@@ -156,7 +156,84 @@ export default function (THREE) {
   disc(g, 0.14, RUST, 0.45, eng.top + 0.011, -0.25, -PI / 2, 0, 0);
   cyl(g, 0.02, 0.06, STEEL, 0.45, eng.top + 0.45, -0.25, 0, 0, 0, { rt: 0.09 }); cyl(g, 0.012, 0.03, STEEL, 0.45, eng.top + 0.42, -0.25);
   box(g, 0.5, 0.02, 0.5, mO(0.3), -0.2, eng.top + 0.01, 0.1); cyl(g, 0.08, 0.04, GALV, -0.2, eng.top + 0.04, 0.1); cyl(g, 0.04, 0.01, GUN, -0.2, eng.top + 0.065, 0.1);
-  fillet(g, 3.0, 0.14, 0.1, 0, 0, 0.6, 0); fillet(g, 1.1, 0.2, 0.12, -1.6, 0, 0, -PI / 2); fillet(g, 1.1, 0.2, 0.12, 1.6, 0, 0, PI / 2);
+  // ---- r4 detail pass: screw rows along every roof edge and panel edge like the concept, a silencer drum under the stack,
+  //      drip edge rust under each roof lip, roof stiffener seams, cable conduit from the cabinet to a junction box on the
+  //      skid and a cable on the ground, battery box, cable glands, earth stud, drain plug, document pocket, hazard plate. ----
+  const mYel = M(tint(P.yellow, 0.15), 'metal', { roughness: 0.88, metalness: 0.05 });
+  const mods = [[-1.3, -0.65, 1.6], [-0.62, 0.72, 1.45], [0.75, 1.3, 1.5]];
+  for (const [x0, x1, top] of mods) {
+    const w = x1 - x0, cx = (x0 + x1) / 2, n = Math.max(2, Math.round(w / 0.16));
+    for (const sz of [-1, 1]) {
+      box(g, w - 0.04, 0.02, 0.006, RUST, cx, top - 0.045, sz * (EZ + 0.003));                                      // drip edge rust under the roof lip
+      for (let i = 0; i <= n; i++) { const x = x0 + 0.03 + (w - 0.06) * i / n; cyl(g, 0.011, 0.01, GUN, x, top - 0.06, sz * (EZ + 0.005), PI / 2, 0, 0, { seg: 6 }); if (i % 3 === 1) streak(g, sz > 0 ? 'pz' : 'nz', x, top - 0.072, sz * EZ, 0.08 + 0.05 * (i % 2), 0.03); }
+      for (let k = 1; k < 5; k++) { const y = EY0 + 0.05 + (top - EY0 - 0.1) * k / 5; cyl(g, 0.011, 0.01, GUN, x0 + 0.03, y, sz * (EZ + 0.005), PI / 2, 0, 0, { seg: 6 }); cyl(g, 0.011, 0.01, GUN, x1 - 0.03, y, sz * (EZ + 0.005), PI / 2, 0, 0, { seg: 6 }); }
+    }
+    for (const rx of [cx - w * 0.25, cx + w * 0.25]) box(g, 0.02, 0.012, 1.02, OE, rx, top + 0.012, 0);           // roof stiffener seams
+  }
+  for (let k = 0; k < 6; k++) for (const sz of [-1, 1]) cyl(g, 0.011, 0.008, GUN, -1.304, 0.3 + k * 0.22, sz * 0.5, 0, 0, PI / 2, { seg: 6 });   // cabinet end face screw columns, 4 mm proud of the face at x -1.30
+  // silencer drum under the stack, saddles, rust collar where the stack leaves it
+  cyl(g, 0.13, 0.7, STEEL, 0.1, eng.top + 0.16, -0.25, 0, 0, PI / 2, { seg: 14 });
+  for (const dx of [-0.22, 0.22]) cyl(g, 0.135, 0.03, RUST, 0.1 + dx, eng.top + 0.16, -0.25, 0, 0, PI / 2, { seg: 14 });
+  for (const dx of [-0.25, 0.25]) box(g, 0.06, 0.05, 0.3, GUN, 0.1 + dx, eng.top + 0.025, -0.25);
+  cyl(g, 0.058, 0.05, RUST, 0.45, eng.top + 0.31, -0.25); disc(g, 0.16, RUST, 0.45, eng.top + 0.012, -0.25, -PI / 2, 0, 0);
+  // ---- r4b: the skid end cluster rebuilt so nothing overhangs the skid outline (x -1.6) and every cable goes somewhere ----
+  // a cable or rod between two points, and a knot where two segments meet
+  function seg(parent, a, b, r, mat, sg) {
+    const A = new THREE.Vector3(a[0], a[1], a[2]), B = new THREE.Vector3(b[0], b[1], b[2]), d = B.clone().sub(A), L = d.length();
+    const m = mesh(parent, new THREE.CylinderGeometry(r, r, L, sg || 6), mat, (A.x + B.x) / 2, (A.y + B.y) / 2, (A.z + B.z) / 2);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); return m;
+  }
+  const knot = (parent, p, r, mat) => mesh(parent, new THREE.SphereGeometry(r, 6, 5), mat, p[0], p[1], p[2]);
+  const DECK = 0.15;   // skid deck top
+  // conduit from the cabinet gland (x -1.34, y 0.72, z -0.3) straight down, elbow, then a short run in -z into the SIDE of the junction box
+  box(g, 0.08, 0.08, 0.08, GUN, -1.34, 0.72, -0.3);
+  cyl(g, 0.02, 0.28, STEEL, -1.35, 0.54, -0.3); box(g, 0.05, 0.03, 0.06, STEEL, -1.34, 0.6, -0.3);          // conduit and saddle clip on the cabinet face
+  knot(g, [-1.35, 0.4, -0.3], 0.026, STEEL);                                                                 // elbow
+  cyl(g, 0.02, 0.09, STEEL, -1.35, 0.4, -0.345, PI / 2, 0, 0);                                               // horizontal run to the box side
+  cyl(g, 0.03, 0.03, GUN, -1.35, 0.4, -0.375, PI / 2, 0, 0, { seg: 8 });                                     // gland on the box side
+  // junction box on the cabinet end face beside the louvre panel, inside the skid outline: body, proud lid with four screws, rust run below it
+  const JB = mO(0.05), JZ = -0.48;
+  box(g, 0.1, 0.22, 0.2, JB, -1.35, 0.37, JZ);
+  box(g, 0.014, 0.18, 0.16, mO(0.12), -1.407, 0.37, JZ);
+  for (const [ly, lz] of [[0.45, JZ - 0.07], [0.45, JZ + 0.07], [0.29, JZ - 0.07], [0.29, JZ + 0.07]]) cyl(g, 0.008, 0.008, GUN, -1.418, ly, lz, 0, 0, PI / 2, { seg: 6 });
+  streak(g, 'nx', -1.3, 0.26, JZ, 0.1, 0.16);
+  // cable out of the box BOTTOM straight down onto the deck, a short clipped run to the skid edge, then down the skid side face to the sand
+  cyl(g, 0.012, 0.11, RUBBER, -1.35, 0.205, JZ); cyl(g, 0.024, 0.02, GUN, -1.35, 0.25, JZ, 0, 0, 0, { seg: 8 });   // cable and its gland
+  knot(g, [-1.35, DECK + 0.012, JZ], 0.014, RUBBER);
+  seg(g, [-1.35, DECK + 0.012, JZ], [-1.35, DECK + 0.012, -0.6], 0.012, RUBBER);
+  box(g, 0.04, 0.02, 0.03, GALV, -1.35, DECK + 0.01, -0.55);                                                 // deck clip
+  knot(g, [-1.35, DECK + 0.012, -0.6], 0.014, RUBBER);
+  seg(g, [-1.35, DECK + 0.012, -0.6], [-1.35, 0.012, -0.615], 0.012, RUBBER);                                // down the skid side face
+  box(g, 0.03, 0.03, 0.02, GALV, -1.35, 0.09, -0.61);                                                        // clip on the skid side
+  // ground cable: three short segments lying loosely on the sand, knots where they meet, a connector at the end instead of a cut
+  const gc = [[-1.35, 0.012, -0.615], [-1.0, 0.026, -0.648], [-0.65, 0.012, -0.628], [-0.27, 0.024, -0.65]];
+  for (let i = 0; i < 3; i++) { seg(g, gc[i], gc[i + 1], 0.012, RUBBER); knot(g, gc[i + 1], 0.014, RUBBER); }
+  cyl(g, 0.02, 0.07, GUN, -0.21, 0.02, -0.65, 0, 0, PI / 2, { seg: 8 }); cyl(g, 0.024, 0.02, GALV, -0.19, 0.02, -0.65, 0, 0, PI / 2, { seg: 8 });
+  // battery box on the sun side of the skid apron, inside the skid outline and clear of the lifting eye: body and lid in olive so it weathers
+  // like the cabinet, dark lid seam, dust on the lid, two terminal studs with clamps and a cable each into the cabinet foot, strap with a buckle, rust run under the strap
+  const BX = -1.45, BZ = 0.2;
+  box(g, 0.22, 0.18, 0.3, mO(0.0), BX, DECK + 0.09, BZ); box(g, 0.22, 0.06, 0.3, mO(0.1), BX, DECK + 0.21, BZ);
+  box(g, 0.226, 0.006, 0.306, DARK, BX, DECK + 0.18, BZ);
+  dust(g, 0.22, 0.3, BX, DECK + 0.24, BZ, 0.03, 0.008);
+  box(g, 0.025, 0.008, 0.31, GALV, BX, DECK + 0.252, BZ); for (const sz of [-1, 1]) box(g, 0.025, 0.25, 0.008, GALV, BX, DECK + 0.125, BZ + sz * 0.154);
+  box(g, 0.05, 0.05, 0.02, GUN, BX, DECK + 0.19, BZ + 0.165); cyl(g, 0.006, 0.05, GUN, BX, DECK + 0.19, BZ + 0.176, 0, 0, PI / 2, { seg: 6 });   // buckle and pin
+  streak(g, 'pz', BX, DECK + 0.16, BZ + 0.15, 0.14, 0.04); streak(g, 'nz', BX, DECK + 0.15, BZ - 0.15, 0.12, 0.04);
+  for (const [tx, tz, gz] of [[-1.5, BZ - 0.05, 0.16], [-1.4, BZ + 0.05, 0.28]]) {
+    cyl(g, 0.012, 0.03, GALV, tx, DECK + 0.265, tz, 0, 0, 0, { seg: 6 }); box(g, 0.03, 0.02, 0.03, GUN, tx, DECK + 0.285, tz);   // stud and clamp
+    const top = [tx, DECK + 0.295, tz], mid = [(tx - 1.31) / 2, DECK + 0.32, tz + 0.01], end = [-1.31, 0.22, gz];
+    seg(g, top, mid, 0.008, RUBBER); knot(g, mid, 0.009, RUBBER); seg(g, mid, end, 0.008, RUBBER);
+    cyl(g, 0.018, 0.03, GUN, -1.31, 0.22, gz, 0, 0, PI / 2, { seg: 8 });                                   // gland in the cabinet foot
+  }
+  // earth strap from the earth stud down into the sand fillet
+  box(g, 0.02, 0.09, 0.004, GALV, -1.5, 0.12, 0.6);
+  // cable glands, earth stud, drain plug, document pocket, hazard plate
+  for (const gx of [-1.2, -1.05, -0.9]) cyl(g, 0.02, 0.05, GUN, gx, 0.3, EZ + 0.03, PI / 2, 0, 0, { seg: 8 });
+  cyl(g, 0.01, 0.05, GALV, -1.5, 0.17, 0.56, PI / 2, 0, 0, { seg: 6 }); box(g, 0.04, 0.04, 0.01, GALV, -1.5, 0.19, 0.555);
+  cyl(g, 0.02, 0.02, GUN, 0.3, 0.06, 0.61, PI / 2, 0, 0, { seg: 8 }); streak(g, 'pz', 0.3, 0.04, 0.6, 0.03, 0.05);
+  box(g, 0.012, 0.22, 0.16, mO(0.35), -1.318, 0.75, 0.15); box(g, 0.006, 0.02, 0.16, GUN, -1.325, 0.85, 0.15);
+  box(g, 0.16, 0.16, 0.008, mYel, -0.97, 1.3, EZ + 0.02, 0, 0, PI / 4); box(g, 0.07, 0.07, 0.006, GUN, -0.97, 1.3, EZ + 0.026, 0, 0, PI / 4);
+
+  fillet(g, 3.0, 0.1, 0.1, 0, 0, 0.6, 0); fillet(g, 1.1, 0.2, 0.12, -1.6, 0, 0, -PI / 2); fillet(g, 1.1, 0.2, 0.12, 1.6, 0, 0, PI / 2);
 
   // ---- contract: base at y = 0, centred on x and z, measured from vertices ----
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw

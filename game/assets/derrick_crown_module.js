@@ -1,3 +1,7 @@
+// derrick_crown_module r4 detail pass: box bolt heads, foot plates with bolts, the fast line over
+// the centre sheaves down to a travelling block with a hook hanging at eye height above the mid
+// deck, a dead line to an anchor at the south west foot, step irons up the north east leg, a flat
+// bar guard over the sheaves, a lightning rod, a plated ID panel, one bent diagonal on the W face.
 // derrick_crown_module candidate 2: a different reading. Heavier box section legs
 // with bolted splice collars, X bracing with a horizontal at every crossing so each
 // face reads as a ladder of diamonds like the reference, the crown block as an open
@@ -27,12 +31,14 @@ export default function (THREE) {
   const gun = M(0x3a3d40, 'metal', 0.50, 0.60);   // machined: holds no dust film
   const gunL = M(0x45494d, 'metal', 0.68, 0.60);
   const dust = M(0xcdb88e, 'ground', 0.95, 0.0);
+  const plate = M(0x9c988c, 'metal', 0.80, 0.20); // plated ID panel
   const lens = M(0xc9a227, null, 0.5, 0.0, false, 0xffd9a0);
 
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
   const box = (w, h, d, mat, x, y, z, parent) => { const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); mm.position.set(x, y, z); (parent || g).add(mm); return mm; };
   const cyl = (r, len, mat, x, y, z, axis, seg, parent) => {
-    const mm = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg || 8), mat);
+    // bolt heads (gunmetal, 25 mm and under) are boxes: 12 triangles against 24 and identical at any game distance
+    const mm = new THREE.Mesh(mat === gun && r <= 0.025 ? new THREE.BoxGeometry(r * 2.4, len, r * 2.4) : new THREE.CylinderGeometry(r, r, len, seg || 8), mat);
     if (axis === 'z') mm.rotation.x = Math.PI / 2; else if (axis === 'x') mm.rotation.z = Math.PI / 2;
     mm.position.set(x, y, z); (parent || g).add(mm); return mm;
   };
@@ -62,10 +68,15 @@ export default function (THREE) {
       const c = V(sx * (hw(yy) - 0.08), yy, sz * (hw(yy) - 0.08));
       box(0.22, 0.4, 0.22, yy > 4 ? oxB : ox, c.x, c.y, c.z);
       for (const [nx, nz] of [[sx, 0], [0, sz]]) for (const dy of [-0.12, 0, 0.12]) cyl(0.025, 0.03, gun, c.x + nx * 0.115, yy + dy, c.z + nz * 0.115, nx ? 'x' : 'z', 6);
-      box(sx ? 0.006 : 0.1, 0.25, 0.1, rust, c.x + sx * 0.113, yy - 0.32, c.z);
-      box(0.1, 0.25, 0.006, rust, c.x, yy - 0.32, c.z + sz * 0.113);
+      // the drip under the lower collar stops at the foot plate; it used to hang 0.45 m below the base plane and lift the crown off the mid deck
+      const dl = yy > 1 ? 0.25 : 0.06, dy = yy - 0.2 - dl / 2;
+      box(0.006, dl, 0.1, rust, c.x + sx * 0.113, dy, c.z);
+      box(0.1, dl, 0.006, rust, c.x, dy, c.z + sz * 0.113);
     }
     box(0.14, 0.008, 0.14, dust, sx * (hw(YT + 0.1) - 0.08), YT + 0.104, sz * (hw(YT + 0.1) - 0.08));
+    // foot plate with four bolts and nuts where the leg lands on the mid deck
+    { const c = hw(0) - 0.08; box(0.36, 0.03, 0.36, ox, sx * c, 0.015, sz * c);
+      for (const bx of [-1, 1]) for (const bz of [-1, 1]) { cyl(0.016, 0.05, gun, sx * c + bx * 0.14, 0.045, sz * c + bz * 0.14, 'y', 6); box(0.05, 0.016, 0.05, gun, sx * c + bx * 0.14, 0.038, sz * c + bz * 0.14); } }
   }
 
   // ---- diamonds: girts at 0, 1.85, 3.7, 5.55, 7.4 and X braces between, plates at crossings ----
@@ -83,7 +94,7 @@ export default function (THREE) {
       for (const [nx, nz, f] of [[0, sz, sz > 0 ? 'S' : 'N'], [sx, 0, sx > 0 ? 'E' : 'W']]) {
         box(nx ? 0.012 : 0.3, 0.26, nz ? 0.012 : 0.3, oxR, sx * w + nx * 0.06, y, sz * w + nz * 0.06);
         for (const u of [-0.1, 0.1]) for (const v of [-0.07, 0.07]) cyl(0.022, 0.03, gun, sx * w + nx * 0.075 + (nz ? u : 0), y + v, sz * w + nz * 0.075 + (nx ? u : 0), nx ? 'x' : 'z', 6);
-        box(nx ? 0.006 : 0.08, 0.25, nz ? 0.006 : 0.08, rust, sx * w + nx * 0.07, y - 0.26, sz * w + nz * 0.07);
+        { const dl = Math.min(0.25, Math.max(0, y - 0.15)); if (dl > 0.05) box(nx ? 0.006 : 0.08, dl, nz ? 0.006 : 0.08, rust, sx * w + nx * 0.07, y - 0.13 - dl / 2, sz * w + nz * 0.07); }
       }
     }
   }
@@ -96,7 +107,12 @@ export default function (THREE) {
         let p, q;
         if (nz) { p = V(-s * w1, y1, nz * (w1 + o)); q = V(s * w2, y2, nz * (w2 + o)); }
         else { p = V(nx * (w1 + o), y1, -s * w1); q = V(nx * (w2 + o), y2, s * w2); }
-        bar(p, q, 0.07, 0.02, s > 0 ? mat : oxR, V(nx, 0, nz));
+        if (li === 1 && f === 'W' && s < 0) {
+          // one diagonal took a knock and is bent outward at its middle, rust at the crease
+          const k = p.clone().lerp(q, 0.5); k.x += nx * 0.14; k.y -= 0.04;
+          bar(p, k, 0.07, 0.02, oxR, V(nx, 0, nz)); bar(k, q, 0.07, 0.02, oxR, V(nx, 0, nz));
+          box(0.03, 0.1, 0.09, rust, k.x + nx * 0.012, k.y - 0.02, k.z);
+        } else bar(p, q, 0.07, 0.02, s > 0 ? mat : oxR, V(nx, 0, nz));
       }
       box(nx ? 0.012 : 0.22, 0.22, nz ? 0.012 : 0.22, oxR, nx * (wm + o + 0.02), ym, nz * (wm + o + 0.02));
       cyl(0.021, 0.03, gun, nx * (wm + o + 0.03), ym, nz * (wm + o + 0.03), nx ? 'x' : 'z', 6);
@@ -132,6 +148,36 @@ export default function (THREE) {
     for (let k = 0; k < 4; k++) { const b = box(0.06, 0.62, 0.05, gun, x, AY, 0); b.rotation.x = k * Math.PI / 4 + Math.PI / 8 + Math.PI / 2; }
     cyl(0.12, 0.13, gunL, x, AY, 0, 'x', 10);
   }
+  // ---- the lines: fast line over the two centre sheaves down to a travelling block with a hook, hanging where a player
+  //      on the mid deck sees it at eye height; a dead line from the outer sheave to an anchor at the south west foot ----
+  const BLK = 2.0, by = BLK - 0.28;
+  for (const x of [-0.25, 0.25]) cyl(0.014, AY - 0.45 - (by + 0.3), gunL, x, (AY - 0.45 + by + 0.3) / 2, 0, 'y', 6);
+  for (const sx of [-1, 1]) box(0.024, 0.6, 0.34, steelD, sx * 0.14, by, 0);                 // cheek plates
+  cyl(0.24, 0.06, gun, 0, by, 0, 'x', 14); cyl(0.09, 0.3, gunL, 0, by, 0, 'x', 10);           // sheave and its hub
+  for (const [dy, dz] of [[0.24, 0.12], [0.24, -0.12], [-0.24, 0.12], [-0.24, -0.12]]) cyl(0.02, 0.32, gun, 0, by + dy, dz, 'x', 6);   // spacer bolts
+  box(0.12, 0.12, 0.08, steel, 0, by - 0.36, 0);                                              // becket
+  cyl(0.025, 0.14, gunL, 0, by - 0.48, 0, 'y', 8);                                            // hook shank
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 6, 10, Math.PI * 1.55), gun); hook.position.set(0, by - 0.62, 0); hook.rotation.z = Math.PI * 0.72; g.add(hook);
+  box(0.006, 0.24, 0.06, rust, -0.153, by - 0.1, 0.06); box(0.006, 0.2, 0.05, rust, 0.153, by - 0.12, -0.08);
+  {
+    const p = V(-0.75, AY - 0.3, 0.3), q = V(-(hw(0) - 0.08) + 0.35, 0.3, (hw(0) - 0.08) - 0.35);
+    const { gr, len } = frame(p, q);
+    cyl(0.012, len, gunL, 0, 0, 0, 'y', 6, gr);
+    box(0.2, 0.26, 0.2, steel, q.x, 0.13, q.z); box(0.08, 0.12, 0.006, rust, q.x, 0.06, q.z + 0.103);   // dead line anchor
+    for (const bx of [-1, 1]) cyl(0.016, 0.03, gun, q.x + bx * 0.06, 0.28, q.z, 'y', 6);
+  }
+  // ---- flat bar guard over the sheaves: two half hoops and three longitudinals; a lightning rod on the crown ----
+  for (const gx of [-1.0, 1.0]) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.012, 5, 10, Math.PI), gunL); h.position.set(gx, AY, 0); h.rotation.y = Math.PI / 2; g.add(h); }
+  for (const a of [Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4]) cyl(0.012, 2.0, gunL, 0, AY + 0.56 * Math.sin(a), 0.56 * Math.cos(a), 'x', 6);
+  box(0.1, 0.03, 0.1, steel, -1.1, BY0 + PH + 0.015, -(BZ - 0.1)); cyl(0.01, 0.8, gunL, -1.1, BY0 + PH + 0.43, -(BZ - 0.1), 'y', 5);
+  // ---- step irons welded up the north east leg every 0.35 m, how the crew reaches the crown ----
+  for (let y = 0.5; y < YT - 0.2; y += 0.35) {
+    const c = hw(y) - 0.08;
+    box(0.02, 0.022, 0.3, steel, c + 0.23, y, -c);
+    for (const dz of [-0.13, 0.13]) box(0.17, 0.022, 0.022, steel, c + 0.145, y, -c + dz);
+  }
+  // plated ID panel on the south face of the SE leg at 1.6 m (eye height from the mid deck)
+  { const c = hw(1.6) - 0.08; box(0.18, 0.24, 0.008, gun, c, 1.6, c + 0.085); box(0.15, 0.2, 0.012, plate, c, 1.6, c + 0.095); box(0.06, 0.14, 0.005, rust, c, 1.42, c + 0.092); }
   // aircraft light in a wire guard on the beam top, outboard of the sheaves
   cyl(0.08, 0.08, gun, 1.1, BY0 + PH + 0.04, BZ - 0.1, 'y', 10);
   cyl(0.085, 0.16, lens, 1.1, BY0 + PH + 0.16, BZ - 0.1, 'y', 10);

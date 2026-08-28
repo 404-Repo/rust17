@@ -100,10 +100,7 @@ export default function (THREE) {
     for (const sx of [-1, 1]) box((HW - IW) / 2, FL + IH, 0.34, face, sx * (IW / 2 + (HW - IW) / 4), (FL + IH) / 2, zc);
     box(HW, 0.4, 0.35, stain, 0, 0.2, zc);
     // chamfered top corners: a rotated block cut across each corner in stained tone
-    for (const sx of [-1, 1]) {
-      const ch = box(0.3, 0.3, 0.36, stainD, sx * (HW / 2), HT, zc);
-      ch.rotation.z = Math.PI / 4;
-    }
+    for (const sx of [-1, 1]) box(0.22, 0.18, 0.36, stainD, sx * (HW / 2 - 0.12), HT - 0.1, zc);   // dark spalled corner patch
     // opening reveal, darker, and the sill lip
     box(0.04, IH, 0.36, concIn, -(IW / 2 + 0.02), FL + IH / 2, zc);
     box(0.04, IH, 0.36, concIn, (IW / 2 + 0.02), FL + IH / 2, zc);
@@ -129,14 +126,20 @@ export default function (THREE) {
     // wing walls: two stepped blocks each, splayed 30 degrees off the axis
     for (const sx of [-1, 1]) {
       const wg = new THREE.Group();
-      wg.position.set(sx * (HW / 2), 0, zc - sz * 0.17);
-      wg.rotation.y = sx * sz * Math.PI / 6;
+      wg.position.set(sx * (HW / 2 - 0.2), 0, zc + sz * 0.17);
+      wg.rotation.y = sx * sz * Math.PI / 6;                        // flares FORWARD and outward from the headwall face
       g.add(wg);
-      box(0.2, 2.1, 0.18, conc, sx * 0.1, 1.05, -sz * 0.09, wg);
-      box(0.2, 1.5, 0.16, conc, sx * 0.1, 0.75, -sz * 0.26, wg);
-      box(0.21, 0.4, 0.34, stain, sx * 0.1, 0.2, -sz * 0.17, wg);
-      box(0.16, 0.012, 0.14, dust, sx * 0.1, 2.106, -sz * 0.09, wg);
-      box(0.16, 0.012, 0.12, dust, sx * 0.1, 1.506, -sz * 0.26, wg);
+      box(0.26, 2.1, 0.22, conc, sx * 0.13, 1.05, sz * 0.11, wg);
+      box(0.26, 1.5, 0.18, conc, sx * 0.13, 0.75, sz * 0.31, wg);
+      box(0.27, 0.4, 0.4, stain, sx * 0.13, 0.2, sz * 0.2, wg);
+      box(0.2, 0.012, 0.18, dust, sx * 0.13, 2.106, sz * 0.11, wg);
+      box(0.2, 0.012, 0.14, dust, sx * 0.13, 1.506, sz * 0.31, wg);
+      const an = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.01, 5, 8), rust); an.rotation.y = Math.PI / 2; an.position.set(sx * 0.265, 1.6, sz * 0.11); wg.add(an);
+      box(0.006, 0.5, 0.05, rust, sx * 0.264, 1.3, sz * 0.11, wg);
+      box(0.06, 0.9, 0.06, lug, sx * 0.13, 1.95, sz * 0.36, wg);                                  // marker post on the wing end
+      box(0.012, 0.22, 0.14, M(0xc9a227, 'metal', 0.8, 0.2), sx * 0.166, 2.2, sz * 0.36, wg);
+      box(0.006, 0.3, 0.04, rust, sx * 0.164, 1.85, sz * 0.36, wg);
+      box(0.2, 0.05, 0.2, sand, sx * 0.13, 0.025, sz * 0.3, wg);
     }
   }
   // ---- sand fillet and tyre ruts through the tunnel approaches ----
@@ -148,6 +151,57 @@ export default function (THREE) {
   for (const sz of [-1, 1]) {
     box(1.4, 0.08, 0.3, sand, sz * 0.9, 0.04, sz * (L / 2 + 0.48));
     box(0.7, 0.05, 0.2, dust, sz * 0.7, 0.10, sz * (L / 2 + 0.43));
+  }
+  // ---- r4 detail pass: tie holes, coping angle with bolts, anchor plates, weep pipes, marker posts, interior fittings ----
+  {
+    const steel = M(0x4f5257, 'metal', 0.75, 0.35);
+    const galvD = M(0x8d9290, 'metal', 0.74, 0.5);
+    const yellow = M(0xc9a227, 'metal', 0.80, 0.2);
+    const rock = M(0xc4b393, 'stone', 0.92, 0.0);
+    const holeM = M(0x5a5348, 'stone', 0.95, 0.0, true);
+    const cone = (x, y, z, rx, rz, mat) => { const b = new THREE.Mesh(new THREE.ConeGeometry(0.013, 0.014, 6), mat || rust); b.rotation.x = rx; b.rotation.z = rz; b.position.set(x, y, z); g.add(b); return b; };
+    for (const sz of [-1, 1]) {
+      const zc = sz * (L / 2 + 0.17), zf = zc + sz * 0.17;     // headwall centre and its outer face
+      // form tie holes, two rows of four
+      for (const ty of [0.9, 1.7]) for (const tx of [-1.25, -0.45, 0.45, 1.25]) {
+        const h = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 6, 1, true), holeM);
+        h.rotation.x = Math.PI / 2; h.position.set(tx, ty, zf); g.add(h);
+      }
+      // steel edge angle on the outer top edge of the coping, five bolts, rust runs down the coping
+      box(HW + 0.12, 0.04, 0.05, steel, 0, HT + 0.23, zc + sz * 0.195);
+      box(HW + 0.12, 0.05, 0.012, steel, 0, HT + 0.185, zc + sz * 0.214);
+      for (const bx of [-1.4, -0.7, 0, 0.7, 1.4]) { cone(bx, HT + 0.257, zc + sz * 0.195, 0, 0); box(0.03, 0.22, 0.006, rust, bx + 0.02, HT + 0.05, zc + sz * 0.223); }
+      // cast in anchor plate on the crown with four bolts and a streak
+      box(0.3, 0.2, 0.012, steel, 0, HT - 0.35, zf);
+      for (const [bx, by] of [[-0.11, -0.06], [0.11, -0.06], [-0.11, 0.06], [0.11, 0.06]]) cone(bx, HT - 0.35 + by, zf + sz * 0.013, sz * Math.PI / 2, 0);
+      box(0.08, 0.5, 0.006, rust, 0.04, HT - 0.72, zf + sz * 0.002);
+      box(0.03, 0.3, 0.006, rustD, -0.06, HT - 0.62, zf + sz * 0.003);
+      // weep pipes through the headwall with rust below
+      for (const wx of [-1.15, 1.15]) {
+        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.16, 8, 1, true), rustD);
+        w.rotation.x = Math.PI / 2; w.position.set(wx, 0.85, zf + sz * 0.06); g.add(w);
+        box(0.08, 0.45, 0.006, rust, wx, 0.55, zf + sz * 0.003);
+      }
+      // drip groove under the coping
+      box(HW - 0.1, 0.02, 0.012, groove, 0, HT - 0.06, zf);
+      // one bent rebar stub per end
+      const bent = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.2, 6), rustD);
+      bent.rotation.z = sz * 0.9; bent.position.set(-0.9 + sz * 0.1, HT + 0.31, zc - sz * 0.05); g.add(bent);
+      // sand drift wedge just inside each mouth and the rubble outside the south mouth
+      box(IW - 0.1, 0.08, 0.6, sand, 0, FL + 0.2, sz * (L / 2 - 0.3));
+      box(IW - 0.6, 0.06, 0.35, dust, sz * 0.2, FL + 0.27, sz * (L / 2 - 0.35));
+    }
+    for (const [rx, ry, rz, s, r] of [[1.3, 0.1, L / 2 + 0.45, 0.26, 0.4], [1.5, 0.08, L / 2 + 0.25, 0.2, 1.1], [1.05, 0.07, L / 2 + 0.6, 0.16, 0.7]]) {
+      const b = box(s, s * 0.7, s * 0.8, rock, rx, ry, rz); b.rotation.y = r; b.rotation.z = 0.15;
+    }
+    // interior: conduit along the ceiling corner with clips and a junction box, spall with rebar on the east wall
+    const cd = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, L - 0.2, 6), galvD);
+    cd.rotation.x = Math.PI / 2; cd.position.set(IW / 2 - 0.1, FL + IH - 0.08, 0); g.add(cd);
+    for (const cz of [-2.6, -0.9, 0.9, 2.6]) box(0.06, 0.04, 0.04, steel, IW / 2 - 0.06, FL + IH - 0.08, cz);
+    box(0.15, 0.2, 0.15, steel, IW / 2 - 0.085, FL + IH - 0.3, -1.6);
+    box(0.006, 0.4, 0.1, rust, IW / 2 - 0.02, FL + IH - 0.6, -1.6);
+    box(0.008, 0.25, 0.4, groove, IW / 2 - 0.012, FL + 1.1, 1.4);
+    for (const ry of [FL + 1.04, FL + 1.16]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.36, 5), rustD); r.rotation.x = Math.PI / 2; r.position.set(IW / 2 - 0.02, ry, 1.4); g.add(r); }
   }
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length

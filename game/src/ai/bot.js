@@ -30,6 +30,18 @@ const WALK = 3.2, RUN = 5.4, CROUCH_WALK = 1.8, CLIMB = 1.2;
 const fireReach = (t) => (t && !t.hitboxes ? 1.4 : 1.1);
 const SEE_RANGE = 75, SEE_HALF_CONE = (110 / 2) * Math.PI / 180;   // integrator: was 60; first contact on this map is at 60 to 80 m and bots stood silent at 65 m
 const GRAVITY = 14;
+// fix4 ai: a bot that has seen or been shot at inside this window keeps its rifle shouldered
+// (the 'aim' posture, both hands on the weapon) whether it is standing, walking or stepping out
+// of cover; only a full run drops the rifle across the chest. The critic saw a hostile "in the same
+// rigid pose in two frames with the rifle held loose": that was a bot hiding at high cover with no
+// target, which the round 3 rule left in the low ready idle for up to ten seconds.
+const ALERT_HOLD = 6.0;
+const RUN_POSE_SPEED = 4.2;          // above this the rig runs; below it an alert bot walks shouldered
+// fix4 ai: bodies stay on the sand after the squad respawns the bot (CoD leaves them for the round).
+// A corpse is a flat copy of the bot's meshes in its final death pose; geometry and materials are
+// shared, so the cost is draw calls only (about 20 per body, capped at 4 bodies, 25 s each).
+const CORPSE_LIFE = 25, CORPSE_MAX = 4;
+const CORPSES = [];
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -65,6 +77,7 @@ export class Bot {
     this.stuckT = 0; this.lastPos = new THREE.Vector3(); this.direct = false; this.unstickT = 0; this.unstickSide = 1;
     this.senseT = Math.random() * 0.1;
     this.deadT = 0; this.time = 0;
+    this.alertT = 0; this.alertPitch = 0; this.hideCrouch = false; this.frozen = false;
     this.ctx = null;
     this.loaded = false;
     this._deathHeadshot = false;
@@ -97,6 +110,8 @@ export class Bot {
   }
 
   respawn(x, z, yaw = 0) {
+    if (!this.alive && this.deadT > 0.9) this._leaveCorpse();
+    this.alertT = 0; this.alertPitch = 0; this.hideCrouch = false;
     this.pos.set(x, this.nav ? this.nav.groundY(x, z) : 0, z);
     this.vel.set(0, 0, 0);
     this.yaw = this.yawTarget = yaw;
@@ -120,7 +135,7 @@ export class Bot {
   takeDamage(amount, fromPos, byId) {
     if (!this.alive) return;
     this.hp -= amount;
-    this.underFireT = 1.5; this.regenT = 5;
+    this.underFireT = 1.5; this.regenT = 5; this.alertT = ALERT_HOLD;
     if (fromPos) this.lastHitFrom.copy(fromPos);
     if (this.events) this.events.emit('damage', { target: this.entity(), amount, fromPos: fromPos ? fromPos.clone() : this.pos.clone() });
     if (this.hp <= 0) { this._die(fromPos, amount >= 50); return; }
@@ -232,7 +247,9 @@ export class Bot {
       if (this.rig) this.rig.update(dt, { speed: 0 });
       return;
     }
+    if (this.frozen) { if (this.rig) this.rig.update(dt, { speed: 0 }); return; }
     if (this.underFireT > 0) this.underFireT -= dt;
+    if (this.alertT > 0) this.alertT -= dt;
     if (this.regenT > 0) this.regenT -= dt; else if (this.hp < 100) this.hp = Math.min(100, this.hp + 6 * dt);
 
     // senses at 10 Hz, staggered
@@ -245,7 +262,7 @@ export class Bot {
       // bots never finished a reaction in the whole first contact.
       if (t && t !== this.target && (t !== this.lastTarget || this.time - this.lastSeenT > 0.8)) { this.reactT = 0.35 + 0.35 * clamp(this.pos.distanceTo(t.pos) / 60, 0, 1); this.burstLeft = 0; this.burstPause = 0; }
       if (t) this.lastTarget = t;
-      if (t) { this.lastSeenT = this.time; this.lastKnown.copy(t.pos); }
+      if (t) { this.lastSeenT = this.time; this.lastKnown.copy(t.pos); this.alertT = ALERT_HOLD; }
       this.target = t;
     }
     if (this.target && (!this.target.alive || (this.target.alive === undefined && this.target.hp <= 0))) this.target = null;
@@ -264,16 +281,25 @@ export class Bot {
     const turn = clamp(dy, -9 * dt, 9 * dt);
     this.yaw += turn;
 
-    // animation
+    // animation (fix4 ai): in contact the rifle stays at the shoulder at every speed short of a
+    // run, so a bot walking to cover, hiding behind it, stepping out to peek or strafing in a
+    // firefight is the shouldered figure of the reference, not the low ready idle. The pitch
+    // follows the target, or the last known position while the bot is alert, and settles to
+    // level otherwise.
     if (this.rig) {
-      const aiming = !!this.target && this.reactT <= 0.15 && !(this.state === 'cover' && !this.peek);
+      const contact = !!this.target || this.alertT > 0;
       let st = 'idle';
-      if (aiming) st = 'aim';
+      if (climbing) st = 'walk';
       else if (this.crouched) st = 'crouch';
-      else if (this.speed > 4.0) st = 'run';
+      else if (this.speed > RUN_POSE_SPEED) st = 'run';
+      else if (contact) st = 'aim';
       else if (this.speed > 0.3) st = 'walk';
+      let pitch = 0;
+      if (this.target) pitch = this.pitch;
+      else if (contact) { const e = this.eye(_v); pitch = Math.atan2(this.lastKnown.y + 1.2 - e.y, Math.max(1, Math.hypot(this.lastKnown.x - e.x, this.lastKnown.z - e.z))); }
+      this.alertPitch += (clamp(pitch, -0.6, 0.6) - this.alertPitch) * Math.min(1, dt * 6);
       this.rig.setState(st, st === 'aim' ? 0.12 : 0.18);
-      this.rig.update(dt, { speed: climbing ? 1.5 : this.speed, aimPitch: this.pitch, crouch: this.crouched });
+      this.rig.update(dt, { speed: climbing ? 1.5 : this.speed, aimPitch: this.alertPitch, crouch: this.crouched });
     }
     this.object.position.copy(this.pos);
     this.object.rotation.y = this.yaw;
@@ -371,8 +397,13 @@ export class Bot {
         const thr = threat || _v.copy(c.point).add(c.normal);
         this.yawTarget = Math.atan2(thr.x - this.pos.x, thr.z - this.pos.z);
         this.peekT -= dt;
-        if (this.peekT <= 0) { this.peek = !this.peek; this.peekT = this.peek ? rnd(1.2, 2.0) : rnd(0.8, 1.6); }
-        this.crouched = c.height === 'low' && !this.peek;
+        if (this.peekT <= 0) {
+          this.peek = !this.peek; this.peekT = this.peek ? rnd(1.2, 2.0) : rnd(0.8, 1.6);
+          // fix4 ai: hiding at high cover is a crouch most of the time (reload, wait out the burst) and a
+          // standing shouldered hold the rest, re rolled at every peek so two frames of one bot differ
+          if (!this.peek) this.hideCrouch = c.height === 'low' || this.hp < 50 || this.underFireT > 0 || Math.random() < 0.55;
+        }
+        this.crouched = !this.peek && (c.height === 'low' || this.hideCrouch);
         // step out sideways to peek from high cover
         if (this.peek && c.height === 'high') {
           const side = (this.id.charCodeAt(this.id.length - 1) & 1) ? 1 : -1;
@@ -415,7 +446,11 @@ export class Bot {
     const seenAgo = this.time - this.lastSeenT;
     if (wp.link === 'ladder') { climbing = true; speed = CLIMB; }
     else if (this.crouched) speed = CROUCH_WALK;
-    else if (this.state === 'engage' && this.target && this.pos.distanceTo(this.target.pos) > this.weapon.range) speed = RUN;   // integrator: close the distance first
+    // integrator: close the distance first. fix4 ai: the close is a run between bursts and a shouldered
+    // walk while a burst is going out, the run, stop, fire rhythm of the reference bots.
+    else if (this.state === 'engage' && this.target && this.pos.distanceTo(this.target.pos) > this.weapon.range) speed = this.burstLeft > 0 && this.reactT <= 0 ? WALK : RUN;
+    // fix4 ai: a bot breaking for cover runs until the last three metres ("cover within 0.5 s")
+    else if (this.state === 'cover' && this.cover && !wp.link && Math.hypot(this.cover.point.x - this.pos.x, this.cover.point.z - this.pos.z) > 3) speed = RUN;
     else if (this.state === 'cover' || this.state === 'engage' || this.state === 'retreat' || wp.link) speed = WALK;
     else speed = seenAgo < 6 ? WALK : RUN;
     if (this.state === 'engage' && this.target) this._faceTarget();
@@ -570,6 +605,42 @@ export class Bot {
       if (wasAlive && nowDead) this.events.emit('kill', { killer: this.entity(), victim, weapon: this.weaponKey, headshot: hitPart === 'head' });
     }
   }
+
+  // ---------------------------------------------------------------- corpses
+  /** Copy the meshes of the finished death pose into a flat static group so the body stays after respawn. */
+  _leaveCorpse() {
+    if (!this.scene || !this.object) return;
+    this.object.updateMatrixWorld(true);
+    const g = new THREE.Group(); g.name = `corpse_${this.id}`;
+    let n = 0;
+    this.object.traverse((o) => {
+      if (!o.isMesh || !o.visible || !o.geometry) return;
+      let p = o.parent, vis = true;
+      while (p && p !== this.object) { if (!p.visible) { vis = false; break; } p = p.parent; }
+      if (!vis) return;
+      const m = new THREE.Mesh(o.geometry, o.material);
+      m.matrixAutoUpdate = false; m.matrix.copy(o.matrixWorld); m.matrixWorldNeedsUpdate = true;
+      m.castShadow = true; m.receiveShadow = true; m.frustumCulled = true;
+      g.add(m); n++;
+    });
+    if (!n) return;
+    this.scene.add(g);
+    CORPSES.push({ group: g, born: this.time });
+    while (CORPSES.length > CORPSE_MAX) Bot._dropCorpse(CORPSES.shift());
+  }
+
+  static _dropCorpse(c) { if (c && c.group && c.group.parent) c.group.parent.remove(c.group); }
+
+  /** Age the bodies against the mission clock; idempotent, so every squad may call it each frame. */
+  static updateCorpses(now) {
+    for (let i = CORPSES.length - 1; i >= 0; i--) {
+      const c = CORPSES[i];
+      if (now - c.born > CORPSE_LIFE || now < c.born) { Bot._dropCorpse(c); CORPSES.splice(i, 1); }
+    }
+  }
+
+  /** Remove every body (mission restart). */
+  static clearCorpses() { while (CORPSES.length) Bot._dropCorpse(CORPSES.pop()); }
 
   _raySphere(o, d, c, r) {
     const oc = _v.subVectors(o, c);

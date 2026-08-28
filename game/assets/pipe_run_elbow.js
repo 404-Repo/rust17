@@ -31,6 +31,13 @@ export default function (THREE) {
   const mLeg = mat(P.galv, 'metal', 0.75, 0.45);
   const mLegS = mat(shade(P.galv, 1.06), 'metal', 0.75, 0.45);
   const mBeam = mat(shade(P.galv, 0.92), 'metal', 0.8, 0.4);
+  const mStrap = mat(shade(P.galv, 0.85), 'metal', 0.8, 0.4, true);
+  const mPlate = mat(P.tank, 'metal', 0.8, 0.15);
+  const mWheel = mat(P.red, 'metal', 0.85, 0.1);
+  const mStem = mat(P.galv, 'metal', 0.6, 0.6);
+  // gusset plate: right angle at the origin, one edge out along local +x, one edge down; ry turns local +x
+  // to world +z (ry = -PI/2) or -z (ry = PI/2); the plate is 12 mm thick across the extrusion
+  const gusset = (x, y, z, out, down, m, ry, parent = g) => { const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(out, 0); s.lineTo(0, -down); s.closePath(); const geo = new THREE.ExtrudeGeometry(s, { depth: 0.012, bevelEnabled: false }); geo.translate(0, 0, -0.006); const o = add(geo, m, x, y, z, parent); o.rotation.y = ry; return o; };
 
   const R = 0.25, AX = 1.25, RB = 0.8, LEG = 2.0, FT = 0.06, FR = 0.35;
   const L = LEG - FT;
@@ -75,8 +82,13 @@ export default function (THREE) {
   // flanges
   const flange = (pos, dir, side) => {
     const f = add(new THREE.CylinderGeometry(FR, FR, FT, 14), mFlange, pos.x, pos.y, pos.z); alongDir(f, dir);
-    const back = pos.clone().sub(dir.clone().multiplyScalar(FT / 2 + 0.035));
-    const ring = add(new THREE.CylinderGeometry(R + 0.016, R + 0.016, 0.07, 14), mRust, back.x, back.y, back.z); alongDir(ring, dir);
+    // weld neck hub tapering into the pipe, rust ring past it, 12 hex nuts on the back face of the flange
+    const hubP = pos.clone().sub(dir.clone().multiplyScalar(FT / 2 + 0.05));
+    const hub = add(new THREE.CylinderGeometry(R + 0.022, R + 0.004, 0.1, 14), mFlange, hubP.x, hubP.y, hubP.z); alongDir(hub, dir);
+    const back = pos.clone().sub(dir.clone().multiplyScalar(FT / 2 + 0.125));
+    const ring = add(new THREE.CylinderGeometry(R + 0.016, R + 0.016, 0.05, 14), mRust, back.x, back.y, back.z); alongDir(ring, dir);
+    const nutP = pos.clone().sub(dir.clone().multiplyScalar(FT / 2 + 0.012));
+    for (let i = 0; i < 12; i++) { const a = i * PI / 6 + PI / 12; const by = 0.295 * Math.cos(a), bs = 0.295 * Math.sin(a); const n = add(new THREE.CylinderGeometry(0.024, 0.024, 0.024, 6), mBolt, nutP.x + side.x * bs, nutP.y + by, nutP.z + side.z * bs); alongDir(n, dir); }
     const face = pos.clone().add(dir.clone().multiplyScalar(FT / 2 + 0.016));
     for (let i = 0; i < 12; i++) {
       const a = i * PI / 6 + PI / 12;
@@ -91,6 +103,36 @@ export default function (THREE) {
   flange(new THREE.Vector3(LEG - FT / 2, AX, -RB), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1));
   flange(new THREE.Vector3(-RB, AX, LEG - FT / 2), new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0));
 
+  // corner fittings: bleed valve with a red wheel on the crown of the bend, drain nipple with a cap under it,
+  // a capped stub with a blind flange on the outside of the bend; stencil plate on leg A, lifting lug on leg B
+  {
+    const a = -3 * PI / 4, c = pt(a), out = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
+    add(new THREE.CylinderGeometry(0.03, 0.03, 0.06, 8), mFlange, c.x, AX + R + 0.02, c.z);
+    add(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 8), mFlange, c.x, AX + R + 0.055, c.z);
+    add(new THREE.CylinderGeometry(0.025, 0.025, 0.05, 8), mBolt, c.x, AX + R + 0.09, c.z);
+    add(new THREE.CylinderGeometry(0.008, 0.008, 0.06, 6), mStem, c.x, AX + R + 0.125, c.z);
+    const bw = add(new THREE.TorusGeometry(0.06, 0.009, 6, 12), mWheel, c.x, AX + R + 0.145, c.z); bw.rotation.x = PI / 2;
+    for (let i = 0; i < 3; i++) { const sp = box(0.11, 0.008, 0.012, mWheel, c.x, AX + R + 0.145, c.z); sp.rotation.y = i * PI / 3; }
+    add(new THREE.CylinderGeometry(0.07, 0.07, 0.02, 10), mRust, c.x, AX + R + 0.005, c.z);
+    add(new THREE.CylinderGeometry(0.03, 0.03, 0.1, 8), mFlange, c.x, AX - R - 0.04, c.z);
+    add(new THREE.CylinderGeometry(0.042, 0.042, 0.03, 8), mBolt, c.x, AX - R - 0.1, c.z);
+    add(new THREE.CylinderGeometry(0.07, 0.07, 0.02, 10), mRust, c.x, AX - R - 0.005, c.z);
+    const sp = c.clone().add(out.clone().multiplyScalar(R + 0.07));
+    const stub = add(new THREE.CylinderGeometry(0.07, 0.07, 0.16, 10), mFlange, sp.x, sp.y, sp.z); alongDir(stub, out);
+    const fp = c.clone().add(out.clone().multiplyScalar(R + 0.165));
+    const bf = add(new THREE.CylinderGeometry(0.11, 0.11, 0.03, 10), mFlange, fp.x, fp.y, fp.z); alongDir(bf, out);
+    const rp = c.clone().add(out.clone().multiplyScalar(R + 0.02));
+    const rr = add(new THREE.CylinderGeometry(0.078, 0.078, 0.03, 10), mRust, rp.x, rp.y, rp.z); alongDir(rr, out);
+    const side = new THREE.Vector3(-out.z, 0, out.x), np = c.clone().add(out.clone().multiplyScalar(R + 0.19));
+    for (let i = 0; i < 6; i++) { const b = i * PI / 3; const q = np.clone().add(side.clone().multiplyScalar(0.085 * Math.cos(b))); q.y += 0.085 * Math.sin(b); const n = add(new THREE.CylinderGeometry(0.014, 0.014, 0.02, 6), mBolt, q.x, q.y, q.z); alongDir(n, out); }
+    const dp = c.clone().add(out.clone().multiplyScalar(R + 0.004)); dp.y -= 0.12;
+    const drip = box(0.03, 0.16, 0.008, mRust, dp.x, dp.y, dp.z); drip.rotation.y = -a;
+  }
+  const plate = box(0.3, 0.14, 0.006, mPlate, 1.2, AX + R * Math.sin(0.25), -RB + R * Math.cos(0.25) + 0.004); plate.rotation.x = -0.25;
+  for (const px of [1.07, 1.33]) { const d = box(0.02, 0.1, 0.006, mRust, px, AX - R * Math.sin(0.3), -RB + R * Math.cos(0.3) + 0.003); d.rotation.x = 0.3; }
+  box(0.016, 0.09, 0.12, mFlange, -RB, AX + R + 0.04, 1.2);
+  add(new THREE.TorusGeometry(0.03, 0.008, 4, 8), mFlange, -RB, AX + R + 0.1, 1.2).rotation.y = PI / 2;
+  secZ(R + 0.01, 0.18, -0.3, 0.6, mRust, 1.2, 3);
   // trestles: channel legs, wide top beam, wedge saddle with cheek plates
   const legLen = 0.98, tilt = Math.atan2(0.26, 0.93);
   const trestle = (x, z, ry) => {
@@ -112,6 +154,15 @@ export default function (THREE) {
     box(0.3, 0.05, 0.36, mBeam, 0, 0.995, 0, t);
     for (const cz of [-0.19, 0.19]) box(0.3, 0.16, 0.015, mBeam, 0, 1.05, cz, t);
     for (const cz of [-0.2, 0.2]) box(0.02, 0.12, 0.008, mRust, 0.1, 0.9, cz, t);
+    // hold down strap over the pipe with tie rods, nuts and foot lugs down to the beam; gussets at leg to beam
+    const strap = add(new THREE.CylinderGeometry(R + 0.028, R + 0.028, 0.07, 10, 1, true, PI / 2 - 1.95, 3.9), mStrap, 0, AX, 0, t); strap.rotation.z = PI / 2;
+    for (const s of [-1, 1]) {
+      box(0.08, 0.03, 0.06, mBeam, 0, 1.135, s * 0.27, t);
+      add(new THREE.CylinderGeometry(0.011, 0.011, 0.2, 6), mStem, 0, 1.06, s * 0.28, t);
+      add(new THREE.CylinderGeometry(0.02, 0.02, 0.02, 6), mBolt, 0, 1.16, s * 0.28, t);
+      box(0.06, 0.004, 0.1, mRust, 0.0, 0.977, s * 0.3, t);
+      for (const gx of [-0.075, 0.075]) gusset(gx, 0.91, s * 0.12, 0.16, 0.15, mBeam, s > 0 ? -PI / 2 : PI / 2, t);
+    }
     wedge(0.86, 0.28, 0.12, mSand, 0.21, 0, 0, 0, t);
     wedge(0.86, 0.28, 0.12, mSand, -0.21, 0, 0, PI, t);
   };

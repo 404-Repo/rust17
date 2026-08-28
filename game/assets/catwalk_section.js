@@ -94,6 +94,40 @@ export default function (THREE) {
     }
     bx(L - 0.3, 0.006, 0.02, sz > 0 ? M(tint(STEEL, 1.16), 'metal', 0.8, 0.3) : sand, 0, top + 0.02, z);
   }
+  // ---- r4 detail pass: web stiffeners, post clip plates, weld collars, grating hold down clips and two panel joint bars,
+  // a conduit clipped under the north channel with a junction box, hazard plates on the ends, end cleat angles, bearer bolts ----
+  {
+    const hex = (mat, x, y, z, r, h, axis) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 6), mat); if (axis === 'z') b.rotation.x = Math.PI / 2; else if (axis === 'x') b.rotation.z = Math.PI / 2; b.position.set(x, y, z); g.add(b); return b; };
+    const plate = M(tint(STEEL, 0.96), 'metal', 0.84, 0.3);
+    const weld = M(tint(STEEL, 0.8), 'metal', 0.86, 0.3);
+    const yel = M(0xc9a227, 'metal', 0.72, 0.15);
+    for (const sz of [-1, 1]) {
+      const zf = sz * (W / 2 + 0.006), zb = sz * (W / 2 + 0.018);
+      for (const x of [-0.72, 0.72]) {
+        bx(0.05, CD - 0.03, 0.012, plate, x, CD / 2, zf);
+        for (const y of [0.04, CD - 0.04]) hex(gun, x, y, zb, 0.011, 0.024, 'z');
+        bx(0.03, 0.08, 0.004, rust, x + 0.04, 0.06, zf);
+      }
+      for (const x of [-L / 2 + 0.06, 0, L / 2 - 0.06]) {
+        bx(0.09, 0.12, 0.012, plate, x, CD - 0.07, zf);
+        for (const y of [CD - 0.035, CD - 0.105]) hex(gun, x, y, zb, 0.011, 0.024, 'z');
+        bx(0.03, 0.05, 0.004, rust, x + 0.02, CD - 0.14, zf);
+      }
+      for (const y of [CD + RH - 0.045, CD + RH * 0.55 + 0.04]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.035, 8), weld); c.position.set(0, y, sz * (W / 2 - 0.035)); g.add(c); }
+      for (const x of [-1.35, -0.9, -0.35, 0.35, 0.9, 1.35]) { bx(0.03, 0.014, 0.05, galvD, x, CD + 0.007, sz * 0.47); bx(0.018, 0.018, 0.018, gun, x, CD + 0.02, sz * 0.47); }
+      for (const x of [-1.0, 0, 1.0]) { hex(gun, x + 0.09, 0.04, zb, 0.011, 0.02, 'z'); bx(0.025, 0.03, 0.004, rust, x + 0.09, 0.015, zf); }
+    }
+    for (const x of [-0.5, 0.5]) bx(0.02, 0.03, W - 0.1, galvD, x, CD - 0.015, 0);
+    const cz = -(W / 2 + 0.04);
+    const cd = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, L - 0.4, 8), M(tint(STEEL, 1.15), 'metal', 0.8, 0.4)); cd.rotation.z = Math.PI / 2; cd.position.set(0, 0.045, cz); g.add(cd);
+    for (const x of [-1.1, -0.4, 0.4, 1.1]) { bx(0.04, 0.07, 0.06, steelD, x, 0.045, -(W / 2 + 0.03)); bx(0.02, 0.02, 0.02, gun, x, 0.087, -(W / 2 + 0.03)); }
+    bx(0.12, 0.1, 0.08, M(0x2f4d66, 'metal', 0.8, 0.2), 0.9, 0.09, -(W / 2 + 0.045)); bx(0.08, 0.04, 0.004, rust, 0.9, 0.02, -(W / 2 + 0.088));
+    for (const sx of [-1, 1]) {
+      for (let k = 0; k < 3; k++) bx(0.012, 0.07, 0.2, k === 1 ? gun : yel, sx * (L / 2 + 0.026), 0.1, -0.2 + k * 0.2);
+      bx(0.1, 0.05, 0.5, steelD, sx * (L / 2 + 0.07), 0.035, 0);
+      for (const z of [-0.15, 0.15]) hex(gun, sx * (L / 2 + 0.08), 0.07, z, 0.014, 0.02);
+    }
+  }
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by

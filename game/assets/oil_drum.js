@@ -1,9 +1,13 @@
-// oil_drum candidate 0: lathe. One revolved profile carries both chimes and both rolling
-// hoops, split into a stained lower third and a bleached upper body. A dent is pushed into
-// the upper shell by displacing vertices. Raised lid, two bungs, weld seam with rivets, rust.
+// oil_drum candidate 0, round 4 detail pass (second pass: 28 segment lathes, rolled half round hoops and
+// top chime with the rust in the crease under them, a dark hazard plate with a 0.12 m diamond). One revolved profile carries both chimes and both
+// rolling hoops, split into a stained lower third and a bleached upper body. Round 4 rebuilds
+// the hoops as rolled half round beads and the top chime as a fat rolled bead, adds a rust
+// line in the crease under every hoop and chime, hex bung plugs in raised flanges, a curved
+// hazard plate with a diamond on the front and a stencil plate on the back, a second dent low
+// on the north side, and drips on more than one side.
 export default function (THREE) {
   const g = new THREE.Group();
-  const C = { sandS: 0xcdb88e, rust: 0x6b4426, tank: 0x9c988c, concS: 0x857c6c, gun: 0x3a3d40 };
+  const C = { sandS: 0xcdb88e, rust: 0x6b4426, tank: 0x9c988c, concS: 0x857c6c, gun: 0x3a3d40, yellow: 0xc9a227 };
   const tint = (hex, f) => new THREE.Color(hex).multiplyScalar(f).getHex();
   const mat = (hex, name, roughness = 0.8, metalness = 0.2, side) => {
     const m = new THREE.MeshStandardMaterial({ color: hex, roughness, metalness, side: side || THREE.FrontSide });
@@ -17,8 +21,12 @@ export default function (THREE) {
     const o = add(new THREE.ExtrudeGeometry(s, { depth: 0.004, bevelEnabled: false }), m, x, y, z, parent); o.rotation.y = ry; return o;
   };
   const lathe = (pts, seg, m) => add(new THREE.LatheGeometry(pts.map((p) => new THREE.Vector2(p[0], p[1])), seg), m);
+  // a curved plate lying on the shell: an open cylinder segment centred on angle a (radians from +x towards +z)
+  const curved = (r, h, arc, a, y, m) => { const o = add(new THREE.CylinderGeometry(r, r, h, 6, 1, true, 0, arc), m, 0, y, 0); o.rotation.y = Math.PI / 2 - a - arc / 2; return o; };   // CylinderGeometry theta 0 is +z, so this centres the segment on a
+  // a drip hanging on the shell at angle a
+  const dripAt = (len, w, a, y, m) => drip(len, w, m, Math.cos(a) * (R + 0.004), y, Math.sin(a) * (R + 0.004), Math.PI / 2 - a);
 
-  const R = 0.2925, H = 0.88, SEG = 14;
+  const R = 0.2925, H = 0.88, SEG = 28;
   const bleachedTan = tint(C.tank, 1.12);        // sun bleached tan steel
   const upperM = mat(bleachedTan, 'metal', 0.85, 0.15, THREE.DoubleSide);
   const upperS = mat(tint(bleachedTan, 1.06), 'metal', 0.85, 0.15);
@@ -28,47 +36,96 @@ export default function (THREE) {
   const rustM = mat(C.rust, 'metal', 0.9, 0.1, THREE.DoubleSide);
   const gun = mat(C.gun, 'metal', 0.7, 0.5);
   const dustM = mat(C.sandS, 'ground', 0.95, 0);
+  const plateM = mat(tint(C.tank, 0.42), 'metal', 0.85, 0.15, THREE.DoubleSide);   // a dark hazard plate the diamond reads against
+  const diamondM = mat(C.yellow, 'metal', 0.85, 0.1, THREE.DoubleSide);
 
-  // lower third: bottom chime, shell, first hoop
-  lathe([[0.25, 0.0], [R + 0.006, 0.0], [R + 0.008, 0.018], [R, 0.03], [R, 0.26], [R + 0.012, 0.27], [R + 0.012, 0.29], [R, 0.30]], SEG, lowerM);
-  // upper body: shell with the second hoop, top chime and a recessed lid rim
-  const upper = lathe([[R, 0.30], [R, 0.58], [R + 0.012, 0.59], [R + 0.012, 0.61], [R, 0.62], [R, 0.85], [R + 0.008, 0.862], [R + 0.008, 0.878], [R - 0.004, H], [R - 0.02, H - 0.006], [R - 0.02, H - 0.012], [0.0, H - 0.012]], SEG, upperM);
-  // hoops re-coloured: a second thin lathe on each hoop so they read darker
-  lathe([[R + 0.0125, 0.268], [R + 0.0125, 0.292]], SEG, hoopM);
-  lathe([[R + 0.0125, 0.588], [R + 0.0125, 0.612]], SEG, hoopM);
+  // a true half round: an arc of radius rr bulging out of the shell, centred on (rc, yc), 7 points
+  const arc = (rc, yc, rr, n = 6) => { const o = []; for (let i = 0; i <= n; i++) { const t = -Math.PI / 2 + (Math.PI * i) / n; o.push([rc + rr * Math.cos(t), yc + rr * Math.sin(t)]); } return o; };
+  // rolling hoop: a rolled bead of radius 12 mm, so it has a crown that catches the sun and a shadow under it
+  const bead = (yc) => arc(R, yc, 0.012);
+  // lower third: bottom chime (a rolled bead too), shell, first hoop
+  lathe([[0.25, 0.0], [R + 0.008, 0.0], [R + 0.012, 0.012], [R + 0.008, 0.024], [R, 0.032], ...bead(0.28), [R, 0.31]], SEG, lowerM);
+  // upper body: shell with the second hoop, a fat rolled top chime (16 mm half round), recessed lid rim
+  const upper = lathe([[R, 0.31], ...bead(0.60), [R, 0.846], ...arc(R - 0.002, 0.862, 0.016), [R - 0.012, H - 0.002], [R - 0.02, H - 0.008], [R - 0.02, H - 0.014], [0.0, H - 0.014]], SEG, upperM);
+  // rust lives in the crease UNDER every rolled edge, where water sat: a thin dark line, not a band on the face
+  lathe([[R + 0.001, 0.838], [R + 0.006, 0.845]], SEG, rustM);
+  lathe([[R + 0.001, 0.264], [R + 0.005, 0.270]], SEG, rustM);
+  lathe([[R + 0.001, 0.584], [R + 0.005, 0.590]], SEG, rustM);
+  lathe([[R + 0.013, 0.004], [R + 0.013, 0.02]], SEG, rustM);
+  // the crown of each hoop and the top chime a shade darker where the paint has worn through to steel
+  lathe([[R + 0.0125, 0.277], [R + 0.0125, 0.283]], SEG, hoopM);
+  lathe([[R + 0.0125, 0.597], [R + 0.0125, 0.603]], SEG, hoopM);
+  // a curved polygon lying on the shell at radius r: pts as [angle, y] round the centroid, edges subdivided
+  const curvedPoly = (r, pts, m) => {
+    let ac = 0, yc = 0; for (const p of pts) { ac += p[0]; yc += p[1]; } ac /= pts.length; yc /= pts.length;
+    const P = (a, y) => [Math.cos(a) * r, y, Math.sin(a) * r];
+    const pos = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a0 = pts[i], a1 = pts[(i + 1) % pts.length];
+      for (let k = 0; k < 4; k++) {
+        const t0 = k / 4, t1 = (k + 1) / 4;
+        const p0 = P(a0[0] + (a1[0] - a0[0]) * t0, a0[1] + (a1[1] - a0[1]) * t0), p1 = P(a0[0] + (a1[0] - a0[0]) * t1, a0[1] + (a1[1] - a0[1]) * t1), c = P(ac, yc);
+        // wind so the face points outward along the radius
+        const ux = p0[0] - c[0], uy = p0[1] - c[1], uz = p0[2] - c[2], vx = p1[0] - c[0], vy = p1[1] - c[1], vz = p1[2] - c[2];
+        const nx = uy * vz - uz * vy, nz = ux * vy - uy * vx;
+        if (nx * Math.cos(ac) + nz * Math.sin(ac) >= 0) pos.push(...c, ...p0, ...p1); else pos.push(...c, ...p1, ...p0);
+      }
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.computeVertexNormals();
+    return add(geo, m);
+  };
   // dent, 0.15 m across, pushed into the upper shell on the -x side between the hoops
-  const p = upper.geometry.attributes.position;
-  const dentY = 0.45, dentA = Math.PI;
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const r = Math.hypot(x, z); if (r < R - 0.001 || y < 0.31 || y > 0.57) continue;
-    const a = Math.atan2(z, x);
-    let da = Math.abs(a - dentA); if (da > Math.PI) da = 2 * Math.PI - da;
-    const dArc = da * R, dy = Math.abs(y - dentY);
-    const d = Math.hypot(dArc / 0.075, dy / 0.13);
-    if (d < 1) { const k = 0.045 * (1 - d * d); p.setXYZ(i, x - (x / r) * k, y, z - (z / r) * k); }
-  }
-  p.needsUpdate = true; upper.geometry.computeVertexNormals();
-  // lid: a flat disc inside the top chime with two bung caps, dust settled on it
-  cyl(R - 0.02, R - 0.02, 0.006, SEG, lidM, 0, H - 0.012, 0);
-  cyl(0.2, 0.2, 0.004, SEG, dustM, 0, H - 0.007, 0);
+  const dentAt = (mesh, y0, y1, dentY, dentA, depth, rx, ry) => {
+    const p = mesh.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const r = Math.hypot(x, z); if (r < R - 0.001 || y < y0 || y > y1) continue;
+      const a = Math.atan2(z, x);
+      let da = Math.abs(a - dentA); if (da > Math.PI) da = 2 * Math.PI - da;
+      const dArc = da * R, dy = Math.abs(y - dentY);
+      const d = Math.hypot(dArc / rx, dy / ry);
+      if (d < 1) { const k = depth * (1 - d * d); p.setXYZ(i, x - (x / r) * k, y, z - (z / r) * k); }
+    }
+    p.needsUpdate = true; mesh.geometry.computeVertexNormals();
+  };
+  dentAt(upper, 0.32, 0.57, 0.45, Math.PI, 0.045, 0.075, 0.13);
+  const lower = g.children[0];
+  dentAt(lower, 0.04, 0.25, 0.15, -Math.PI / 2 + 0.5, 0.03, 0.06, 0.1);
+  // lid: a flat disc inside the top chime with two hex bung plugs in raised flanges, dust settled on it
+  cyl(R - 0.02, R - 0.02, 0.006, SEG, lidM, 0, H - 0.014, 0);
+  cyl(0.2, 0.2, 0.004, SEG, dustM, 0, H - 0.009, 0);
   for (const [bx, bz, br] of [[0.19, 0.0, 0.03], [-0.19, 0.0, 0.02]]) {
-    cyl(br + 0.008, br + 0.008, 0.004, 10, hoopM, bx, H - 0.006, bz);
-    cyl(br, br, 0.012, 10, gun, bx, H - 0.002, bz);
+    cyl(br + 0.012, br + 0.012, 0.008, 12, hoopM, bx, H - 0.006, bz);
+    cyl(br, br, 0.014, 6, gun, bx, H, bz);
+    cyl(br * 0.5, br * 0.5, 0.006, 6, gun, bx, H + 0.008, bz);
+    lathe([[br + 0.012, H - 0.01], [br + 0.02, H - 0.012]], 12, rustM).position.set(bx, 0, bz);
   }
   // south face lighter: a thin skin panel on the +z side of the upper shell
-  const skin = add(new THREE.CylinderGeometry(R + 0.001, R + 0.001, 0.5, SEG, 1, true, -Math.PI / 4 + Math.PI / 2 * 0, Math.PI / 2), upperS, 0, 0.58, 0);
-  skin.rotation.y = 0;
+  add(new THREE.CylinderGeometry(R + 0.001, R + 0.001, 0.5, SEG, 1, true, -Math.PI / 4, Math.PI / 2), upperS, 0, 0.58, 0);
   // vertical weld seam with four rivets on the +x side, rust down the seam
   const seamA = 0.3;
   const sx = Math.cos(seamA) * (R + 0.002), sz = Math.sin(seamA) * (R + 0.002);
   const seam = box(0.006, 0.8, 0.004, mat(tint(bleachedTan, 0.85), 'metal', 0.8, 0.2), sx, 0.44, sz); seam.rotation.y = -seamA + Math.PI / 2;
   for (const ry of [0.12, 0.38, 0.5, 0.75]) { const rv = cyl(0.006, 0.006, 0.006, 6, gun, sx, ry, sz); rv.rotation.z = -Math.PI / 2; rv.rotation.y = -seamA; }
-  drip(0.2, 0.03, rustM, Math.cos(seamA) * (R + 0.004), 0.37, Math.sin(seamA) * (R + 0.004), Math.PI / 2 - seamA);
-  // rust streaks from each bung down the side
-  drip(0.34, 0.05, rustM, R + 0.004, 0.86, 0.0, Math.PI / 2);
-  drip(0.2, 0.04, rustM, -(R + 0.004), 0.86, 0.03, -Math.PI / 2);
-  drip(0.14, 0.03, rustM, 0.0, 0.26, R + 0.004, 0);     // stain under the lower hoop, south side
+  dripAt(0.2, 0.03, seamA, 0.37, rustM);
+  // hazard plate on the front (south): a dark curved plate with a 0.12 m safety yellow diamond and a
+  // dark centre mark, both curved onto the shell so no corner sinks in; a stencil plate on the back
+  curved(R + 0.003, 0.17, 0.62, Math.PI / 2, 0.47, plateM);
+  const dA = 0.06 / R;
+  curvedPoly(R + 0.006, [[Math.PI / 2 - dA, 0.47], [Math.PI / 2, 0.53], [Math.PI / 2 + dA, 0.47], [Math.PI / 2, 0.41]], diamondM);
+  curvedPoly(R + 0.008, [[Math.PI / 2 - dA * 0.3, 0.47], [Math.PI / 2, 0.488], [Math.PI / 2 + dA * 0.3, 0.47], [Math.PI / 2, 0.452]], gun);
+  for (const [px, py] of [[-0.09, 0.4], [0.09, 0.4], [-0.09, 0.54], [0.09, 0.54]]) curvedPoly(R + 0.007, [[Math.PI / 2 + px / R - 0.012, py], [Math.PI / 2 + px / R, py + 0.005], [Math.PI / 2 + px / R + 0.012, py], [Math.PI / 2 + px / R, py - 0.005]], gun);
+  curved(R + 0.003, 0.07, 0.42, -Math.PI / 2, 0.18, plateM);
+  curved(R + 0.0035, 0.02, 0.3, -Math.PI / 2 + 0.03, 0.2, mat(tint(C.tank, 0.55), 'metal', 0.85, 0.15, THREE.DoubleSide));
+  // rust streaks from the bungs, the top chime and both hoops, on several sides
+  dripAt(0.34, 0.05, 0.0, 0.85, rustM);
+  dripAt(0.2, 0.04, Math.PI - 0.1, 0.85, rustM);
+  dripAt(0.16, 0.035, Math.PI / 2 + 0.6, 0.845, rustM);
+  dripAt(0.12, 0.03, -Math.PI / 2 - 0.4, 0.845, rustM);
+  dripAt(0.14, 0.03, Math.PI / 2, 0.255, rustM);
+  dripAt(0.1, 0.03, Math.PI / 2 - 0.9, 0.575, rustM);
+  dripAt(0.12, 0.035, -Math.PI / 2 + 0.8, 0.575, rustM);
+  dripAt(0.08, 0.03, Math.PI + 0.7, 0.255, rustM);
   // sand fillet around the base as a low mound, and blown against the north side
   const fill = mat(C.sandS, 'ground', 0.95, 0, THREE.DoubleSide);
   lathe([[R - 0.02, 0.09], [R + 0.012, 0.02], [R + 0.02, 0.0]], SEG, fill);

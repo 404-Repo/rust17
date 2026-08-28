@@ -221,16 +221,52 @@ const CFG = { kind: 'open', livery: 0x9ea3a1, bleach: 0.12, plates: [], open: tr
     box(g, 0.1, 0.06, W - 0.36, RUST, sx * (L / 2 - 0.075), H - 0.15, 0);
   }
   if (CFG.open) { openFrame(1); openFrame(-1); } else { doorEnd(1); plainEnd(-1); }
+  if (CFG.open) for (const sx of [-1, 1]) { box(g, 0.03, 0.03, W - 0.3, RUST, sx * (L / 2 - 0.02), H - 0.16, 0); box(g, 0.06, 0.04, W - 0.36, GUN, sx * (L / 2 - 0.05), 0.2, 0); for (const sz of [-1, 1]) box(g, 0.02, wallH - 0.1, 0.03, RUBBER, sx * (L / 2 - 0.1), wallYc, sz * (W / 2 - 0.19)); }
 
   // roof: displaced plane with the sag baked in, and the dust sheet 8 mm above it following the same ribs
   const sag = (x) => -0.03 * (1 - (x / 2.85) * (x / 2.85));
   const roof = corrPlane(panelL, W - 0.36, PITCH, 0.03, 2, (x) => sag(x)); roof.rotateX(-PI / 2);
   mesh(g, roof, mRoof, 0, H - 0.05, 0);
-  const dustR = corrPlane(panelL - 0.08, W - 0.44, PITCH, 0.03, 2, (x) => sag(x)); dustR.rotateX(-PI / 2);
-  mesh(g, dustR, mSandSheet, 0, H - 0.042, 0);
+  // r4: dust sheet with a shallower rib, lifted so its troughs clear the roof crests everywhere (the old one let every crest poke through as a stripe)
+  const dustR = corrPlane(panelL - 0.08, W - 0.44, PITCH, 0.012, 2, (x) => sag(x)); dustR.rotateX(-PI / 2);
+  mesh(g, dustR, mSandSheet, 0, H - 0.014, 0);
   if (CFG.open) { const under = corrPlane(panelL, W - 0.36, PITCH, 0.03, 1, (x) => sag(x)); under.rotateX(-PI / 2); mesh(g, under, M(tint(liv, -0.35), 'metal', { roughness: 0.9, side: DS, flatShading: true }), 0, H - 0.08, 0); }
 
-  fillet(g, L - 0.5, 0.28, 0.16, 0, 0, W / 2, 0);
+  // ---- r4 detail pass: vent louvres, long rust runs down the rib crests, hazard placard, hazard bands on the corner posts,
+  //      rubble against the rails and a third sand fillet. Everything sits on a rib crest, never floating over a trough. ----
+  const mYel = M(tint(P.yellow, 0.2), 'metal', { roughness: 0.85, metalness: 0.05 });
+  const mRock = M(P.rockPale, 'ground', { roughness: 0.95, metalness: 0 });   // named ground so it takes the sand set: pale stones half buried, not concrete blocks
+  const zCrest = W / 2 - 0.01;
+  for (const sz of [-1, 1]) {
+    const face = sz > 0 ? 'pz' : 'nz';
+    for (const xl of [-2.45, 2.45]) {
+      const x = wx(sz, crestX(xl)), y = wallY1 - 0.24, z = sz * (zCrest + 0.006);
+      box(g, 0.16, 0.12, 0.012, mCast, x, y, z);
+      for (let k = 0; k < 3; k++) box(g, 0.13, 0.014, 0.01, GUN, x, y - 0.03 + k * 0.03, z + sz * 0.008);
+      streak(g, face, x, y - 0.06, sz * zCrest, 0.3 + 0.25 * rnd(), 0.09);
+    }
+    for (let i = 0; i < 5; i++) { const x = wx(sz, crestX(-2.2 + i * 1.1 + 0.5 * rnd())); streak(g, face, x, H - 0.13, sz * zCrest, 0.5 + 0.9 * rnd(), 0.05); }
+  }
+  if (CFG.kind === 'red' || CFG.kind === 'open') {
+    const x = wx(1, crestX(2.05));
+    box(g, 0.22, 0.22, 0.01, mYel, x, 1.95, zCrest + 0.005, 0, 0, PI / 4);
+    box(g, 0.1, 0.1, 0.008, GUN, x, 1.95, zCrest + 0.011, 0, 0, PI / 4);
+    streak(g, 'pz', x, 1.8, zCrest, 0.25, 0.06);
+  }
+  const bandEnds = CFG.kind === 'open' ? [-1, 1] : CFG.kind === 'blue' ? [1] : [];
+  for (const sx of bandEnds) for (const sz of [-1, 1]) {
+    const cz = sz * (W / 2 - 0.09), px = sx * (L / 2 + (CFG.open ? 0.006 : -0.004));
+    box(g, 0.01, 0.6, 0.15, mYel, px, 0.85, cz);
+    for (let k = 0; k < 3; k++) box(g, 0.008, 0.05, 0.16, GUN, px + sx * 0.005, 0.65 + k * 0.2, cz, PI / 4, 0, 0);
+  }
+  for (let i = 0; i < 9; i++) {
+    const end = rnd() < 0.35, s = 0.07 + 0.1 * rnd();
+    const x = end ? -L / 2 - 0.02 - 0.06 * rnd() : -2.6 + 5.2 * rnd(), z = end ? -1.0 + 2.0 * rnd() : W / 2 + 0.02 + 0.06 * rnd();
+    box(g, s, s * 0.6, s * 0.8, mRock, x, s * 0.12, z, 0, rnd() * PI, 0.1 * rnd());
+  }
+  fillet(g, 2.6, 0.1, 0.07, 1.4, 0, -W / 2, PI);
+  if (CFG.doorOpen) fillet(g, 0.9, 0.5, 0.05, L / 2 - 0.2, 0.2, 0.55, -PI / 2);
+  fillet(g, L - 0.5, 0.22, 0.16, 0, 0, W / 2, 0);
   fillet(g, W - 0.4, 0.3, 0.14, -L / 2, 0, 0, -PI / 2);
 
   // ---- contract: base at y = 0, centred on x and z, measured from vertices ----

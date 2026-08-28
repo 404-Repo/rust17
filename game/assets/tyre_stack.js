@@ -1,6 +1,12 @@
-// tyre_stack candidate 1: primitives. Each tyre is a torus (major 0.39, tube 0.11, so the
-// outside is 1.0 m and the opening 0.56 m) with a squashed section, twelve tread blocks as
-// boxes, a bead ring, rims in the top two, rust, dust on the top tread, a sand mound.
+// tyre_stack candidate 1, round 4 (second pass: shoulder lugs seated on the tube, a dished rim with a
+// recessed bolt circle and rust ring, a wind shaped sand drift in place of the wrap band). Each tyre is a torus (major 0.39, tube 0.11, so the outside
+// is 1.0 m and the opening 0.56 m) with a squashed section, twelve tread blocks as boxes, a bead
+// ring, rims in the top two, rust, dust on the top tread, a sand mound.
+// Round 4 fixes the shipped module, which did not render: tyre() takes a course index k as its
+// eighth argument and every call passed seven, so k was undefined, a RingGeometry got NaN angles
+// and the centring pass spread NaN into every part. Then adds valve stems on the rims, a rust
+// ring round the bolt circle with a drip from the hub, one tread block torn out, and a rust bead
+// line where the steel rim meets the rubber.
 export default function (THREE) {
   const g = new THREE.Group();
   const C = { sandS: 0xcdb88e, rust: 0x6b4426, tank: 0x9c988c, gun: 0x3a3d40 };
@@ -20,48 +26,119 @@ export default function (THREE) {
   const rubber = (f) => new THREE.MeshStandardMaterial({ color: tint(0x2a2a2a, f), roughness: 0.92, metalness: 0.0 });
   const dusted = new THREE.MeshStandardMaterial({ color: 0x5c5546, roughness: 0.95, metalness: 0.0 });
   const dustM = mat(C.sandS, 'ground', 0.95, 0);
-  const rimM = mat(tint(C.tank, 0.95), 'metal', 0.8, 0.3, THREE.DoubleSide);
+  const rimM = mat(tint(C.tank, 1.08), 'metal', 0.8, 0.3, THREE.DoubleSide);   // a shade lighter: the dish sits in the sidewall's shadow
   const rustM = mat(C.rust, 'metal', 0.9, 0.1, THREE.DoubleSide);
   const gun = mat(C.gun, 'metal', 0.7, 0.4);
 
   const torGeo = new THREE.TorusGeometry(0.385, 0.115, 8, SEG);
+  const TS = W / 0.23;                                   // vertical squash of the tube section
+  // the outer surface of the squashed tube at height dy from the tread centre: radius and outward normal
+  const surf = (dy) => {
+    const sn = Math.min(0.999, Math.abs(dy) / (0.115 * TS)), cs = Math.sqrt(1 - sn * sn);
+    const nr = cs, ny = (Math.sign(dy) * sn) / TS, l = Math.hypot(nr, ny);
+    return { r: 0.385 + 0.115 * cs, nr: nr / l, ny: ny / l };
+  };
   const blockGeo = new THREE.BoxGeometry(0.1, 0.12, 0.024);
-  const tyre = (x, y, z, rx, shade, rim, dustTop) => {
+  const lugGeo = new THREE.BoxGeometry(0.03, 0.05, 0.07);   // x thickness along the surface normal, y up the shoulder, z round the tyre
+  const crust = (f) => new THREE.MeshStandardMaterial({ color: tint(0x6a5c48, f), roughness: 0.96, metalness: 0.0, side: THREE.DoubleSide });   // dried mud on the tread, unnamed like the rubber
+  const tyre = (x, y, z, rx, shade, rim, dustTop, k) => {
     const t = new THREE.Group(); t.position.set(x, y, z); t.rotation.x = rx; g.add(t);
-    const body = add(torGeo, rubber(shade), 0, W / 2, 0, t); body.rotation.x = Math.PI / 2; body.scale.set(1, 1, W / 0.23);
+    const body = add(torGeo, rubber(shade), 0, W / 2, 0, t); body.rotation.x = Math.PI / 2; body.scale.set(1, 1, TS);
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
-      const b = add(blockGeo, i % 3 === 0 ? dusted : rubber(shade * 1.1), Math.cos(a) * 0.488, W / 2, Math.sin(a) * 0.488, t);
-      b.rotation.y = Math.PI / 2 - a;
+      if (k === 2 && i === 4) {
+        // a block torn out of the tread: the cords showing as a rough darker patch
+        const torn = add(new THREE.BoxGeometry(0.08, 0.1, 0.006), rubber(shade * 0.6), Math.cos(a) * 0.478, W / 2, Math.sin(a) * 0.478, t); torn.rotation.y = Math.PI / 2 - a;
+      } else {
+        const b = add(blockGeo, i % 3 === 0 ? dusted : rubber(shade * 1.1), Math.cos(a) * 0.488, W / 2, Math.sin(a) * 0.488, t);
+        b.rotation.y = Math.PI / 2 - a;
+      }
+      // second staggered row of smaller shoulder lugs above and below the main blocks, each SEATED on
+      // the squashed tube: placed at the local surface radius for its height and tilted along the
+      // surface normal there, so nothing stands clear of the silhouette
+      const a2 = a + Math.PI / 12;
+      for (const dy of [-0.075, 0.075]) {
+        const sf = surf(dy);
+        const gr = new THREE.Group(); gr.position.set(0, W / 2 + dy, 0); gr.rotation.y = -a2; t.add(gr);
+        const b2 = add(lugGeo, (i + k) % 4 === 1 ? dusted : rubber(shade * (dy > 0 ? 1.15 : 0.9)), sf.r + sf.nr * 0.005, sf.ny * 0.005, 0, gr);
+        b2.rotation.z = Math.atan2(sf.ny, sf.nr);
+      }
     }
+    // circumferential groove round the tread centre: a dark thin ring proud of the crown between the blocks
+    add(new THREE.TorusGeometry(0.497, 0.008, 4, SEG), rubber(shade * 0.55), 0, W / 2, 0, t).rotation.x = Math.PI / 2;
     add(new THREE.TorusGeometry(0.30, 0.012, 5, SEG), rubber(shade * 0.85), 0, W - 0.01, 0, t).rotation.x = Math.PI / 2;
     add(new THREE.TorusGeometry(0.30, 0.012, 5, SEG), rubber(shade * 0.85), 0, 0.01, 0, t).rotation.x = Math.PI / 2;
+    // raised sidewall lettering ring on the top face (the face the stack offset exposes as a crescent)
+    add(new THREE.TorusGeometry(0.40, 0.006, 4, SEG), rubber(shade * 1.25), 0, W - 0.004, 0, t).rotation.x = Math.PI / 2;
+    // dried mud crust on the windward third of the tread on the second and third tyres
+    if (k === 1 || k === 2) {
+      const cr = add(new THREE.CylinderGeometry(0.506, 0.506, 0.09, 7, 1, true, 1.9 + k * 0.5, 1.5), crust(k === 1 ? 0.15 : 0.35), 0, W / 2 - 0.03, 0, t);
+      cr.material.side = THREE.DoubleSide;
+    }
     if (dustTop) {
       // dust drifted across the top sidewall on the windward side, not a full ring
       add(new THREE.RingGeometry(0.32, 0.45, 12, 1, Math.PI * 0.55, Math.PI * 1.1), dustM, 0, W + 0.002, 0, t).rotation.x = -Math.PI / 2;
       add(new THREE.RingGeometry(0.34, 0.42, 6, 1, Math.PI * 1.85, Math.PI * 0.45), dustM, 0, W + 0.002, 0, t).rotation.x = -Math.PI / 2;
+    } else {
+      // every lower tyre shows a crescent of its top sidewall past the offset of the one above: sand settles there
+      add(new THREE.RingGeometry(0.40, 0.49, 7, 1, Math.PI * (0.9 + 0.35 * k), Math.PI * 0.55), dustM, 0, W + 0.002, 0, t).rotation.x = -Math.PI / 2;
     }
     if (rim) {
-      cyl(0.285, 0.285, 0.03, SEG, rimM, 0, W * 0.45, 0, t);
-      cyl(0.12, 0.12, 0.05, 12, rimM, 0, W * 0.5, 0, t);
-      for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; cyl(0.012, 0.012, 0.012, 6, gun, Math.cos(a) * 0.16, W * 0.45 + 0.02, Math.sin(a) * 0.16, t); }
-      for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + 0.4; cyl(0.03, 0.03, 0.032, 8, rubber(0.9), Math.cos(a) * 0.21, W * 0.45, Math.sin(a) * 0.21, t); }
+      // dished steel rim as in the concept: a flat outer flange over the bead, a dish sloping in and
+      // down to a hub face recessed 18 mm (the sun is 22 degrees up and the sidewall shadows anything deeper), a centre bore, eight nuts on a bolt circle in a rust halo,
+      // four hand holes in the dish, a rust ring where the dish meets the flange, a valve stem
+      const top = W * 0.45 + 0.025;
+      // profile runs outer to inner so the lathe's face normals point UP on the hub face and the dish
+      // (checked: reversed they point down and the weather pass paints the dish as an underside)
+      const rimGeo = new THREE.LatheGeometry([[0.27, top - 0.03], [0.285, top - 0.03], [0.285, top], [0.235, top - 0.004], [0.19, top - 0.018], [0.05, top - 0.018], [0.05, top - 0.05]].map((p) => new THREE.Vector2(p[0], p[1])), SEG);
+      add(rimGeo, rimM, 0, 0, 0, t);
+      const hub = top - 0.018;
+      add(new THREE.TorusGeometry(0.115, 0.016, 4, 16), rustM, 0, hub + 0.001, 0, t).rotation.x = Math.PI / 2;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        cyl(0.014, 0.014, 0.02, 6, gun, Math.cos(a) * 0.115, hub + 0.01, Math.sin(a) * 0.115, t);
+        cyl(0.02, 0.02, 0.003, 8, rubber(0.8), Math.cos(a) * 0.115, hub + 0.001, Math.sin(a) * 0.115, t);
+      }
+      cyl(0.052, 0.052, 0.006, 12, rustM, 0, hub - 0.02, 0, t);                       // rust in the bore
+      add(new THREE.TorusGeometry(0.233, 0.006, 4, SEG), rustM, 0, top - 0.004, 0, t).rotation.x = Math.PI / 2;
+      add(new THREE.TorusGeometry(0.283, 0.006, 4, SEG), rustM, 0, top + 0.001, 0, t).rotation.x = Math.PI / 2;   // bead line where steel meets rubber
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + 0.4;
+        const hg = new THREE.Group(); hg.position.set(0, hub + 0.007, 0); hg.rotation.y = -a; t.add(hg);
+        const hole = add(new THREE.CylinderGeometry(0.02, 0.02, 0.004, 8), rubber(0.6), 0.212, 0, 0, hg); hole.rotation.z = 1.27;
+      }
+      // valve stem through the flange, bent over, with its cap
+      const vs = cyl(0.005, 0.005, 0.045, 6, gun, 0.245, top + 0.015, 0.06, t); vs.rotation.z = 0.5;
+      cyl(0.007, 0.007, 0.01, 6, gun, 0.256, top + 0.035, 0.06, t).rotation.z = 0.5;
+      // rust run from a nut across the hub face and one down the dish
+      const hd = drip(0.055, 0.02, rustM, 0.11, hub + 0.002, 0.03, 0, t); hd.rotation.x = -Math.PI / 2; hd.rotation.z = 0.6;
+      const dd = drip(0.06, 0.025, rustM, 0.19, top - 0.01, -0.07, 0, t); dd.rotation.y = Math.PI / 2 + 0.35; dd.rotation.x = -0.75;
     }
     return t;
   };
-  tyre(0.0, 0.0, 0.0, 0, 0.9, false, false);
-  tyre(0.05, W, 0.03, 0, 1.0, false, false);
-  tyre(-0.02, 2 * W, -0.04, 0, 0.95, false, false);
-  tyre(0.04, 3 * W, 0.02, 0, 1.05, true, false);
-  tyre(-0.03, 4 * W + 0.06, -0.01, 0.14, 1.0, true, true);
+  tyre(0.0, 0.0, 0.0, 0, 0.9, false, false, 0);
+  tyre(0.05, W, 0.03, 0, 1.0, false, false, 1);
+  tyre(-0.02, 2 * W, -0.04, 0, 0.95, false, false, 2);
+  tyre(0.04, 3 * W, 0.02, 0, 1.05, true, false, 3);
+  tyre(-0.03, 4 * W + 0.06, -0.01, 0.14, 1.0, true, true, 4);
   drip(0.16, 0.05, rustM, 0.04, 3 * W - 0.01, 0.5 + 0.026, 0);
   drip(0.12, 0.04, rustM, 0.2, 3 * W - 0.01, 0.48, 0.4);
   drip(0.14, 0.05, rustM, -0.1, 2 * W + 0.02, 0.466, -0.2);
   drip(0.1, 0.04, rustM, 0.545, 2 * W + 0.04, 0.05, Math.PI / 2);
+  // sand drifted against the bottom tyre: one closed sweep whose reach and height follow the wind, so it
+  // climbs 0.16 m up the tread on the windward side (back left) and is still a fillet past the bulge on the lee, and
+  // meets the tread on every side with no cut edge and no wrap band
   const fill = mat(C.sandS, 'ground', 0.95, 0, THREE.DoubleSide);
-  add(new THREE.LatheGeometry([new THREE.Vector2(0.3, 0.1), new THREE.Vector2(0.46, 0.09), new THREE.Vector2(0.52, 0.03), new THREE.Vector2(0.55, 0.0)], SEG), fill, 0, 0, 0);
-  const drift = add(new THREE.LatheGeometry([new THREE.Vector2(0.0, 0.16), new THREE.Vector2(0.3, 0.12), new THREE.Vector2(0.5, 0.03), new THREE.Vector2(0.55, 0.0)], SEG), fill, 0, 0, -0.05);
-  drift.scale.set(1, 1, 0.9);
+  const prof = [[0.36, 0.17], [0.44, 0.16], [0.52, 0.10], [0.57, 0.04], [0.60, 0.0]];
+  const N = 36, spos = [];
+  const SP = (i, j) => {
+    const a = (i / N) * Math.PI * 2, f = 0.7 + 0.3 * Math.pow(0.5 + 0.5 * Math.cos(a - Math.PI * 1.25), 1.6);
+    const r = 0.36 + (prof[j][0] - 0.36) * f, yy = prof[j][1] * (0.35 + 0.65 * f);
+    return [Math.cos(a) * r, yy, Math.sin(a) * r];
+  };
+  for (let i = 0; i < N; i++) for (let j = 0; j < prof.length - 1; j++) { const p0 = SP(i, j), p1 = SP(i + 1, j), p2 = SP(i + 1, j + 1), p3 = SP(i, j + 1); spos.push(...p0, ...p3, ...p2, ...p0, ...p2, ...p1); }
+  const sgeo = new THREE.BufferGeometry(); sgeo.setAttribute('position', new THREE.Float32BufferAttribute(spos, 3)); sgeo.computeVertexNormals();
+  add(sgeo, fill, 0, 0, 0);
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by

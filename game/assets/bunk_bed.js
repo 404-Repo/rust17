@@ -166,6 +166,44 @@ export default function (THREE) {
   boot(0.08, 0.2, 0.3); boot(0.26, 0.24, 0.0);
   fillet('left', W, 0, -px - P / 2 - 0.04, 0.05, 0.09, 0.1);
   fillet('right', W, 0, px + P / 2, 0.07, 0.08, 0.1);
+  // ---- r4 detail pass: gussets at every post to tier joint, crossed straps on the head end, base plates with anchor
+  // bolts, rung bolts, a towel over the upper rail, a helmet on the floor, mattress tags, rust bands low on the webs.
+  (function () {
+    const GUS = mat(C.tankB, 'metal', 0.82, 0.22, 0.86);
+    for (const yT of [0.35, 1.25]) for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(-sx * 0.085, 0); s.lineTo(0, -0.085); s.closePath();
+      const geo = new THREE.ExtrudeGeometry(s, { depth: 0.005, bevelEnabled: false });
+      mesh(geo, GUS, sx * (px - P / 2), yT - 0.06, sz * (pz + P / 2) + (sz > 0 ? 0 : -0.005));
+      bolt(sx * (px - P / 2 - 0.025), yT - 0.085, sz * (pz + P / 2 + 0.005), sz > 0 ? 'z' : '-z', 0.006, 0.09);
+    }
+    // head end (+x): two crossed flat straps between the posts, centre plate, corner bolts
+    const sl = Math.sqrt((2 * pz) * (2 * pz) + 0.78 * 0.78), sa = Math.atan2(2 * pz, 0.78);
+    for (const s of [-1, 1]) { const b = box(0.005, sl - 0.06, 0.03, FRAME_S, px + P / 2 + 0.003, 0.8, 0); b.rotation.x = s * sa; }
+    box(0.006, 0.08, 0.08, RUST(), px + P / 2 + 0.006, 0.8, 0); bolt(px + P / 2 + 0.009, 0.8, 0, 'x', 0.011, 0.16);
+    for (const sz of [-1, 1]) for (const y of [0.42, 1.18]) bolt(px + P / 2 + 0.0005, y, sz * (pz - 0.006), 'x', 0.007, y < 1 ? 0.08 : 0);
+    // base plates and anchor bolts outside the sand mounds
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      box(0.13, 0.006, 0.13, RUST(), sx * px, 0.003, sz * pz);
+      for (const d of [-1, 1]) bolt(sx * px + d * 0.052, 0.006, sz * pz - d * 0.052, 'y', 0.006, 0);
+    }
+    // ladder rung bolts on the outer stile faces
+    for (const y of [0.62, 0.87, 1.12]) for (const sz of [-1, 1]) bolt(-px - 0.047, y, sz * 0.28, '-x', 0.006, sz > 0 ? 0.04 : 0);
+    // towel over the upper guard rail
+    const TOWEL = mat(C.khaki, 'fabric', 0.93, 0, 1.08);
+    box(0.22, 0.012, 0.05, TOWEL, 0.0, 1.626, railZ);
+    box(0.22, 0.3, 0.012, TOWEL, 0.0, 1.47, railZ + 0.019);
+    box(0.22, 0.24, 0.012, mat(C.khaki, 'fabric', 0.93, 0, 1.0), 0.0, 1.5, railZ - 0.019);
+    // steel helmet on the floor under the lower bunk
+    const hel = mesh(new THREE.LatheGeometry([new THREE.Vector2(0.001, 0), new THREE.Vector2(0.135, 0), new THREE.Vector2(0.14, 0.014), new THREE.Vector2(0.125, 0.045), new THREE.Vector2(0.085, 0.085), new THREE.Vector2(0.001, 0.1)], 12), mat(C.olive, 'metal', 0.85, 0.15, 1.1), -0.3, 0, 0.14);
+    hel.rotation.y = 0.6; hel.rotation.z = 0.08;
+    box(0.02, 0.008, 0.2, mat(C.olive, 'fabric', 0.9, 0, 0.85), -0.3, 0.05, 0.14).rotation.y = 0.6;   // chin strap
+    mound(-0.3, 0.14, 0.15, 0.02);
+    // mattress tags on the +z side face, rust bands low on the +z channel webs
+    for (const yT of [0.35, 1.25]) {
+      box(0.03, 0.02, 0.003, mat(C.sandbag, 'fabric', 0.9, 0, 1.1), 0.62, yT + 0.014, 0.352);
+      box(1.2, 0.012, 0.002, RUST(), 0.1, yT - 0.052, pz - P / 2 + 0.006 + 0.001);
+    }
+  })();
   // contract: measure vertices, base at y=0, centred on x and z
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length

@@ -103,6 +103,8 @@ export default function (THREE) {
     box(dw - 0.01, 0.07, 0.002, RUST(), dx, PL + 0.1, 0.017, d);
     for (let i = 0; i < 3; i++) { const y = H - 0.19 - i * 0.04; box(0.2, 0.014, 0.01, mat(C.cBlue, 'metal', 0.8, 0.2, tintF * 1.22), dx, y, 0.02, d); box(0.2, 0.007, 0.002, GUN, dx, y - 0.012, 0.017, d); }
     streak(dx - 0.05, H - 0.28, 0.017, 'z', 0.1, 0.02, d);
+    for (let i = 0; i < 3; i++) { const y = PL + 0.24 + i * 0.04; box(0.2, 0.014, 0.01, mat(C.cBlue, 'metal', 0.8, 0.2, tintF * 1.22), dx, y, 0.02, d); box(0.2, 0.007, 0.002, GUN, dx, y - 0.012, 0.017, d); }
+    streak(dx + 0.06, PL + 0.22, 0.017, 'z', 0.08, 0.02, d);
     box(0.1, 0.05, 0.004, PLATE, dx, 1.36, 0.018, d);
     for (const bx of [-0.04, 0.04]) for (const by of [-0.018, 0.018]) bolt(dx + bx, 1.36 + by, 0.02, 'z', 0.004, 0, d);
     // handle on the free (right) edge at 1.0 m
@@ -114,11 +116,12 @@ export default function (THREE) {
       const r = mesh(new THREE.TorusGeometry(0.012, 0.003, 6, 10), BOLT(), dx + dw / 2 - 0.005, 1.0, 0.024, d); r.rotation.y = Math.PI / 2;
       if (padlock) { box(0.035, 0.03, 0.014, mat(C.gun, 'metal', 0.6, 0.5, 1.1), dx + dw / 2 - 0.005, 0.965, 0.03, d); const sh = mesh(new THREE.TorusGeometry(0.011, 0.003, 6, 10), BOLT(), dx + dw / 2 - 0.005, 0.99, 0.03, d); }
     }
-    for (const y of [PL + 0.3, H - 0.3]) { cyl(0.009, 0.009, 0.07, 8, GUN, 0.0, y, 0.012, d); streak(0.0, y - 0.035, 0.02, 'z', 0.08, 0.016, d); }
+    for (const y of [PL + 0.3, H - 0.3]) { cyl(0.009, 0.009, 0.07, 8, GUN, 0.0, y, 0.012, d); box(0.035, 0.07, 0.003, GUN, 0.024, y, 0.018, d); streak(0.0, y - 0.035, 0.02, 'z', 0.08, 0.016, d); }
+    if (withHasp && !padlock) { const bc = box(0.06, 0.06, 0.004, SS, dx + dw / 2 - 0.03, PL + 0.09, 0.03, d); bc.rotation.y = -0.4; bc.rotation.x = 0.15; }
     return u;
   }
   unit(-0.4, 0, 1.0, true, true);
-  unit(0, -Math.PI * 0.917, 0.96, false, false);   // flung back against the next door, resting on its handle
+  const uOpen = unit(0, -Math.PI * 0.917, 0.96, false, false);   // flung back against the next door, resting on its handle
   unit(0.4, 0, 1.04, true, false);
   // joint bolts and seam strips where units meet, front and back
   for (const x of [-0.2, 0.2]) {
@@ -131,6 +134,37 @@ export default function (THREE) {
   fillet('front', 1.1, 0, D / 2 - 0.02, 0.035, 0.05, 0.04);
   fillet('left', D - 0.06, 0, -0.58, 0.05, 0.07, 0.05);
   fillet('right', D - 0.06, 0, 0.58, 0.05, 0.06, 0.05);
+  // ---- r4 detail pass: drip edge and rivets along the top, back and side top lips, kick plate, top joint plates,
+  // side plated panel, and the open unit dressed with a hung jacket, a folded blanket and a canteen.
+  (function () {
+    const LIP = mat(C.cBlue, 'metal', 0.82, 0.2, 1.0);
+    box(1.19, 0.015, 0.015, LIP, 0, H + 0.0075, -D / 2 + 0.0075);
+    for (const sx of [-1, 1]) box(0.015, 0.015, D, LIP, sx * (0.597 - 0.0075), H + 0.0075, 0);
+    box(1.2, 0.008, 0.04, mat(C.cBlue, 'metal', 0.8, 0.2, 1.1), 0, H + 0.019, D / 2 + 0.005);   // drip edge
+    for (const x of [-0.5, -0.3, -0.1, 0.1, 0.3, 0.5]) bolt(x, H - 0.02, D / 2 + 0.0005, 'z', 0.005, x < 0 ? 0.05 : 0.03);
+    // kick plate on the plinth
+    box(1.16, 0.045, 0.004, GUN, 0, PL / 2 + 0.01, D / 2 - 0.028);
+    for (const x of [-0.4, 0, 0.4]) bolt(x, PL / 2 + 0.01, D / 2 - 0.0255, 'z', 0.006, 0);
+    // joint plates on the top where units meet
+    for (const x of [-0.2, 0.2]) { box(0.08, 0.004, D - 0.08, GUN, x, H + 0.01, -0.01); for (const z of [-0.14, 0.12]) bolt(x, H + 0.012, z, 'y', 0.006, 0); }
+    // plated panel on the left side, in place of a stencil
+    box(0.004, 0.12, 0.2, PLATE, -0.602, 1.2, 0);
+    for (const dz of [-0.085, 0.085]) for (const dy of [-0.045, 0.045]) bolt(-0.6045, 1.2 + dy, dz, '-x', 0.004, dy < 0 && dz > 0 ? 0.06 : 0);
+    // the open unit's contents
+    const u = uOpen;
+    const JK = mat(C.khaki, 'fabric', 0.92, 0, 1.0), JK2 = mat(C.khaki, 'fabric', 0.92, 0, 0.9);
+    const hanger = cyl(0.003, 0.003, 0.3, 5, GUN, 0, 1.335, 0.05, u); hanger.rotation.z = Math.PI / 2;
+    for (const s of [-1, 1]) { const a = cyl(0.003, 0.003, 0.17, 5, GUN, s * 0.075, 1.35, 0.05, u); a.rotation.z = s * 1.2; }
+    mesh(new THREE.TorusGeometry(0.012, 0.003, 5, 8, Math.PI), GUN, 0, 1.378, 0.05, u);
+    box(0.26, 0.5, 0.05, JK, 0, 1.07, 0.05, u);
+    box(0.2, 0.04, 0.062, JK2, 0, 1.31, 0.05, u);
+    for (const s of [-1, 1]) { const sl = box(0.07, 0.4, 0.05, JK2, s * 0.155, 1.1, 0.05, u); sl.rotation.z = s * 0.08; }
+    box(0.03, 0.44, 0.004, mat(C.khaki, 'fabric', 0.92, 0, 0.8), 0, 1.06, 0.077, u);   // placket
+    box(0.3, 0.1, 0.32, mat(C.olive, 'fabric', 0.93, 0), 0, 0.477, 0.0, u);
+    box(0.28, 0.006, 0.3, mat(C.olive, 'fabric', 0.93, 0, 1.1), 0.01, 0.53, 0.01, u);
+    cyl(0.04, 0.04, 0.12, 10, mat(C.olive, 'metal', 0.8, 0.2, 1.1), 0.1, 1.507, 0.02, u);
+    cyl(0.014, 0.014, 0.02, 8, GUN, 0.1, 1.577, 0.02, u);
+  })();
   // contract: measure vertices, base at y=0, centred on x and z
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length

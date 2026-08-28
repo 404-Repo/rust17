@@ -1,3 +1,8 @@
+// floodlight_mast r4 detail pass: tubular knee braces with gusset plates from the mast to the arm
+// ends, an arm junction box with a drooping cable to each housing, lens frames, back fins, hinge
+// bar and wing nuts on the housings, step bolts up the east face, taller anchor bolts with double
+// nuts, a hasp on the junction box, a plated ID panel and a hazard band at eye height, and the two
+// rust strips that floated off the arm are back on the steel.
 // floodlight_mast candidate 2: a different reading of the reference, which shows a
 // square tapered pole. Four trapezoid face plates (south bleached, north shaded, east
 // and west mid) with a seam strip on each corner, a stepped concrete plinth with a
@@ -28,6 +33,8 @@ export default function (THREE) {
   const dust = M(0xcdb88e, 'ground', 0.95, 0.0);
   const gun = M(0x3a3d40, 'metal', 0.70, 0.60);
   const lens = M(0xc9a227, null, 0.5, 0.0, false, 0xffd9a0);
+  const yel = M(0xc9a227, 'metal', 0.80, 0.15);   // hazard band
+  const rub = M(0x1d1e20, null, 0.90, 0.0);       // cable: unnamed so surfaces.js skips it
 
   const box = (w, h, d, mat, x, y, z, parent) => { const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); mm.position.set(x, y, z); (parent || g).add(mm); return mm; };
   const cyl = (r, len, mat, x, y, z, axis, seg, parent) => {
@@ -35,6 +42,9 @@ export default function (THREE) {
     if (axis === 'z') mm.rotation.x = Math.PI / 2; else if (axis === 'x') mm.rotation.z = Math.PI / 2;
     mm.position.set(x, y, z); (parent || g).add(mm); return mm;
   };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  // a straight rod from p to q
+  const rod = (p, q, r, mat, seg) => { const d = q.clone().sub(p); const len = d.length(); const mm = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg || 6), mat); mm.position.copy(p).lerp(q, 0.5); mm.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize()); g.add(mm); return mm; };
 
   const PH = 0.4, TOP = 9.0, ARM = 8.5, MH = TOP - PH;
   const half = (y) => 0.125 - (0.065 * (y - PH)) / MH;   // half width of the square at height y
@@ -50,8 +60,9 @@ export default function (THREE) {
   // ---- base plate, bolts with nuts, gusset ribs ----
   box(0.5, 0.025, 0.5, ox, 0, PH + 0.0125, 0);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    cyl(0.018, 0.1, gun, sx * 0.19, PH + 0.07, sz * 0.19, 'y', 6);
+    cyl(0.018, 0.16, gun, sx * 0.19, PH + 0.1, sz * 0.19, 'y', 6);
     cyl(0.03, 0.03, gun, sx * 0.19, PH + 0.04, sz * 0.19, 'y', 6);
+    cyl(0.03, 0.03, gun, sx * 0.19, PH + 0.085, sz * 0.19, 'y', 6);
     box(0.05, 0.16, 0.006, rust, sx * 0.19, PH - 0.1, sz * 0.424);
   }
   for (let k = 0; k < 4; k++) {
@@ -85,6 +96,14 @@ export default function (THREE) {
     s.position.z = (0.125 + 0.06) / 2 * Math.SQRT2 - 0.01; s.rotation.x = Math.atan((0.125 - 0.06) * Math.SQRT2 / MH); gr.add(s);
   }
   box(0.16, 0.03, 0.16, ox, 0, TOP - 0.015, 0);                            // cap plate
+  // plated ID panel on the south face at eye height, a safety yellow hazard band with dark edge stripes at 1.2 m
+  { const h = half(1.6); box(0.16, 0.2, 0.008, gun, 0, 1.6, h + 0.006); box(0.12, 0.16, 0.012, house, 0, 1.6, h + 0.014); box(0.05, 0.12, 0.005, rust, 0, 1.44, h + 0.01); }
+  for (let k = 0; k < 4; k++) {
+    const a = k * Math.PI / 2, h = half(1.2) + 0.008;
+    for (const [dy, hh, m] of [[0, 0.22, yel], [0.135, 0.05, gun], [-0.135, 0.05, gun]]) { const b = box(2 * half(1.2) + 0.02, hh, 0.012, m, 0, 0, 0); b.position.set(h * Math.sin(a), 1.2 + dy, h * Math.cos(a)); b.rotation.y = a; }
+  }
+  // step bolts up the east face, alternating sides, with a stop at the tip
+  for (let i = 0; i < 9; i++) { const y = 2.4 + i * 0.7, z = (i % 2 ? 0.06 : -0.06), h = half(y); box(0.2, 0.022, 0.022, steel, h + 0.09, y, z); box(0.03, 0.045, 0.045, gun, h + 0.19, y, z); }
   box(0.14, 0.006, 0.14, dust, 0, TOP + 0.003, 0);
   for (const y of [3.3, 6.2]) {
     const h = half(y);
@@ -97,11 +116,24 @@ export default function (THREE) {
   const ha = half(ARM);
   box(1.4, 0.12, 0.14, ox, 0, ARM, 0);
   box(1.36, 0.006, 0.1, dust, 0, ARM + 0.063, 0);
-  for (const sx of [-1, 1]) { box(0.02, 0.16, 0.18, oxN, sx * 0.69, ARM, 0); box(0.04, 0.14, 0.005, rust, sx * 0.69, ARM - 0.17, 0.093); }
+  for (const sx of [-1, 1]) { box(0.02, 0.16, 0.18, oxN, sx * 0.69, ARM, 0); box(0.04, 0.16, 0.005, rust, sx * 0.69, ARM - 0.12, 0.093); }
   box(0.3, 0.3, 2 * ha + 0.16, steel, 0, ARM, 0);
   for (const sx of [-1, 1]) for (const dy of [-0.1, 0.1]) { cyl(0.014, 0.03, gun, sx * 0.1, ARM + dy, ha + 0.09, 'z', 6); cyl(0.014, 0.03, gun, sx * 0.1, ARM + dy, -ha - 0.09, 'z', 6); }
-  box(0.16, 0.5, 0.006, rust, 0, ARM - 0.42, ha + 0.004);
-  box(0.006, 0.5, 0.16, rust, -ha - 0.004, ARM - 0.42, 0);
+  box(0.16, 0.5, 0.012, rust, 0, ARM - 0.42, ha + 0.001);
+  box(0.012, 0.5, 0.16, rust, -ha - 0.001, ARM - 0.42, 0);
+  // ---- knee braces: tube from the mast to each arm end, gusset plates and bolts at both ends ----
+  for (const sx of [-1, 1]) {
+    rod(V(sx * (half(ARM - 0.75) + 0.02), ARM - 0.75, 0), V(sx * 0.6, ARM - 0.07, 0), 0.02, ox, 6);
+    box(0.05, 0.14, 0.09, ox, sx * (half(ARM - 0.75) + 0.02), ARM - 0.75, 0); cyl(0.012, 0.03, gun, sx * (half(ARM - 0.75) + 0.05), ARM - 0.75, 0.03, 'x', 6);
+    box(0.1, 0.03, 0.1, ox, sx * 0.6, ARM - 0.075, 0); cyl(0.012, 0.03, gun, sx * 0.6, ARM - 0.09, 0.03, 'y', 6);
+    box(0.05, 0.14, 0.005, rust, sx * (half(ARM - 0.75) + 0.02), ARM - 0.9, 0.048);
+  }
+  // arm junction box under the arm, cables drooping from it to each housing's gland
+  box(0.12, 0.1, 0.1, house, 0.3, ARM - 0.11, 0); box(0.13, 0.015, 0.11, houseD, 0.3, ARM - 0.055, 0);
+  for (const sx of [-1, 1]) {
+    const a = V(0.3, ARM - 0.16, -0.03), m = V(sx * 0.32 + 0.1, ARM - 0.02, -0.17), e = V(sx * 0.5, ARM + 0.31, -0.1);
+    rod(a, m, 0.008, rub, 5); rod(m, e, 0.008, rub, 5);
+  }
   // ---- floodlights: wide flat housings with hood and wire guard, on stirrup brackets ----
   for (const sx of [-1, 1]) {
     const x = sx * 0.5;
@@ -112,6 +144,12 @@ export default function (THREE) {
     box(0.36, 0.26, 0.012, lens, 0, 0, 0.105, fl);
     box(0.42, 0.02, 0.24, house, 0, 0.16, 0.03, fl);                                          // hood
     box(0.36, 0.006, 0.16, dust, 0, 0.173, 0.0, fl);
+    // lens frame, hinge bar along the top edge, cooling fins on the back, wing nuts on the stirrup pivots
+    box(0.4, 0.02, 0.02, houseD, 0, 0.14, 0.108, fl); box(0.4, 0.02, 0.02, houseD, 0, -0.14, 0.108, fl);
+    box(0.02, 0.3, 0.02, houseD, -0.19, 0, 0.108, fl); box(0.02, 0.3, 0.02, houseD, 0.19, 0, 0.108, fl);
+    box(0.42, 0.024, 0.024, gun, 0, 0.15, 0.1, fl);
+    for (let i = 0; i < 4; i++) box(0.36, 0.012, 0.03, houseD, 0, -0.09 + i * 0.06, -0.112, fl);
+    for (const dx of [-0.235, 0.235]) box(0.02, 0.06, 0.02, gun, dx, -0.02, -0.02, fl);
     for (let i = 0; i < 4; i++) box(0.006, 0.26, 0.006, gun, -0.15 + i * 0.1, 0, 0.12, fl);   // guard wires
     box(0.36, 0.006, 0.006, gun, 0, 0, 0.12, fl);
     box(0.06, 0.12, 0.006, rust, 0, -0.1, -0.104, fl);
@@ -122,6 +160,7 @@ export default function (THREE) {
   box(0.2, 0.2, 0.12, house, 0, 1.6, -hj - 0.06);
   box(0.22, 0.03, 0.14, houseD, 0, 1.71, -hj - 0.06);
   box(0.06, 0.25, 0.006, rust, 0, 1.36, -hj - 0.123);
+  box(0.03, 0.05, 0.012, gun, 0.06, 1.56, -hj - 0.125); box(0.05, 0.016, 0.014, gun, 0.06, 1.585, -hj - 0.126);   // hasp and staple
   const tray = new THREE.Group(); g.add(tray);
   box(0.08, 1.05, 0.03, galv, 0, PH + 0.5, -hj - 0.03 - 0.02);
   for (const y of [0.6, 1.0, 1.4]) box(0.1, 0.02, 0.05, steel, 0, y, -hj - 0.045);

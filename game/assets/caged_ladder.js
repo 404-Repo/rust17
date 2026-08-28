@@ -1,8 +1,15 @@
-// caged_ladder candidate 1: built from profiles. Each stile is a circle profile
-// extruded along one path (straight up, a bend, a return to the wall), rungs are
-// circle sweeps, the cage hoops are true flat bar bands (a D shaped ring Shape
-// extruded 40 mm), the vertical cage bars are flat rectangles swept, brackets are an
-// extruded angle profile, sand at the feet is lathed. Its back faces -Z.
+// caged_ladder r4 detail pass, second cut. Round tube stiles (octagonal, not square) on a low
+// concrete plinth: each stile stands on a steel foot plate above the sand crest with two anchor
+// bolts and hex nuts, a rust collar at the foot and a stain on the plinth around the plate; sand
+// drifts bank against the plinth on three sides. A weld collar at every rung end with a rust run
+// on the stile face below it; four hex bolt heads on the front of every wall bracket plate with
+// rust on the plate face and a rust run down the stile behind the angle; the cage hoops tied to
+// the stiles by flat straps with a U bolt ring and two nuts; every hoop to vertical crossing has a
+// hex head outside, a bolt shank passing through the hoop and a nut inside, with a rust strip set
+// into the bar face below it (no gap); the middle cage bar's bottom kinked outward with rust at the
+// crease; an inspection tag on the right stile; and the two stile extensions bent into curved
+// handrail hoops (a candy cane of two quarter circle arcs) with the down leg clipped to a wall
+// plate. Its back faces -Z (mounts against the wall it climbs).
 export default function (THREE) {
   const g = new THREE.Group();
   const M = (hex, name, r, m, ds) => {
@@ -16,11 +23,15 @@ export default function (THREE) {
   const galvD = M(0x8c9190, 'metal', 0.74, 0.55, true);
   const worn = M(0x7f8384, 'metal', 0.66, 0.6);
   const steel = M(0x4f5257, 'metal', 0.78, 0.30);
-  const rust = M(0x6b4426, 'metal', 0.92, 0.10);
+  const rust = M(0x6b4426, 'metal', 0.92, 0.10, true);
   const gun = M(0x3a3d40, 'metal', 0.70, 0.60);
   const dust = M(0xcdb88e, 'ground', 0.95, 0.0);
+  const plate = M(0x9c988c, 'metal', 0.80, 0.20);
+  const conc = M(0x857c6c, 'stone', 0.92, 0.0);
+  const concS = M(0x8f8676, 'stone', 0.90, 0.0);
 
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const Y = V(0, 1, 0);
   const sweep = (shape, p, q, mat, up, cs) => {
     const dir = q.clone().sub(p); const len = dir.length(); dir.normalize();
     const u = (up || (Math.abs(dir.y) > 0.9 ? V(0, 0, 1) : V(0, 1, 0))).clone();
@@ -34,32 +45,75 @@ export default function (THREE) {
   const rect = (w, h) => { const s = new THREE.Shape(); s.moveTo(-w / 2, -h / 2); s.lineTo(w / 2, -h / 2); s.lineTo(w / 2, h / 2); s.lineTo(-w / 2, h / 2); s.closePath(); return s; };
   const circle = (r) => { const s = new THREE.Shape(); s.absarc(0, 0, r, 0, Math.PI * 2, false); return s; };
   const box = (w, h, d, mat, x, y, z) => { const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); mm.position.set(x, y, z); g.add(mm); return mm; };
+  // a cylinder whose axis runs along the unit vector n, centred at c
+  const cylAt = (rt, rb, h, seg, mat, c, n, open) => {
+    const mm = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg, 1, !!open), mat);
+    mm.quaternion.setFromUnitVectors(Y, n.clone().normalize()); mm.position.copy(c); g.add(mm); return mm;
+  };
+  // a rust run hugging a round bar: an open partial cylinder 2.5 mm proud of the bar, facing `face` (a unit vector in xz)
+  const rustRun = (c, r, h, face, spread) => {
+    const th = Math.atan2(face.x, face.z);
+    const mm = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.0025, r + 0.0025, h, 5, 1, true, th - (spread || 0.7), 2 * (spread || 0.7)), rust);
+    mm.position.copy(c); g.add(mm); return mm;
+  };
+  const hex = (r, h, mat, c, n) => cylAt(r, r, h, 6, mat, c, n || Y);
 
-  const SX = 0.225, SR = 0.03, WALL = -0.23, TOP = 4.6;
+  const SX = 0.225, SR = 0.03, WALL = -0.23, TOP = 4.6, PADH = 0.12, PT = PADH + 0.012, R = 0.1, K = 0.5523;
+  g.userData.mounts = 'back';
 
-  // ---- stiles: one extrusion along a path with the bend in it ----
+  // ---- concrete plinth: stained concrete with a lighter sun face, a dust slab on top between the feet ----
+  box(0.60, PADH, 0.36, conc, 0, PADH / 2, -0.02);
+  box(0.60, PADH, 0.004, concS, 0, PADH / 2, 0.162);
+  box(0.24, 0.006, 0.22, dust, 0, PADH + 0.003, -0.04);
+  // ---- foot plates on the plinth, two anchor bolts each, rust collar at the foot, a stain around the plate ----
   for (const sx of [-1, 1]) {
+    box(0.17, 0.002, 0.17, rust, sx * SX, PADH + 0.001, 0);
+    box(0.13, 0.012, 0.13, steel, sx * SX, PADH + 0.006, 0);
+    for (const dx of [-0.045, 0.045]) {
+      hex(0.012, 0.012, gun, V(sx * SX + dx, PT + 0.006, 0.042));
+      cylAt(0.0055, 0.0055, 0.03, 6, gun, V(sx * SX + dx, PT + 0.02, 0.042), Y);
+      box(0.026, 0.002, 0.022, rust, sx * SX + dx, PT + 0.001, 0.058);
+    }
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(SR + 0.003, SR + 0.003, 0.07, 8, 1, true), rust); foot.position.set(sx * SX, PT + 0.035, 0); g.add(foot);
+  }
+  // ---- stiles: round tube up to the bend, then a candy cane hoop of two quarter circles and a down leg on a wall clip ----
+  for (const sx of [-1, 1]) {
+    const mat = sx > 0 ? galv : galvS;
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(SR, SR, TOP - R - PADH + 0.005, 8), mat); st.position.set(sx * SX, (TOP - R + PADH - 0.005) / 2, 0); g.add(st);
     const path = new THREE.CurvePath();
-    path.add(new THREE.LineCurve3(V(sx * SX, 0.0, 0), V(sx * SX, TOP - 0.15, 0)));
-    path.add(new THREE.QuadraticBezierCurve3(V(sx * SX, TOP - 0.15, 0), V(sx * SX, TOP, 0), V(sx * SX, TOP, -0.15)));
-    path.add(new THREE.LineCurve3(V(sx * SX, TOP, -0.15), V(sx * SX, TOP, WALL)));
-    const geo = new THREE.ExtrudeGeometry(circle(SR), { steps: 40, bevelEnabled: false, extrudePath: path, curveSegments: 4 });
-    g.add(new THREE.Mesh(geo, sx > 0 ? galv : galvS));
-    sweep(rect(0.1, 0.1), V(sx * SX, TOP, WALL + 0.002), V(sx * SX, TOP, WALL - 0.01), steel);
+    path.add(new THREE.LineCurve3(V(sx * SX, TOP - R - 0.02, 0), V(sx * SX, TOP - R, 0)));
+    path.add(new THREE.CubicBezierCurve3(V(sx * SX, TOP - R, 0), V(sx * SX, TOP - R + K * R, 0), V(sx * SX, TOP, -R + K * R), V(sx * SX, TOP, -R)));
+    path.add(new THREE.CubicBezierCurve3(V(sx * SX, TOP, -R), V(sx * SX, TOP, -R - K * R), V(sx * SX, TOP - R + K * R, -2 * R), V(sx * SX, TOP - R, -2 * R)));
+    path.add(new THREE.LineCurve3(V(sx * SX, TOP - R, -2 * R), V(sx * SX, TOP - R - 0.22, -2 * R)));
+    const geo = new THREE.ExtrudeGeometry(circle(SR), { steps: 18, bevelEnabled: false, extrudePath: path, curveSegments: 8 });
+    g.add(new THREE.Mesh(geo, mat));
+    // wall clip at the foot of the down leg: plate on the wall, a saddle over the tube, two bolts, rust on the plate
+    const cy = TOP - R - 0.17;
+    sweep(rect(0.1, 0.1), V(sx * SX, cy, WALL + 0.002), V(sx * SX, cy, WALL - 0.01), steel);
+    box(0.08, 0.05, 0.04, steel, sx * SX, cy, WALL + 0.02);
+    for (const dx of [-0.035, 0.035]) hex(0.009, 0.01, gun, V(sx * SX + dx, cy - 0.035, WALL + 0.007), V(0, 0, 1));
+    box(0.05, 0.03, 0.003, rust, sx * SX, cy - 0.032, WALL + 0.002);
+    rustRun(V(sx * SX, cy - 0.06, -2 * R), SR, 0.07, V(0, 0, 1));
   }
-  // ---- rungs ----
+  // ---- rungs: round bar with a worn top, a weld collar at each stile and a rust run on the stile below it ----
   for (let i = 1; i <= 12; i++) {
-    sweep(circle(0.0125), V(-SX, i * 0.3, 0), V(SX, i * 0.3, 0), galvD, V(0, 1, 0));
-    box(0.36, 0.006, 0.014, worn, 0, i * 0.3 + 0.012, 0);
+    const y = i * 0.3;
+    cylAt(0.0125, 0.0125, 2 * SX, 8, galvD, V(0, y, 0), V(1, 0, 0));
+    box(0.36, 0.006, 0.014, worn, 0, y + 0.012, 0);
+    for (const sx of [-1, 1]) {
+      cylAt(0.019, 0.019, 0.026, 8, galvD, V(sx * (SX - 0.036), y, 0), V(1, 0, 0));
+      rustRun(V(sx * SX, y - 0.05, 0), SR, 0.07, V(-sx * 0.5, 0, 1), 0.6);
+    }
   }
-  // ---- brackets: extruded angle from the stile to the wall, plate and bolts ----
+  // ---- brackets: extruded angle from the stile to the wall, plate with four hex heads, rust on the plate and the stile ----
   const angle = () => { const s = new THREE.Shape(); s.moveTo(-0.025, -0.025); s.lineTo(0.025, -0.025); s.lineTo(0.025, -0.017); s.lineTo(-0.017, -0.017); s.lineTo(-0.017, 0.025); s.lineTo(-0.025, 0.025); s.closePath(); return s; };
   for (const y of [0.6, 1.5, 2.4, 3.3]) for (const sx of [-1, 1]) {
     sweep(angle(), V(sx * SX, y, SR), V(sx * SX, y, WALL), steel, V(0, 1, 0));
     sweep(rect(0.12, 0.12), V(sx * SX, y, WALL + 0.002), V(sx * SX, y, WALL - 0.01), steel);
-    for (const dy of [-0.04, 0.04]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.02, 6), gun); b.rotation.x = Math.PI / 2; b.position.set(sx * SX, y + dy, WALL - 0.02); g.add(b); }
-    box(0.05, 0.22, 0.005, rust, sx * SX, y - 0.17, WALL - 0.015);
-    box(0.02, 0.1, 0.005, rust, sx * SX + 0.03, y - 0.09, SR + 0.002);
+    for (const dx of [-0.042, 0.042]) for (const dy of [-0.042, 0.042]) hex(0.009, 0.01, gun, V(sx * SX + dx, y + dy, WALL + 0.007), V(0, 0, 1));
+    box(0.06, 0.045, 0.003, rust, sx * SX, y - 0.037, WALL + 0.002);
+    box(0.02, 0.004, 0.16, rust, sx * SX + sx * 0.016, y - 0.026, (SR + WALL) / 2);
+    rustRun(V(sx * SX, y - 0.09, 0), SR, 0.12, V(sx * 0.6, 0, -1), 0.8);
   }
   // ---- cage hoops: flat bar D rings, extruded 40 mm tall ----
   const Dring = (rx, rz, t) => {
@@ -72,15 +126,41 @@ export default function (THREE) {
   const hoopY = [2.2, 2.79, 3.38, 3.97, 4.55];
   for (const y of hoopY) {
     // shape x -> world x, shape y -> world z; sweep along +y with up = -z so local y = +z
-    const mm = sweep(Dring(0.36, 0.26, 0.008), V(0, y - 0.02, 0), V(0, y + 0.02, 0), galv, V(0, 0, -1), 10);
+    sweep(Dring(0.36, 0.26, 0.008), V(0, y - 0.02, 0), V(0, y + 0.02, 0), galv, V(0, 0, -1), 10);
+    // stile straps: flat bar from the stile out to the hoop leg, a U bolt ring round the stile with two nuts on top
+    for (const sx of [-1, 1]) {
+      box(0.36 - SX + 0.01, 0.008, 0.03, galvD, sx * (0.36 + SX - 0.01) / 2, y, 0);
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(SR + 0.004, SR + 0.004, 0.012, 8, 1, true), gun); ring.position.set(sx * SX, y, 0); g.add(ring);
+      box(0.06, 0.006, 0.1, galvD, sx * SX, y + 0.007, 0);
+      for (const dz of [-0.04, 0.04]) hex(0.008, 0.008, gun, V(sx * SX, y + 0.014, dz));
+      hex(0.008, 0.008, gun, V(sx * 0.335, y + 0.008, 0));
+      rustRun(V(sx * SX, y - 0.05, 0), SR, 0.06, V(sx, 0, 0.3), 0.6);
+    }
   }
   for (const a of [Math.PI / 2, Math.PI / 6, 5 * Math.PI / 6]) {
-    const x = 0.36 * Math.cos(a), z = 0.26 * Math.sin(a);
-    sweep(rect(0.03, 0.008), V(x, hoopY[0] - 0.02, z), V(x, hoopY[4] + 0.02, z), a === Math.PI / 2 ? galvS : galv, V(-Math.cos(a), 0, -Math.sin(a)));
+    const x = 0.36 * Math.cos(a), z = 0.26 * Math.sin(a), mid = a === Math.PI / 2;
+    const n = V(Math.cos(a), 0, Math.sin(a));
+    // the middle bar took a knock at the bottom: its lowest 0.35 m is kinked outward, rust at the crease
+    sweep(rect(0.03, 0.008), V(x, mid ? hoopY[0] + 0.3 : hoopY[0] - 0.02, z), V(x, hoopY[4] + 0.02, z), mid ? galvS : galv, V(-Math.cos(a), 0, -Math.sin(a)));
+    if (mid) { sweep(rect(0.03, 0.008), V(x, hoopY[0] + 0.3, z), V(x + 0.12, hoopY[0] - 0.06, z + 0.02), galvD, V(0, 0, -1)); box(0.04, 0.05, 0.02, rust, x, hoopY[0] + 0.3, z + 0.01); }
+    // every hoop crossing: hex head outside, shank through the hoop, nut inside, rust set into the bar face below
+    for (const y of hoopY) {
+      const c = V(x, y, z);
+      hex(0.011, 0.007, gun, c.clone().addScaledVector(n, 0.0075), n);
+      cylAt(0.005, 0.005, 0.026, 6, gun, c.clone().addScaledVector(n, -0.009), n, true);
+      hex(0.011, 0.007, gun, c.clone().addScaledVector(n, -0.0115), n);
+      const rs = box(0.022, 0.09, 0.003, rust, 0, 0, 0);
+      rs.position.copy(c.clone().addScaledVector(n, 0.004)); rs.position.y = y - 0.067; rs.rotation.y = Math.PI / 2 - a;
+    }
   }
-  // ---- feet: lathed sand mounds ----
-  const pts = []; for (let i = 0; i <= 6; i++) { const t = i / 6; pts.push(new THREE.Vector2(0.17 * (1 - t), 0.1 * (1 - (1 - t) * (1 - t)))); }
-  for (const sx of [-1, 1]) { const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 8), dust); m.scale.set(1, 1, 0.9); m.position.set(sx * SX, 0, 0.02); g.add(m); }
+  // inspection tag plate on the right stile, outside face, two rivets, rust run below it
+  box(0.006, 0.1, 0.07, plate, SX + 0.033, 1.95, 0);
+  for (const dz of [-0.025, 0.025]) hex(0.004, 0.004, gun, V(SX + 0.038, 1.95 + (dz > 0 ? 0.035 : -0.035), dz), V(1, 0, 0));
+  rustRun(V(SX, 1.86, 0), SR, 0.07, V(1, 0, 0), 0.5);
+  // ---- sand drifts banked against the plinth on three sides: concave talus, crest at the plinth face ----
+  const pts = []; for (let i = 0; i <= 6; i++) { const t = i / 6; pts.push(new THREE.Vector2(0.15 * (1 - t), 0.11 * t * t)); }
+  const drift = (x, z, sx, sz) => { const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 10), dust); m.scale.set(sx, 1, sz); m.position.set(x, 0, z); g.add(m); };
+  drift(-0.30, -0.03, 1.0, 1.5); drift(0.30, -0.01, 1.0, 1.4); drift(0.0, 0.16, 2.1, 0.9);
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by

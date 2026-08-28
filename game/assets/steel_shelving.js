@@ -153,6 +153,73 @@ export default function (THREE) {
   box(0.12, 0.03, 0.05, RUST(), 0.2, shelves[4] + 0.019, -0.05);
   fillet('left', SD, 0, -SW / 2, 0.05, 0.07, 0.06);
   fillet('right', SD, 0, SW / 2, 0.05, 0.06, 0.06);
+  // ---- r4 detail pass: top gussets, foot plates with anchor bolts, lip label plates, a dented lip, a rope coil on a
+  // hook, a broom against the side, a fire extinguisher, top shelf funnel, tarp and wire coil, back tie bars, ties.
+  (function () {
+    const PLATE = mat(C.galv, 'metal', 0.7, 0.45, 1.15);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const x = sx * (SW / 2 - A / 2), z = sz * (SD / 2 - A / 2);
+      box(A + 0.05, 0.005, A + 0.05, GALV_N, x, 0.0105, z);
+      for (const d of [-1, 1]) {
+        bolt(x + d * 0.032, 0.013, z - d * 0.032, 'y', 0.005, 0);
+        if (sz > 0) { cyl(0.009, 0.009, 0.002, 8, PLATE, x + d * 0.032, 0.014, z - d * 0.032); cyl(0.0055, 0.0055, 0.006, 6, BOLT(), x + d * 0.032, 0.019, z - d * 0.032); }   // washer and nut, front feet
+      }
+      if (sx < 0 && sz > 0) { box(0.01, 0.02, 0.008, RUST(), x - 0.045, 0.01, z + 0.04); streak(x - A / 2 - 0.0005, 0.06, z, '-x', 0.05, 0.03); }   // a chipped anchor and its run of rust on the front left foot
+      const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(-sx * 0.09, 0); s.lineTo(0, -0.09); s.closePath();
+      mesh(new THREE.ExtrudeGeometry(s, { depth: 0.005, bevelEnabled: false }), sz > 0 ? GALV_S : GALV_N, sx * (SW / 2 - A), 1.672, sz * (SD / 2) + (sz > 0 ? 0.001 : -0.006));
+      bolt(sx * (SW / 2 - A - 0.028), 1.672 - 0.028, sz * (SD / 2 + 0.0065), sz > 0 ? 'z' : '-z', 0.006, 0.07);
+    }
+    shelves.forEach((y) => box(0.08, 0.022, 0.003, PLATE, -0.36, y - 0.033, SD / 2 + 0.0015));
+    box(0.14, 0.03, 0.004, GALV, 0.25, shelves[2] - 0.033, SD / 2 + 0.004).rotation.x = 0.3;   // kicked out lip
+    // rope coil on a hook, right side; broom against the left side
+    const coil = mesh(new THREE.TorusGeometry(0.075, 0.022, 5, 10), mat(C.sandbag, 'fabric', 0.95, 0, 0.98), SW / 2 + 0.024, 1.15, 0); coil.rotation.y = Math.PI / 2;
+    const hk = cyl(0.004, 0.004, 0.05, 5, GUN, SW / 2 + 0.022, 1.235, 0); hk.rotation.z = Math.PI / 2;
+    streak(SW / 2 + 0.0005, 1.23, 0.0, 'x', 0.08, 0.016);
+    // broom hung head down on the left side in two bolted spring clips (40 mm plate, 32 mm ring, arm) that visibly carry
+    // the handle; the head is a timber block with a ferruled shoulder where the handle enters and six tapered rows of
+    // dark bristles below it
+    { const BX = -SW / 2 - 0.044, BZ = 0.1, HT = mat(C.timber, 'timber', 0.88, 0, 0.78);
+      for (const y of [0.5, 1.32]) {
+        box(0.006, 0.04, 0.03, PLATE, -SW / 2 - 0.003, y, BZ); bolt(-SW / 2 - 0.0065, y + 0.012, BZ, '-x', 0.005, 0.05);
+        box(0.02, 0.006, 0.006, GUN, -SW / 2 - 0.016, y, BZ);
+        const ring = mesh(new THREE.TorusGeometry(0.016, 0.004, 5, 10, Math.PI * 1.55), GUN, BX, y, BZ); ring.rotation.x = Math.PI / 2; ring.rotation.z = -Math.PI * 0.775;
+      }
+      cyl(0.012, 0.012, 1.25, 6, mat(C.timber, 'timber', 0.85, 0, 1.05), BX, 0.925, BZ);
+      cyl(0.0125, 0.0125, 0.01, 6, GUN, BX, 1.545, BZ);                       // handle end cap
+      cyl(0.0145, 0.0145, 0.012, 8, GUN, BX, 0.312, BZ);                      // ferrule
+      cyl(0.017, 0.021, 0.035, 8, HT, BX, 0.2875, BZ);                        // shoulder boss
+      box(0.06, 0.03, 0.26, HT, BX, 0.255, BZ);                               // head block
+      for (const sz of [-1, 1]) box(0.062, 0.032, 0.004, mat(C.timber, 'timber', 0.9, 0, 0.5), BX, 0.255, BZ + sz * 0.13);   // sawn ends
+      // bristles: 18 tapered tufts across the head, spaced along its length with air between them, so the side that
+      // faces out of the rack reads as a comb of dark fibres and not as one flat face
+      const BR = mat(C.gun, 'metal', 0.92, 0.05, 1.0, { side: DS });   // stiff dark synthetic fibre, reads near black against the timber head
+      const tuft = new THREE.Shape(); tuft.moveTo(-0.0027, 0); tuft.lineTo(0.0027, 0); tuft.lineTo(0.0014, -0.092); tuft.lineTo(-0.0014, -0.092); tuft.closePath();
+      const tg2 = new THREE.ExtrudeGeometry(tuft, { depth: 0.056, bevelEnabled: false }); tg2.rotateY(Math.PI / 2); tg2.translate(-0.028, 0, 0);
+      for (let i = 0; i < 18; i++) { const t = mesh(tg2, BR, BX + ((i % 3) - 1) * 0.001, 0.24, BZ - 0.1147 + i * 0.0135); t.rotation.x = ((i % 4) - 1.5) * 0.03; }
+      for (const sx of [-1, 1]) box(0.003, 0.004, 0.246, GUN, BX + sx * 0.029, 0.236, BZ);   // binding wire along each side of the rows
+    }
+    // fire extinguisher on the bottom shelf between the jerry can and the toolboxes
+    const EX = -0.18, EZ = 0.08, RED = mat(C.cRed, 'metal', 0.75, 0.2, 1.05);
+    cyl(0.052, 0.052, 0.01, 12, GUN, EX, y0 + 0.005, EZ);
+    cyl(0.05, 0.05, 0.22, 12, RED, EX, y0 + 0.12, EZ);
+    mesh(new THREE.LatheGeometry([new THREE.Vector2(0.001, 0), new THREE.Vector2(0.05, 0), new THREE.Vector2(0.04, 0.02), new THREE.Vector2(0.015, 0.035), new THREE.Vector2(0.001, 0.04)], 12), RED, EX, y0 + 0.23, EZ);
+    cyl(0.015, 0.015, 0.04, 8, GUN, EX, y0 + 0.28, EZ);
+    box(0.06, 0.008, 0.02, GUN, EX + 0.02, y0 + 0.305, EZ).rotation.z = 0.3;
+    box(0.06, 0.05, 0.002, PLATE, EX, y0 + 0.13, EZ + 0.051);
+    { const c = new THREE.CatmullRomCurve3([new THREE.Vector3(EX + 0.012, y0 + 0.27, EZ + 0.02), new THREE.Vector3(EX + 0.055, y0 + 0.2, EZ + 0.05), new THREE.Vector3(EX + 0.05, y0 + 0.05, EZ + 0.04)]); mesh(new THREE.TubeGeometry(c, 10, 0.006, 5, false), mat(C.rubber, '', 0.9, 0), 0, 0, 0); }
+    // top shelf: funnel, folded tarp, coil of wire
+    const yTop = shelves[4] + 0.004;
+    mesh(new THREE.LatheGeometry([new THREE.Vector2(0.001, 0), new THREE.Vector2(0.012, 0), new THREE.Vector2(0.012, 0.06), new THREE.Vector2(0.07, 0.14), new THREE.Vector2(0.075, 0.145), new THREE.Vector2(0.07, 0.15), new THREE.Vector2(0.065, 0.142), new THREE.Vector2(0.011, 0.065), new THREE.Vector2(0.001, 0.065)], 10), mat(C.galv, 'metal', 0.7, 0.5, 0.92, { side: DS }), 0.4, yTop, -0.1);
+    box(0.3, 0.07, 0.24, mat(C.khaki, 'fabric', 0.94, 0, 0.95), 0.0, yTop + 0.035, 0.05);
+    box(0.28, 0.008, 0.22, mat(C.khaki, 'fabric', 0.94, 0, 1.08), 0.01, yTop + 0.074, 0.06);
+    dust(0.28, 0.22, 0.01, yTop + 0.078, 0.06, 0.03);
+    const wc = mesh(new THREE.TorusGeometry(0.06, 0.008, 5, 12), GUN, -0.35, yTop + 0.012, -0.12); wc.rotation.x = Math.PI / 2;
+    // back tie bars, side plated panel, tarp ties
+    for (const y of [1.76, 0.14]) { box(SW - 0.06, 0.03, 0.004, GALV_N, 0, y, -SD / 2 - 0.003); for (const sx of [-1, 1]) bolt(sx * (SW / 2 - 0.06), y, -SD / 2 - 0.0055, '-z', 0.006, y > 1 ? 0.06 : 0); }
+    box(0.004, 0.08, 0.12, PLATE, SW / 2 + 0.002, 1.5, 0);
+    for (const dz of [-0.045, 0.045]) bolt(SW / 2 + 0.0045, 1.5, dz, 'x', 0.004, dz > 0 ? 0.04 : 0);
+    for (const x of [0.1, 0.36]) { const t = cyl(0.006, 0.006, 0.03, 6, mat(C.sandbag, 'fabric', 0.9, 0, 0.9), x, 0.55, SD / 2 + 0.02); t.rotation.x = Math.PI / 2; }
+  })();
   // contract: measure vertices, base at y=0, centred on x and z
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length

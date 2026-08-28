@@ -21,6 +21,7 @@ export default function (THREE) {
   const stain = M(0x857c6c, 'stone', 0.92, 0.0);
   const stainD = M(0x746c5d, 'stone', 0.94, 0.0);
   const groove = M(0x6a6356, 'stone', 0.95, 0.0);
+  const holeTie = M(0x6f675a, 'stone', 0.95, 0.0, true);
   const galv = M(0x9ea3a1, 'metal', 0.72, 0.35, true);
   const galvS = M(0xa9aeac, 'metal', 0.72, 0.35, true);
   const galvD = M(0x8b908e, 'metal', 0.74, 0.35, true);
@@ -41,9 +42,9 @@ export default function (THREE) {
     const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     mm.position.set(x, y, z); (parent || g).add(mm); return mm;
   };
-  const corr = (w, h, mat) => {
+  const corr = (w, h, mat, spp) => {
     const PITCH = 0.076, AMP = 0.012;
-    const geo = new THREE.PlaneGeometry(w, h, Math.max(6, Math.round(w / PITCH) * 6), 1);
+    const geo = new THREE.PlaneGeometry(w, h, Math.max(6, Math.round(w / PITCH) * (spp || 6)), 1);
     const p = geo.attributes.position;
     for (let i = 0; i < p.count; i++) p.setZ(i, AMP * Math.sin((p.getX(i) + w / 2) / PITCH * Math.PI * 2));
     const f = geo.toNonIndexed(); f.computeVertexNormals();
@@ -92,14 +93,14 @@ export default function (THREE) {
       const op = os.find(([x0, x1]) => x + w > x0 + 0.02 && x < x1 - 0.02);
       const y0 = PL, y1 = op ? op[3] + 0.06 : CL1;
       const y0b = op ? op[3] + 0.06 : PL;
-      const s = corr(w, CL1 - y0b, i % 2 ? mat : galvD); s.position.set(x + w / 2, y0b + (CL1 - y0b) / 2, zf + sz * (i % 2) * 0.006); if (sz < 0) s.rotation.y = Math.PI; g.add(s);
-      if (op) { const lo = corr(w, 0.001 + Math.max(0, op[2] - 0.06 - PL), mat); if (op[2] - 0.06 - PL > 0.05) { lo.position.set(x + w / 2, PL + (op[2] - 0.06 - PL) / 2, zf); if (sz < 0) lo.rotation.y = Math.PI; g.add(lo); } }
+      const s = corr(w, CL1 - y0b, i % 2 ? mat : galvD, sz < 0 ? 4 : 5); s.position.set(x + w / 2, y0b + (CL1 - y0b) / 2, zf + sz * (i % 2) * 0.006); if (sz < 0) s.rotation.y = Math.PI; g.add(s);
+      if (op) { const lo = corr(w, 0.001 + Math.max(0, op[2] - 0.06 - PL), mat, sz < 0 ? 4 : 5); if (op[2] - 0.06 - PL > 0.05) { lo.position.set(x + w / 2, PL + (op[2] - 0.06 - PL) / 2, zf); if (sz < 0) lo.rotation.y = Math.PI; g.add(lo); } }
       // hook bolts on the girts with rust runs
       for (const gy of [PL + 0.05, 2.7, CL1 - 0.05]) {
         if (op && gy < op[3] + 0.1 && gy > op[2] - 0.1) continue;
-        const b = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.01, 6), steel);
-        b.rotation.x = Math.PI / 2; b.position.set(x + w / 2, gy, zf + sz * 0.02); g.add(b);
-        box(0.014, 0.22, 0.004, rust, x + w / 2, gy - 0.15, zf + sz * 0.018);
+        const b = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.012, 6), steel);
+        b.rotation.x = sz * Math.PI / 2; b.position.set(x + w / 2, gy, zf + sz * 0.02); g.add(b);
+        if (gy < CL1 - 0.1) box(0.014, 0.22, 0.004, rust, x + w / 2, gy - 0.15, zf + sz * 0.018);
       }
       x += w - 0.05; i++;
     }
@@ -136,7 +137,7 @@ export default function (THREE) {
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 0.2, 12), tankB); base.position.set(cx, H + 0.1, cz); g.add(base);
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 0.2, 12), galv); body.position.set(cx, H + 0.3, cz); g.add(body);
     const cone = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.1, 12), galvD); cone.position.set(cx, H + 0.45, cz); g.add(cone);
-    for (let i = 0; i < 6; i++) { const fin = box(0.02, 0.18, 0.12, galvD, 0, 0, 0); fin.rotation.y = i * Math.PI / 6; fin.position.set(cx + Math.sin(i * Math.PI / 6) * 0.12, H + 0.3, cz + Math.cos(i * Math.PI / 6) * 0.12); }
+    for (let i = 0; i < 4; i++) { const fin = box(0.02, 0.18, 0.12, galvD, 0, 0, 0); fin.rotation.y = i * Math.PI / 4; fin.position.set(cx + Math.sin(i * Math.PI / 6) * 0.12, H + 0.3, cz + Math.cos(i * Math.PI / 6) * 0.12); }
     box(0.14, 0.006, 0.36, rust, cx, H + 0.02, cz + 0.22);
   }
   // ---- water tank on a braced angle stand at the east end ----
@@ -172,11 +173,11 @@ export default function (THREE) {
     const hinge = new THREE.Group(); hinge.position.set(hingeAt[0], 0, hingeAt[1]); hinge.rotation.y = rotY; g.add(hinge);
     box(0.05, 2.05, 0.86, tankB, 0, 1.045, 0.45, hinge);
     box(0.012, 0.3, 0.5, galvD, 0.03, 0.5, 0.45, hinge);
-    for (let i = 0; i < 5; i++) box(0.02, 0.02, 0.46, steel, 0.035, 0.4 + i * 0.05, 0.45, hinge);
+    for (let i = 0; i < 3; i++) box(0.02, 0.02, 0.46, steel, 0.035, 0.4 + i * 0.08, 0.45, hinge);
     box(0.03, 0.05, 0.5, steel, 0.04, 1.05, 0.45, hinge);
     box(0.006, 0.6, 0.06, rust, 0.028, 1.4, 0.1, hinge);
     box(0.006, 0.35, 0.3, rustD, 0.028, 0.25, 0.5, hinge);
-    for (const hy of [0.4, 1.1, 1.8]) { const h = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 8), rust); h.position.set(0, hy, 0.02); hinge.add(h); }
+    for (const hy of [0.4, 1.1, 1.8]) { const h = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 6), rust); h.position.set(0, hy, 0.02); hinge.add(h); }
   };
   door([-L / 2 + T / 2, 0], [-L / 2 + T - 0.02, -0.45], -Math.PI / 2 + 0.35, 'z');
   door([L / 2 - 3.0, -D / 2 + T / 2], [L / 2 - 3.45, -D / 2 + T - 0.02], Math.PI - 0.6, 'x');
@@ -212,8 +213,8 @@ export default function (THREE) {
   // ---- end wall detail: form tie holes in a grid, roof access ladder on the west
   //      end (the roof carries a tank and two cowls), AC unit and conduit on the east ----
   for (const sx of [-1, 1]) {
-    for (let ty = 0.7; ty < H - 0.2; ty += 0.8) for (let tz = -D / 2 + 0.5; tz < D / 2 - 0.3; tz += 0.8) {
-      const t = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.02, 6), stainD);
+    for (let ty = 1.1; ty < H - 0.5; ty += 1.2) for (let tz = -D / 2 + 0.9; tz < D / 2 - 0.5; tz += 2.0) {
+      const t = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.03, 6, 1, true), holeTie);
       t.rotation.z = Math.PI / 2; t.position.set(sx * (L / 2 + 0.004), ty, tz); g.add(t);
       if ((Math.round(ty * 10) + Math.round(tz * 10)) % 5 === 0) box(0.006, 0.12, 0.02, rustD, sx * (L / 2 + 0.004), ty - 0.08, tz);
     }
@@ -224,12 +225,12 @@ export default function (THREE) {
   {
     const lz = 2.6, lx = -L / 2 - 0.16;
     for (const rz of [-0.25, 0.25]) box(0.06, H + PAR - 0.1, 0.06, steel, lx, (H + PAR - 0.1) / 2 + 0.3, lz + rz);
-    for (let ry = 0.5; ry < H + PAR + 0.15; ry += 0.3) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.5, 8), steel); r.rotation.x = Math.PI / 2; r.position.set(lx, ry, lz); g.add(r); }
+    for (let ry = 0.5; ry < H + PAR + 0.15; ry += 0.3) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.5, 6), steel); r.rotation.x = Math.PI / 2; r.position.set(lx, ry, lz); g.add(r); }
     for (const by of [1.0, 2.5, 4.0, 5.1]) { box(0.16, 0.05, 0.05, steel, lx + 0.08, by, lz - 0.25); box(0.16, 0.05, 0.05, steel, lx + 0.08, by, lz + 0.25); box(0.006, 0.3, 0.08, rust, -L / 2 - 0.004, by - 0.2, lz - 0.25); box(0.006, 0.3, 0.08, rust, -L / 2 - 0.004, by - 0.2, lz + 0.25); }
-    for (let hy = 2.6; hy < H + PAR; hy += 0.9) { const hoop = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.015, 6, 12, Math.PI), steel); hoop.rotation.z = -Math.PI / 2; hoop.rotation.y = Math.PI / 2; hoop.position.set(lx, hy, lz); g.add(hoop); }
+    for (let hy = 2.6; hy < H + PAR; hy += 0.9) { const hoop = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.015, 5, 10, Math.PI), steel); hoop.rotation.z = -Math.PI / 2; hoop.rotation.y = Math.PI / 2; hoop.position.set(lx, hy, lz); g.add(hoop); }
     box(0.012, 0.03, 0.62, steel, lx - 0.38, 3.5, lz); box(0.012, 0.03, 0.62, steel, lx - 0.38, 4.6, lz);
     const ac = box(0.35, 0.55, 0.8, tankB, L / 2 + 0.2, 2.9, -2.6);
-    for (let i = 0; i < 9; i++) box(0.006, 0.45, 0.02, steel, L / 2 + 0.38, 2.9, -2.6 - 0.32 + i * 0.08);
+    for (let i = 0; i < 7; i++) box(0.006, 0.45, 0.02, steel, L / 2 + 0.38, 2.9, -2.6 - 0.3 + i * 0.1);
     box(0.02, 0.08, 0.7, steel, L / 2 + 0.06, 2.6, -2.6); box(0.02, 0.08, 0.7, steel, L / 2 + 0.06, 3.2, -2.6);
     box(0.006, 0.7, 0.6, rust, L / 2 + 0.004, 2.2, -2.6);
     box(0.35, 0.008, 0.8, dust, L / 2 + 0.2, 3.18, -2.6);
@@ -254,6 +255,66 @@ export default function (THREE) {
   box(0.18, 0.12, D - 2, sand, L / 2 + 0.09, 0.17, 0.5);
   box(0.3, 0.1, D + 0.4, sand, -L / 2 - 0.15, 0.05, 0);
   box(L + 0.4, 0.08, 0.3, sand, 0, 0.04, -D / 2 - 0.15);
+  // ---- r4 detail pass: gussets and base plates at every post, gutter and downpipes, steps, plates, bars, conduit ----
+  {
+    const yellow = M(0xc9a227, 'metal', 0.80, 0.2);
+    const red = M(0x9c4a3c, 'metal', 0.80, 0.2);
+    const rubber = M(0x1d1e20, null, 0.9, 0.0);
+    const holeM = M(0x5a5348, 'stone', 0.95, 0.0, true);
+    const cone = (x, y, z, rx, rz, mat) => { const b = new THREE.Mesh(new THREE.ConeGeometry(0.013, 0.014, 6), mat || rust); b.rotation.x = rx; b.rotation.z = rz; b.position.set(x, y, z); g.add(b); return b; };
+    const cyl = (r, h, seg, mat, x, y, z, rx, rz, open) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg, 1, !!open), mat); c.rotation.x = rx || 0; c.rotation.z = rz || 0; c.position.set(x, y, z); g.add(c); return c; };
+    for (const sz of [-1, 1]) {
+      const zf = sz * (D / 2 + 0.03);
+      for (let px = -L / 2 + 0.05; px <= L / 2; px += (L - 0.1) / 6) {
+        box(0.18, 0.22, 0.012, steel, px, CL1 - 0.08, zf + sz * 0.096);                                        // gusset at the post head
+        cone(px - 0.05, CL1 - 0.08, zf + sz * 0.103, sz * Math.PI / 2, 0); cone(px + 0.05, CL1 - 0.08, zf + sz * 0.103, sz * Math.PI / 2, 0);
+        box(0.05, 0.3, 0.006, rust, px + 0.03, CL1 - 0.34, zf + sz * 0.093);
+        box(0.18, 0.012, 0.16, steel, px, PL + 0.056, zf + sz * 0.04);                                         // base plate on the plinth
+      }
+    }
+    // gutter on the south fascia, brackets, two downpipes with clips and shoes
+    {
+      const zg = D / 2 + 0.15, yg = H + 0.02;
+      box(L + 0.1, 0.1, 0.12, galvD, 0, yg, zg);
+      box(L + 0.06, 0.006, 0.08, dust, 0, yg + 0.053, zg);
+      for (const bx of [-6.2, -3.1, 0, 3.1, 6.2]) box(0.04, 0.03, 0.2, steel, bx, yg - 0.06, zg - 0.04);
+      for (const dx of [-6.6, 6.6]) {
+        cyl(0.04, H - 0.4, 6, galvD, dx, 0.2 + (H - 0.4) / 2, D / 2 + 0.15);
+        cyl(0.045, 0.12, 6, galvD, dx, yg - 0.1, D / 2 + 0.15);
+        for (const cy of [0.6, 2.0, 3.6]) { box(0.12, 0.05, 0.16, steel, dx, cy, D / 2 + 0.1); box(0.006, 0.25, 0.1, rust, dx, cy - 0.18, D / 2 + 0.034); }
+        const shoe = cyl(0.04, 0.2, 6, galvD, dx, 0.15, D / 2 + 0.22, 0.9); shoe.rotation.x = 0.9;
+        box(0.3, 0.02, 0.35, stain, dx, 0.11, D / 2 + 0.3);
+      }
+      box(0.006, 0.5, 0.08, rust, -6.6, H - 0.35, D / 2 + 0.034);
+    }
+    // steps at both doors
+    box(0.5, 0.15, 1.3, stain, -L / 2 - 0.28, 0.075, 0); box(0.4, 0.008, 1.2, dust, -L / 2 - 0.28, 0.154, 0);
+    box(1.3, 0.15, 0.5, stain, L / 2 - 3.0, 0.075, -D / 2 - 0.28); box(1.2, 0.008, 0.4, dust, L / 2 - 3.0, 0.154, -D / 2 - 0.28);
+    // sign plates: safety yellow by the north door, container red on the east end
+    box(0.3, 0.2, 0.012, yellow, L / 2 - 2.2, 1.7, -D / 2 - 0.09); cone(L / 2 - 2.32, 1.7, -D / 2 - 0.1, -Math.PI / 2, 0); cone(L / 2 - 2.08, 1.7, -D / 2 - 0.1, -Math.PI / 2, 0); box(0.04, 0.3, 0.006, rust, L / 2 - 2.18, 1.45, -D / 2 - 0.087);
+    box(0.012, 0.25, 0.25, red, L / 2 + 0.006, 1.9, 0.6); cone(L / 2 + 0.014, 2.0, 0.6, 0, -Math.PI / 2); cone(L / 2 + 0.014, 1.8, 0.6, 0, -Math.PI / 2); box(0.006, 0.3, 0.05, rust, L / 2 + 0.002, 1.62, 0.62);
+    // bars and flats on the south windows
+    for (const [x0, x1, y0, y1] of WIN_S) {
+      const cx = (x0 + x1) / 2, zb = D / 2 + 0.06;
+      for (const bx of [-0.3, 0, 0.3]) cyl(0.012, y1 - y0 + 0.1, 6, steel, cx + bx, (y0 + y1) / 2, zb);
+      for (const by of [y0 + 0.15, y1 - 0.15]) box(x1 - x0 + 0.1, 0.03, 0.012, steel, cx, by, zb);
+    }
+    // conduit along the south plinth with clips and a junction box
+    cyl(0.025, L - 1.0, 6, galvD, -0.2, 0.7, D / 2 + 0.05, 0, Math.PI / 2);
+    for (const cx of [-5.5, -2.5, 0.5, 3.5, 6.0]) box(0.06, 0.06, 0.05, steel, cx, 0.7, D / 2 + 0.035);
+    box(0.25, 0.3, 0.1, blueBox, 5.0, 0.85, D / 2 + 0.05); box(0.22, 0.008, 0.1, dust, 5.0, 1.004, D / 2 + 0.05);
+    // overflow pipe down the tank side
+    { const tx = L / 2 - 1.3, tz = -1.0; cyl(0.02, 1.1, 6, steel, tx + 0.55, H + 0.08 + 0.05 + 0.6, tz - 0.3); box(0.05, 0.25, 0.006, rust, tx + 0.55, H + 0.2, tz - 0.51); }
+    // bullet holes on the south plinth and one on the east end
+    for (const [hx, hy, ex] of [[-1.2, 0.55, 0], [-1.05, 0.7, 0], [-0.9, 0.5, 0], [-1.3, 0.8, 0], [-0.75, 0.62, 0], [0, 1.3, 1]]) {
+      const h = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 6, 1, true), holeM);
+      if (ex) { h.rotation.z = Math.PI / 2; h.position.set(L / 2, hy, 2.4); } else { h.rotation.x = Math.PI / 2; h.position.set(hx, hy, D / 2 + 0.02); }
+      g.add(h);
+    }
+    // cable sag from the AC unit to the corner
+    const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(L / 2 + 0.2, 2.65, -2.2), new THREE.Vector3(L / 2 + 0.25, 2.3, -1.2), new THREE.Vector3(L / 2 + 0.2, 2.15, -0.2), new THREE.Vector3(L / 2 + 0.08, 2.4, 1.7)]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.012, 5, false), rubber));
+  }
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by

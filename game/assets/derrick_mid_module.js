@@ -1,3 +1,7 @@
+// derrick_mid_module r4 detail pass: box bolt heads, foot plates with bolts, a gate valve with a
+// red handwheel on the standpipe at 1.2 m (eye height from the base deck), conduit and a junction
+// box on the south east leg, hazard toe blocks at the east opening, plated ID panels, the north
+// east grating panel lifted at its south edge, one torn secondary brace, rail corner caps.
 // derrick_mid_module candidate 2: a different reading. I section legs with web
 // stiffeners, a horizontal at mid bay so the X braces meet a plate, the deck as four
 // framed grating panels with visible seams and a kerb, a chain across the east
@@ -27,11 +31,16 @@ export default function (THREE) {
   const pipeS = M(0x5e6266, 'metal', 0.74, 0.35);
   const dust = M(0xcdb88e, 'ground', 0.95, 0.0);
   const gun = M(0x3a3d40, 'metal', 0.50, 0.60);   // machined: holds no dust film
+  const yel = M(0xc9a227, 'metal', 0.80, 0.15);   // hazard blocks on the toe plate
+  const red = M(0x9c4a3c, 'metal', 0.80, 0.15);   // valve handwheel
+  const plate = M(0x9c988c, 'metal', 0.80, 0.20); // plated ID panels, junction box
+  const rub = M(0x1d1e20, null, 0.90, 0.0);       // cable: unnamed so surfaces.js skips it
 
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
   const box = (w, h, d, mat, x, y, z, parent) => { const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); mm.position.set(x, y, z); (parent || g).add(mm); return mm; };
   const cyl = (r, len, mat, x, y, z, axis, seg, parent) => {
-    const mm = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg || 8), mat);
+    // bolt heads (gunmetal, 25 mm and under) are boxes: 12 triangles against 24 and identical at any game distance
+    const mm = new THREE.Mesh(mat === gun && r <= 0.025 ? new THREE.BoxGeometry(r * 2.4, len, r * 2.4) : new THREE.CylinderGeometry(r, r, len, seg || 8), mat);
     if (axis === 'z') mm.rotation.x = Math.PI / 2; else if (axis === 'x') mm.rotation.z = Math.PI / 2;
     mm.position.set(x, y, z); (parent || g).add(mm); return mm;
   };
@@ -63,7 +72,10 @@ export default function (THREE) {
       box(0.18, 0.7, 0.012, s > 0 ? (sz > 0 ? oxS : oxN) : ox, 0, -len / 2 + 0.4, s * 0.086, gr);
       for (const dy of [-0.2, 0.15]) for (const dx of [-0.05, 0.05]) cyl(0.022, 0.03, gun, dx, -len / 2 + 0.4 + dy, s * 0.098, 'z', 6, gr);
     }
-    box(0.1, 0.22, 0.006, rust, 0, -len / 2 + 0.08, 0.1, gr);
+    box(0.1, 0.2, 0.006, rust, 0, -len / 2 + 0.12, 0.1, gr);
+    // foot plate with four bolts where the leg lands on the deck below
+    box(0.36, 0.03, 0.36, ox, p.x, 0.015, p.z);
+    for (const bx of [-1, 1]) for (const bz of [-1, 1]) { cyl(0.016, 0.05, gun, p.x + bx * 0.14, 0.045, p.z + bz * 0.14, 'y', 6); box(0.05, 0.016, 0.05, gun, p.x + bx * 0.14, 0.038, p.z + bz * 0.14); }
   }
 
   // ---- girts, mid bay horizontals, braces ----
@@ -79,9 +91,13 @@ export default function (THREE) {
     return w;
   };
   const gusset = (x, y, z, nx, nz, size, f) => {
-    box(nx ? 0.014 : size, size, nz ? 0.014 : size, oxR, x + nx * 0.06, y, z + nz * 0.06);
-    for (const u of [-0.12, 0.12]) for (const v of [-0.1, 0.1]) cyl(0.024, 0.03, gun, x + nx * 0.073 + (nz ? u : 0), y + v, z + nz * 0.073 + (nx ? u : 0), nx ? 'x' : 'z', 6);
-    box(nx ? 0.006 : 0.1, 0.3, nz ? 0.006 : 0.1, rust, x + nx * 0.07, y - size / 2 - 0.15, z + nz * 0.07);
+    // nothing hangs below the base plane: the lowest gusset used to reach 0.38 m under the feet, which put the deck 0.38 m above the
+    // 4.6 m the level stacks it at (placements.js dy 4.6, walkable polygon at 9.2)
+    const top = y + size / 2, bot = Math.max(y - size / 2, 0.03), cy = (top + bot) / 2, sh = top - bot;
+    box(nx ? 0.014 : size, sh, nz ? 0.014 : size, oxR, x + nx * 0.06, cy, z + nz * 0.06);
+    for (const u of [-0.12, 0.12]) for (const v of [-0.06, 0.06]) cyl(0.024, 0.03, gun, x + nx * 0.073 + (nz ? u : 0), cy + v, z + nz * 0.073 + (nx ? u : 0), nx ? 'x' : 'z', 6);
+    const dl = Math.min(0.3, Math.max(0, bot - 0.02));
+    if (dl > 0.05) box(nx ? 0.006 : 0.1, dl, nz ? 0.006 : 0.1, rust, x + nx * 0.07, bot - dl / 2, z + nz * 0.07);
   };
   const levels = [0.12, 2.3, Y2 - 0.15];
   for (const y of levels) {
@@ -107,7 +123,13 @@ export default function (THREE) {
           let p, q;
           if (nz) { p = V(-s * wa, ya, nz * (wa + o2)); q = V(s * wb, yb, nz * (wb + o2)); }
           else { p = V(nx * (wa + o2), ya, -s * wa); q = V(nx * (wb + o2), yb, s * wb); }
-          bar(p, q, 0.05, 0.014, s > 0 ? oxR : mat, V(nx, 0, nz));
+          if (li === 0 && f === 'W' && ya < ym && s < 0) {
+            // one secondary brace has torn at its upper bolt and hangs kinked from the lower end, gone to rust
+            const k = p.clone().lerp(q, 0.55);
+            bar(p, k, 0.05, 0.014, oxR, V(nx, 0, nz));
+            bar(k, V(k.x - 0.05, k.y - 0.5, k.z + 0.2), 0.05, 0.014, oxR, V(nx, 0, nz));
+            box(0.03, 0.02, 0.08, rust, k.x, k.y, k.z);
+          } else bar(p, q, 0.05, 0.014, s > 0 ? oxR : mat, V(nx, 0, nz));
         }
       }
       box(nx ? 0.012 : 0.34, 0.34, nz ? 0.012 : 0.34, mat, nx * (wm + o + 0.02), ym, nz * (wm + o + 0.02));
@@ -135,13 +157,18 @@ export default function (THREE) {
   }
   for (const px of [-1, 1]) for (const pz of [-1, 1]) {
     const cx = px * D / 2, cz = pz * D / 2, S = D - 0.06;
+    // each panel is a group hinged on its north edge; the north east panel has lifted 0.1 m at its south edge, a dark gap under it
+    const pg = new THREE.Group(); pg.position.set(cx, Y2 - 0.05, cz - S / 2); g.add(pg);
+    const lifted = px > 0 && pz < 0; if (lifted) pg.rotation.x = -0.026;
+    const zc = S / 2;
     // panel frame (flat bar edge), dusted plate, bearing bars along x
-    box(S, 0.05, 0.04, galv, cx, Y2 - 0.025, cz + S / 2 - 0.02); box(S, 0.05, 0.04, galv, cx, Y2 - 0.025, cz - S / 2 + 0.02);
-    box(0.04, 0.05, S, galv, cx + S / 2 - 0.02, Y2 - 0.025, cz);  box(0.04, 0.05, S, galv, cx - S / 2 + 0.02, Y2 - 0.025, cz);
-    box(S - 0.08, 0.012, S - 0.08, steel, cx, Y2 - 0.045, cz);
-    box(S - 0.2, 0.008, S - 0.2, dust, cx, Y2 - 0.036, cz);
-    for (let i = 1; i < 32; i++) box(S - 0.08, 0.03, 0.018, i % 2 ? galv : galvD, cx, Y2 - 0.015, cz - S / 2 + i * (S / 32));
-    for (let i = 1; i < 8; i++) box(0.018, 0.03, S - 0.08, galvD, cx - S / 2 + i * (S / 8), Y2 - 0.015, cz);
+    box(S, 0.05, 0.04, galv, 0, 0.025, zc + S / 2 - 0.02, pg); box(S, 0.05, 0.04, galv, 0, 0.025, zc - S / 2 + 0.02, pg);
+    box(0.04, 0.05, S, galv, S / 2 - 0.02, 0.025, zc, pg);  box(0.04, 0.05, S, galv, -S / 2 + 0.02, 0.025, zc, pg);
+    box(S - 0.08, 0.012, S - 0.08, steel, 0, 0.005, zc, pg);
+    box(S - 0.2, 0.008, S - 0.2, dust, 0, 0.014, zc, pg);
+    for (let i = 1; i < 32; i++) box(S - 0.08, 0.03, 0.018, i % 2 ? galv : galvD, 0, 0.035, i * (S / 32), pg);
+    for (let i = 1; i < 8; i++) box(0.018, 0.03, S - 0.08, galvD, -S / 2 + i * (S / 8), 0.035, zc, pg);
+    if (lifted) { box(S - 0.1, 0.1, 0.02, rust, cx, Y2 - 0.1, cz + S / 2 - 0.05); box(0.02, 0.1, S - 0.1, rust, cx + S / 2 - 0.05, Y2 - 0.1, cz); }
   }
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(0.3, 0.1, 0.3, ox, sx * wt, Y2 + 0.02, sz * wt);
 
@@ -164,10 +191,16 @@ export default function (THREE) {
     }
   };
   side('x', 1, false); side('x', -1, false); side('z', 1, true); side('z', -1, false);
+  // hazard blocks along the east toe plate either side of the opening, alternating yellow and gunmetal
+  for (let i = -10; i < 10; i++) { const u = i * 0.4 + 0.2; if (Math.abs(u) < 0.6) continue; box(0.014, 0.14, 0.38, i % 2 ? yel : gun, E - 0.018, Y2 + 0.075, u); }
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(0.08, 0.012, 0.08, steel, sx * E, Y2 + TOP + 0.03, sz * E);   // rail corner caps
+  // plated ID panels: one recessed in the east fascia beam, one on the SE leg at 1.6 m (eye height from the base deck)
+  box(0.008, 0.2, 0.34, gun, D - 0.04, BY, 1.5); box(0.012, 0.16, 0.3, plate, D - 0.032, BY, 1.5);
+  { const c = hw(1.6) - 0.08; box(0.18, 0.24, 0.008, gun, c, 1.6, c + 0.085); box(0.15, 0.2, 0.012, plate, c, 1.6, c + 0.095); box(0.06, 0.14, 0.005, rust, c, 1.42, c + 0.092); }
   // chain: a sagging run of small tori between the two east opening posts
   for (let i = 0; i < 9; i++) {
     const t = (i + 0.5) / 9, z = -0.4 + 0.8 * t, sag = 0.12 * Math.sin(Math.PI * t);
-    const link = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 5, 8), gun);
+    const link = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 6), gun);
     link.position.set(E, Y2 + TOP - sag, z); link.rotation.y = i % 2 ? 0 : Math.PI / 2; g.add(link);
   }
 
@@ -180,16 +213,40 @@ export default function (THREE) {
     cyl(0.08, 0.03, pipe, 0, -0.03, 0, 'y', 10, gr); cyl(0.08, 0.03, pipe, 0, 0.03, 0, 'y', 10, gr);
     for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; cyl(0.01, 0.09, gun, 0.065 * Math.cos(a), 0, 0.065 * Math.sin(a), 'y', 6, gr); }
     box(0.05, 0.4, 0.006, rust, 0, -0.28, 0.05, gr);
+    // gate valve at 1.2 m, seen at eye height from the base deck: flange pair, body, stem toward the deck centre, red handwheel
+    { const c = p.clone().lerp(q, 1.2 / HT);
+      for (const dy of [-0.2, 0.2]) { cyl(0.085, 0.03, pipe, c.x, c.y + dy, c.z, 'y', 10); for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; cyl(0.01, 0.07, gun, c.x + 0.068 * Math.cos(a), c.y + dy, c.z + 0.068 * Math.sin(a), 'y', 6); } }
+      cyl(0.075, 0.36, gun, c.x, c.y, c.z, 'y', 10);
+      const st = frame(V(c.x, c.y, c.z), V(c.x + 0.2, c.y, c.z + 0.2));
+      cyl(0.03, 0.14, gun, 0, -st.len / 2 + 0.07, 0, 'y', 8, st.gr);
+      cyl(0.014, st.len, steelL, 0, 0, 0, 'y', 6, st.gr);
+      const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.014, 6, 12), red); wheel.position.y = st.len / 2 - 0.02; wheel.rotation.x = Math.PI / 2; st.gr.add(wheel);
+      for (let k = 0; k < 3; k++) { const sp = box(0.26, 0.016, 0.016, red, 0, st.len / 2 - 0.02, 0, st.gr); sp.rotation.y = k * Math.PI / 3; }
+      box(0.06, 0.3, 0.006, rust, c.x, c.y - 0.38, c.z + 0.052);
+    }
     for (const yy of [0.8, 2.6, 4.3]) {
       const c = p.clone().lerp(q, yy / HT);
       // U bolt round the pipe, into a saddle plate bolted to the leg flange
-      const u = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.008, 6, 10, Math.PI), gun);
+      const u = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.008, 4, 8, Math.PI), gun);
       u.position.set(c.x, yy, c.z); u.rotation.x = -Math.PI / 2; u.rotation.z = Math.PI / 4; g.add(u);
       box(0.24, 0.1, 0.02, steel, c.x + 0.04, yy, c.z + 0.075);
       box(0.02, 0.1, 0.24, steel, c.x + 0.075, yy, c.z + 0.04);
       box(0.08, 0.3, 0.006, rust, c.x, yy - 0.2, c.z + 0.086);
       box(0.006, 0.3, 0.08, rust, c.x + 0.086, yy - 0.2, c.z);
     }
+  }
+  // ---- conduit, saddle clamps and a junction box on the south east leg, a rubber cable up into the deck ----
+  {
+    const q1 = V(hw(0) - 0.08 + 0.2, 0.04, hw(0) - 0.08 + 0.2), q2 = V(hw(Y2) - 0.08 + 0.2, Y2 - 0.2, hw(Y2) - 0.08 + 0.2);
+    const { gr, len } = frame(q1, q2);
+    cyl(0.02, len, galv, 0, 0, 0, 'y', 8, gr);
+    for (const t of [0.12, 0.55, 0.9]) { const c = q1.clone().lerp(q2, t); box(0.06, 0.05, 0.24, steel, c.x - 0.09, c.y, c.z); box(0.24, 0.05, 0.06, steel, c.x, c.y, c.z - 0.09); box(0.05, 0.16, 0.006, rust, c.x - 0.09, c.y - 0.1, c.z + 0.123); }
+    const cj = q1.clone().lerp(q2, 0.34);
+    box(0.22, 0.28, 0.12, plate, cj.x + 0.05, cj.y, cj.z + 0.05);
+    box(0.24, 0.03, 0.14, steel, cj.x + 0.05, cj.y + 0.155, cj.z + 0.05);
+    box(0.03, 0.06, 0.012, gun, cj.x + 0.05, cj.y - 0.05, cj.z + 0.116);
+    box(0.08, 0.3, 0.006, rust, cj.x + 0.05, cj.y - 0.3, cj.z + 0.113);
+    cyl(0.012, Y2 - 0.3 - cj.y - 0.15, rub, cj.x + 0.12, (Y2 - 0.3 + cj.y + 0.15) / 2, cj.z + 0.12, 'y', 6);
   }
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length

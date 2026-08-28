@@ -100,6 +100,37 @@ export default function (THREE) {
   bx(1.3, 0.1, 0.55, sand, 0, 0.05, -1.62);
   bx(0.4, 0.06, 0.4, sand, 0.45, 0.03, -1.35);
   bx(0.35, 0.05, 0.3, sand, -0.45, 0.025, -1.3);
+  // ---- r4 detail pass: a bolted cleat on the outside of the stringer at every tread, post clip plates with bolts, safety
+  // yellow nosings on the bottom and top treads, two cross ties under the flight, a bolted end plate and cleat angle where
+  // the landing meets the roof edge, second bolts in the foot plates, rust runs under all of it. Rise stays 2.300. ----
+  {
+    const hex = (mat, x, y, z, r, h, axis) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 6), mat); if (axis === 'z') b.rotation.x = Math.PI / 2; else if (axis === 'x') b.rotation.z = Math.PI / 2; b.position.set(x, y, z); g.add(b); return b; };
+    const yel = M(0xc9a227, 'metal', 0.72, 0.15);
+    const cleat = M(tint(STEEL, 0.95), 'metal', 0.84, 0.3);
+    for (let i = 1; i < N; i++) {
+      const yt = (i + 1) * RISE, zc = -1.6 + i * GO;
+      if (Math.abs(zc + 1.4) < 0.12 || Math.abs(zc - 1.4) < 0.12) continue;
+      for (const sx of [-1, 1]) {
+        bx(0.012, 0.12, 0.16, cleat, sx * 0.598, yt - 0.09, zc);
+        for (const dz of [-0.045, 0.045]) hex(gun, sx * 0.61, yt - 0.075, zc + dz, 0.012, 0.024, 'x');
+        bx(0.004, 0.07, 0.05, rust, sx * 0.6, yt - 0.19, zc + 0.03 * (i % 2 ? 1 : -1));
+      }
+    }
+    for (const z of [-1.4, 0, 1.4]) for (const sx of [-1, 1]) {
+      const y0 = nosing(z) - 0.06;
+      bx(0.014, 0.2, 0.1, cleat, sx * 0.599, y0 - 0.1, z);
+      for (const dy of [-0.04, -0.15]) hex(gun, sx * 0.612, y0 + dy, z, 0.012, 0.024, 'x');
+      bx(0.004, 0.08, 0.04, rust, sx * 0.6, y0 - 0.24, z + 0.02);
+    }
+    for (const i of [0, N - 1]) { const yt = (i + 1) * RISE, zc = -1.6 + i * GO; bx(1.1, 0.008, 0.045, yel, 0, yt + 0.004, zc - 0.125); bx(1.1, 0.036, 0.006, yel, 0, yt - 0.02, zc - 0.148); }
+    for (const z of [-0.6, 0.8]) bx(1.15, 0.04, 0.06, steelD, 0, topLine(z) - D + 0.06, z);
+    bx(1.25, 0.28, 0.02, steelD, 0, 2.155, 1.81);
+    for (const x of [-0.42, 0.42]) { for (const y of [2.08, 2.23]) hex(gun, x, y, 1.822, 0.014, 0.024, 'z'); bx(0.04, 0.05, 0.004, rust, x + 0.015, 2.045, 1.822); }
+    bx(0.9, 0.05, 0.12, steelD, 0, 2.04, 1.87);
+    for (const x of [-0.3, 0.3]) hex(gun, x, 2.07, 1.89, 0.014, 0.02);
+    bx(1.15, 0.03, 0.004, rust, 0, 2.265, 1.822);
+    for (const sx of [-1, 1]) { hex(gun, sx * 0.47, 0.045, -1.725, 0.018, 0.02); bx(0.06, 0.004, 0.06, rust, sx * 0.47, 0.021, -1.66); }
+  }
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by
