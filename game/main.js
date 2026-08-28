@@ -38,8 +38,9 @@ import { createTelemetry } from './src/game/telemetry.js';
 import { Audio } from './src/game/audio.js';
 import { ASSET } from './assetlib.js';
 import { vertexiseMaterials } from './src/game/bake.js';
+import { preloadMaterials, applyTerrainMaterial } from './src/render/materials.js';   // materials r3
 
-const ROUND = 'r2';
+const ROUND = 'r3';
 const DEG = Math.PI / 180;
 const params = new URLSearchParams(location.search);
 
@@ -72,6 +73,8 @@ const post = createPost(THREE, { renderer, scene, camera, tier });
 // through PMREM, cool zenith and warm ground bounce); the cream sky PMREM that used to be built
 // here flooded every shadow with warm light (render notes, round 1) and is gone.
 screens.loading(0.04, 'Lighting');
+await preloadMaterials(tier);   // materials r3: the 14 texture sets, before anything that calls applyMaterials
+screens.loading(0.06, 'Materials');
 
 // ------------------------------------------------------------------ terrain and world
 await new Promise((r) => setTimeout(r, 0));
@@ -84,6 +87,7 @@ for (const t of terrain.tiles) {
   if (tier.name === 'phone') t.castShadow = false;   // the render notes' first lever; banks still shade from their normals
   scene.add(t);
 }
+applyTerrainMaterial(terrain, tier);   // materials r3: sand_sunlit and sand_packed tiles on the terrain's own material
 const world = new World(terrain);
 // Shadow caster proxy for the ground: the 0.25 m tiles receive shadows but do not cast them
 // (that was ~0.5 M triangles per cascade); a 1 m sampling of the same heightfield, lowered

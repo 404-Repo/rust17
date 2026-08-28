@@ -12,7 +12,7 @@
 import * as THREE from 'three';
 import { ASSET } from '../../assetlib.js';
 import { SoldierRig } from './animation.js';
-import { vertexiseMaterials } from '../game/bake.js';
+import { applyMaterials } from '../render/materials.js';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
 
 export const BOT_WEAPONS = {
   // integrator: spread was 2x the player's HIP cone (0.020 / 0.032 / 0.012); a bot shoulders its rifle,
@@ -77,11 +77,11 @@ export class Bot {
     const model = await ASSET(`./assets/${soldier}.js`, { keepHierarchy: true, surfaces: true });
     if (!model.userData || !model.userData.joints) console.warn(`[bot] ${soldier} arrived without joints (missing asset or merged); ${this.id} will not animate`);
     this.model = model;
-    vertexiseMaterials(model, { unify: true });   // integrator: one material for the whole soldier so the per joint collapse yields ~1 mesh per joint
+    applyMaterials(model, { asset: soldier, unify: true, local: true });   // materials r3: was vertexiseMaterials(model, { unify: true }); one set per soldier, projected in its own space
     this.object.add(model);
     this.rig = new SoldierRig(model);
     const wep = await ASSET(`./assets/${this.weapon.asset}.js`, { keepHierarchy: true, surfaces: true });
-    vertexiseMaterials(wep, { unify: true });
+    applyMaterials(wep, { asset: this.weapon.asset, unify: true, local: true, detail: 0.15 });   // materials r3: was vertexiseMaterials(wep, { unify: true })
     if (wep.children.length) { this.weaponObject = wep; this.rig.attachWeapon(wep); }
     else console.warn(`[bot] weapon ${this.weapon.asset} missing for ${this.id}`);
     this.loaded = true;

@@ -34,7 +34,7 @@
  */
 import * as THREE from 'three';
 import { ASSET } from '../../assetlib.js';
-import { vertexiseMaterials } from '../game/bake.js';
+import { applyMaterials } from '../render/materials.js';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
 import { collapsePerJoint } from '../ai/animation.js';
 
 const WEAPON_ASSET = { ar: 'assault_rifle', smg: 'smg', dmr: 'marksman_rifle' };
@@ -171,7 +171,7 @@ export class Viewmodel {
     }
     this.arms = arms; this.joints = arms.userData.joints || {};
     // integrator: 310 viewmodel meshes in the first run; collapse to one mesh per joint per surface
-    vertexiseMaterials(arms);
+    applyMaterials(arms, { asset: 'viewmodel_arms', local: true, detail: 0.6 });   // materials r3: was vertexiseMaterials(arms); projected in the arms' own space so the cloth does not swim
     collapsePerJoint(arms, [...Object.values(this.joints), ...Object.values(arms.userData.sockets || {})].filter((n) => n && n.isObject3D), { bakeColors: false });
     this.holder.add(arms);
     // right hand on screen right, hands forward (-Z in camera space)
@@ -189,7 +189,7 @@ export class Viewmodel {
     const loads = Object.entries(WEAPON_ASSET).map(async ([key, name]) => {
       const w = await ASSET(base + name + '.js', { keepHierarchy: true, surfaces: true });
       if (!w || !w.children.length) console.warn(`[viewmodel] weapon asset missing: ${name}`);
-      vertexiseMaterials(w);
+      applyMaterials(w, { asset: name, local: true, detail: 0.15 });   // materials r3: was vertexiseMaterials(w)
       collapsePerJoint(w, Object.values(w.userData.sockets || {}).filter((n) => n && n.isObject3D), { bakeColors: false });
       this._prepMeshes(w);
       w.visible = false;

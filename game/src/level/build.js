@@ -18,7 +18,7 @@
 import * as THREE from 'three';
 import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js';
 import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js';
-import { vertexiseMaterials } from '../game/bake.js';
+import { applyMaterials } from '../render/materials.js';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
 import { collapsePerJoint } from '../ai/animation.js';
 
 const EYE = 1.65;
@@ -344,7 +344,7 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
 
     if (p.moving) {
       // integrator: colour and roughness into vertices, then one mesh per joint (the pump jack was ~250 meshes)
-      vertexiseMaterials(obj, { unify: true });
+      applyMaterials(obj, { asset: p.asset, unify: true, local: true });   // materials r3: was vertexiseMaterials(obj, { unify: true })
       const joints = obj.userData.joints || {};
       collapsePerJoint(obj, Object.values(joints).filter((j) => j && j.isObject3D), { bakeColors: false });
       obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -352,7 +352,7 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
       movers.push(p.asset === 'pump_jack' ? pumpJackMover(p, obj) : { asset: p.asset, object: obj, tag: p.tag, update() {} });
       continue;
     }
-    vertexiseMaterials(obj);   // integrator: replaces quantiseMaterials so bakeStatic merges per surface, not per colour
+    applyMaterials(obj, { asset: p.asset });   // materials r3: was vertexiseMaterials(obj); textures per set, then the same vertex bake
     const gkey = NO_SHADOW.has(p.asset) || INTERIOR.has(p.asset) ? p.block + '#nocast' : LANDMARK.has(p.asset) ? p.block : p.block + '#clutter';
     let g = blockGroups.get(gkey);
     if (!g) { g = new THREE.Group(); g.name = 'block_' + gkey; blockGroups.set(gkey, g); }
