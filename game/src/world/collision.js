@@ -144,11 +144,12 @@ export class World {
     return this._addSolid(box);
   }
 
+  /** `center` is the GEOMETRIC centre, half a height up from the base, same as addBox (docs/ARCHITECTURE.md). */
   addCylinder(center, radius, height, tag = 'static') {
     const cyl = {
       kind: 'cyl', id: this._id++, tag,
       cx: center.x, cz: center.z, r: radius,
-      minY: center.y, maxY: center.y + height,
+      minY: center.y - height / 2, maxY: center.y + height / 2,
       area: Math.PI * radius * radius,
       aabb: { minX: center.x - radius, maxX: center.x + radius, minZ: center.z - radius, maxZ: center.z + radius },
     };

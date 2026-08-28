@@ -530,6 +530,7 @@ window.__DIAG2__ = async (name) => {
   return { before, after };
 };
 window.__DBG__ = {
+  world, nav,   // hotfix_cyl probe: the collision world and nav grid, read only
   teleport(x, z, yawDeg, pitch = 0) { player.spawnAt(x, z, yawDeg * DEG); player.pitch = pitch; player.applyCamera(0); },
   botTo(id, x, z, yawDeg) { const b = botById(id); if (b) b.respawn(x, z, yawDeg * DEG); },
   freeze(on) { for (const b of bots) b.frozen = on; },
