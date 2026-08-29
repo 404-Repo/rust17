@@ -19,7 +19,7 @@ const FEED_LINES = 5, FEED_MS = 5000;
 
 const CSS = `
 #hud,#dmg{position:fixed;inset:0;pointer-events:none;z-index:10;display:none;overflow:hidden;
-  font-family:"Helvetica Neue",Helvetica,Arial,"Segoe UI",Roboto,sans-serif;color:#efe6d3;
+  font-family:"Helvetica Now Display","Inter Tight","Helvetica Neue",Helvetica,Arial,sans-serif;color:#f2ece2;
   text-transform:uppercase;letter-spacing:.08em;font-variant-numeric:tabular-nums;
   text-shadow:0 1px 2px rgba(0,0,0,.75),0 0 6px rgba(0,0,0,.35)}
 #dmg{z-index:9}
@@ -28,11 +28,11 @@ const CSS = `
   display:flex;align-items:center;gap:14px;font-size:13px;font-weight:700}
 #hud .h-team{display:flex;align-items:center;gap:8px;padding:5px 10px;background:rgba(16,12,9,.42);border-bottom:2px solid transparent}
 #hud .h-team.rangers{border-bottom-color:#9fc9de}
-#hud .h-team.militia{border-bottom-color:#e0654a}
-#hud .h-team b{font-size:20px;line-height:1;min-width:1.4em;text-align:center;font-weight:800}
+#hud .h-team.militia{border-bottom-color:#ED5851}
+#hud .h-team b{font-family:fourzerofourpixel,Silkscreen,monospace;font-size:20px;line-height:1;min-width:1.4em;text-align:center;font-weight:400}
 #hud .h-team.lead b{color:#ffd9a0}
-#hud .h-time{font-size:22px;font-weight:800;letter-spacing:.05em;min-width:4.2em;text-align:center;padding:2px 8px;background:rgba(16,12,9,.42)}
-#hud .h-time.late{color:#e0654a}
+#hud .h-time{font-family:fourzerofourpixel,Silkscreen,monospace;font-size:18px;font-weight:400;letter-spacing:.02em;min-width:4.6em;text-align:center;padding:4px 8px;background:rgba(16,12,9,.55)}
+#hud .h-time.late{color:#ED5851}
 #hud .h-target{position:absolute;left:50%;transform:translateX(-50%);top:calc(max(10px,env(safe-area-inset-top)) + 40px);
   font-size:9px;letter-spacing:.22em;opacity:.7}
 #hud .h-compass{position:absolute;left:50%;top:calc(max(10px,env(safe-area-inset-top)) + 56px);width:min(300px,56vw);height:18px;
@@ -47,24 +47,24 @@ const CSS = `
 #hud .h-feed .l{padding:3px 8px;background:rgba(16,12,9,.48);animation:hfeed ${FEED_MS}ms linear forwards;display:flex;gap:7px;align-items:center}
 #hud .h-feed .l.me{background:rgba(139,69,48,.55)}
 #hud .h-feed .w{font-size:9px;padding:1px 4px;border:1px solid rgba(239,230,211,.55);letter-spacing:.1em}
-#hud .h-feed .hs{font-size:8px;padding:1px 3px;background:#e0654a;color:#1a1512;letter-spacing:.1em}
+#hud .h-feed .hs{font-family:fourzerofourpixel,Silkscreen,monospace;font-size:8px;padding:1px 3px;background:#ED5851;color:#100c0a;letter-spacing:.04em}
 #hud .rangers,#hud .t-rangers{color:#9fc9de}
-#hud .militia,#hud .t-militia{color:#e0654a}
+#hud .militia,#hud .t-militia{color:#ED5851}
 @keyframes hfeed{0%{opacity:0;transform:translateX(10px)}4%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
 #hud .h-hp{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(18px,env(safe-area-inset-bottom));width:min(220px,40vw)}
 #hud .h-hp .n{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;letter-spacing:.2em;margin-bottom:4px}
-#hud .h-hp .n b{font-size:18px;letter-spacing:.04em}
+#hud .h-hp .n b{font-family:fourzerofourpixel,Silkscreen,monospace;font-size:16px;letter-spacing:.02em;font-weight:400}
 #hud .h-hp .bar{height:6px;background:rgba(16,12,9,.55);border:1px solid rgba(239,230,211,.28);position:relative}
 #hud .h-hp .fill{height:100%;background:#efe6d3;transition:width .18s ease-out,background .2s}
 #hud .h-hp .seg{position:absolute;top:0;bottom:0;width:1px;background:rgba(16,12,9,.7)}
-#hud .h-hp.low .fill{background:#e0654a}
-#hud .h-hp.low b{color:#e0654a;animation:hpulse .7s ease-in-out infinite alternate}
+#hud .h-hp.low .fill{background:#ED5851}
+#hud .h-hp.low b{color:#ED5851;animation:hpulse .7s ease-in-out infinite alternate}
 @keyframes hpulse{from{opacity:1}to{opacity:.45}}
 #hud .h-ammo{position:absolute;right:max(18px,env(safe-area-inset-right));bottom:max(30px,calc(env(safe-area-inset-bottom) + 30px));text-align:right}
 #hud .h-ammo .wn{font-size:10px;letter-spacing:.22em;opacity:.85;margin-bottom:2px}
-#hud .h-ammo .mag{font-size:34px;font-weight:800;line-height:1;letter-spacing:.02em}
-#hud .h-ammo .mag.low{color:#e0654a}
-#hud .h-ammo .mag.empty{color:#e0654a;animation:hpulse .5s ease-in-out infinite alternate}
+#hud .h-ammo .mag{font-family:fourzerofourpixel,Silkscreen,monospace;font-size:30px;font-weight:400;line-height:1;letter-spacing:.02em}
+#hud .h-ammo .mag.low{color:#ED5851}
+#hud .h-ammo .mag.empty{color:#ED5851;animation:hpulse .5s ease-in-out infinite alternate}
 #hud .h-ammo .res{font-size:15px;font-weight:600;opacity:.75;margin-left:6px}
 #hud .h-ammo .nade{margin-top:4px;font-size:10px;letter-spacing:.18em;opacity:.85;display:flex;justify-content:flex-end;gap:5px;align-items:center}
 #hud .h-ammo .nade i{display:inline-block;width:7px;height:9px;border-radius:3px 3px 4px 4px;background:#4e5238;border:1px solid rgba(239,230,211,.6)}
@@ -85,7 +85,7 @@ const CSS = `
 #hud .h-hit i:nth-child(3){transform:rotate(225deg) translateY(-9px)}
 #hud .h-hit i:nth-child(4){transform:rotate(315deg) translateY(-9px)}
 #hud .h-hit.headshot i{background:#ffd9a0}
-#hud .h-hit.kill i{background:#e0654a;height:26px;top:-13px}
+#hud .h-hit.kill i{background:#ED5851;height:26px;top:-13px}
 #hud .h-hit.go{animation:hhit .26s ease-out forwards}
 #hud .h-hit.kill.go{animation:hkill .42s ease-out forwards}
 @keyframes hhit{0%{opacity:1;transform:scale(1.25)}60%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}

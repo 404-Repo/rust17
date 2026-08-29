@@ -31,9 +31,9 @@
  * texture carries the fine relief either way and heightAt stays exact against what was built.
  */
 import * as THREE from 'three';
-import { FOOTPRINT_PADS } from './footprint_pads.js?v=r19-202608291944';
-import { RECIPES } from '../../surfaces.js?v=r19-202608291944';
-import { PLACEMENTS } from '../level/placements.js?v=r19-202608291944';
+import { FOOTPRINT_PADS } from './footprint_pads.js?v=r20-202608291954';
+import { RECIPES } from '../../surfaces.js?v=r20-202608291954';
+import { PLACEMENTS } from '../level/placements.js?v=r20-202608291954';
 
 const DEG = Math.PI / 180;
 
