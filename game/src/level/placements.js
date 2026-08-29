@@ -193,7 +193,7 @@ P('tank_catwalk_bridge', -33.5, -40, 0, { dy: 4.4, tag: 'bridge_t1_t2' });      
 P('tank_catwalk_bridge', -28.3, -34, 76, { dy: 4.4, tag: 'bridge_t2_t3' });     // plan: rot 13
 P('external_steel_stair', -42, -34.6, 270, { tag: 't1_stair_1' });
 P('catwalk_section', -45.2, -36.2, 0, { dy: 2.15, tag: 't1_landing' });
-P('external_steel_stair', -45.2, -38.4, 180, { dy: 2.3, tag: 't1_stair_2' });
+P('external_steel_stair', -44.2, -38.4, 180, { dy: 2.3, tag: 't1_stair_2' });   // round 22c (Ben's photo): was x -45.2, so its top landed 0.7 m OUTSIDE the tank's walkway ring (outer radius 4.5 from -40,-40) and the flight climbed to nothing
 P('caged_ladder', -25.8, -28, 90, { tag: 't3_east_ladder' });
 P('bullet_tank_horizontal', -14, -44, 0);
 P('bullet_tank_horizontal', -12, -29, 0);                                   // r2: was (-14,-30), 0.6 m into the hardstand corner elbow
@@ -897,7 +897,7 @@ export const LINKS = [
   L('derrick_shed_bridge', 'catwalk', [-7, PADS.derrick + 4.6, -10], [-13, PADS.shed + 4.6, -10], 1.2),
   L('shed_west_ladder', 'ladder', [-19.4, PADS.shed, -10], [-18.8, PADS.shed + 4.6, -10], 0.8, 'slow'),
   L('t1_stair_1', 'stair', [-40.2, PADS.hardstand, -34.6], [-43.8, PADS.hardstand + 2.3, -34.6], 1.2),
-  L('t1_stair_2', 'stair', [-45.2, PADS.hardstand + 2.3, -36.6], [-45.2, PADS.hardstand + 4.6, -40.2], 1.2),
+  L('t1_stair_2', 'stair', [-44.2, PADS.hardstand + 2.3, -36.6], [-44.2, PADS.hardstand + 4.6, -40.2], 1.2),
   L('bridge_t1_t2', 'catwalk', [-36, PADS.hardstand + 4.6, -40], [-31, PADS.hardstand + 4.6, -40], 1.2),
   L('bridge_t2_t3', 'catwalk', [-29, PADS.hardstand + 4.6, -36], [-30, PADS.hardstand + 4.6, -32], 1.2),
   L('t3_east_ladder', 'ladder', [-25.8, PADS.hardstand, -28], [-26.4, PADS.hardstand + 4.6, -28], 0.8, 'slow'),
