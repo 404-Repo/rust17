@@ -57,6 +57,7 @@ export const ATLAS_RECTS = {
   hazard_stripe: [0.4353, 0.23462, 0.68677, 0.31274, 3.1779],
 };
 // blended, feathered edges; everything else is an alpha cut
+const REMOVED = new Set(['tyre_track_straight', 'tyre_track_curve', 'cable_on_ground']);
 const SOFT = new Set(['tyre_track_straight', 'tyre_track_curve', 'oil_stain_large', 'oil_stain_small', 'sand_drift', 'footprints', 'litter_patch', 'gravel_patch', 'rust_run', 'scuff_marks', 'grease_smear']);
 // text and the arrow never mirror; a rust run hangs from its bolt, so it never mirrors vertically either
 const NO_FLIP = new Set(['stencil_02', 'stencil_07', 'stencil_danger', 'stencil_no_smoking', 'stencil_arrow', 'hazard_stripe']);
@@ -91,6 +92,10 @@ export async function buildDecals(THREE_, { scene, terrain, world, blocks, tier,
   const stats = { ground: 0, wall: 0, skipped: 0, tris: 0, meshes: 0, blocks: 0, snapped: 0, meshFix: 0, maxFix: 0, bigFix: [], ruts: 0, skippedTags: [], skipDebug: [] };
   const empty = { stats, groups: new Map(), update() {} };
   if (param === '0' || !terrain) return empty;   // '?decals=0' is the A/B
+  // round 7 (Ben 2026-08-29: "tire tracks don't line up and the wires look fake"): the tread images are
+  // perspective photos, not orthographic tiles, so chained pieces can never meet; the cable image is a
+  // product shot of coiled hose. Both are dropped at load; the road ruts live in the terrain heightmap.
+  decals = decals.filter((d) => !REMOVED.has(d.d));
 
   let tex;
   try { tex = await new THREE.TextureLoader().loadAsync(textureBase + 'decals_atlas.webp'); }
