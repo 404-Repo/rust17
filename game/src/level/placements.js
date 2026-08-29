@@ -270,8 +270,10 @@ for (const [x, z, r] of [[-47.5, 0.5, 30], [-24.5, -1.2, 110], [-4.5, 21, 200], 
 // 2 m outside the coded fence runs, with the two road gaps at the west and east berms (z 3 to 9) left open.
 {
   const L = 10;
-  for (let x = -68; x < 68; x += L) { P('perimeter_fence', x + L / 2, -56.5, 0, { tag: 'pf_n' }); P('perimeter_fence', x + L / 2, 56.5, 0, { tag: 'pf_s' }); }
-  for (let z = -56; z < 56; z += L) { if (z + L > 2 && z < 10) continue; P('perimeter_fence', -71, z + L / 2, 90, { tag: 'pf_w' }); P('perimeter_fence', 71, z + L / 2, 90, { tag: 'pf_e' }); }
+  // round 22e: the ring stands INSIDE the terrain (was 1.5 m outside on the skirt, which is where it hung over the
+  // seam in Ben's photo); the terrain is 140 x 110 about the origin
+  for (let x = -66; x < 66; x += L) { P('perimeter_fence', x + L / 2, -53.5, 0, { tag: 'pf_n' }); P('perimeter_fence', x + L / 2, 53.5, 0, { tag: 'pf_s' }); }
+  for (let z = -53; z < 53; z += L) { if (z + L > 2 && z < 10) continue; P('perimeter_fence', -68.5, z + L / 2, 90, { tag: 'pf_w' }); P('perimeter_fence', 68.5, z + L / 2, 90, { tag: 'pf_e' }); }
 }
 for (let i = 0; i < 14; i++) P('barbed_wire_fence_section', -14.5 + i * 3, -54, 0);   // north edge fence
 for (let i = 0; i < 6; i++) P('barbed_wire_fence_section', -16.5 + i * 3, 54, 0);     // south edge, x -18..0

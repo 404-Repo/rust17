@@ -36,11 +36,15 @@ export function createSkirt(terrain, { far = 400, rings = 6, around = 200 } = {}
     for (let i = 0; i <= around; i++) {
       const [ex, ez, dx, dz] = edge((i % around) / around);
       const x = ex + dx * ease * far, z = ez + dz * ease * far;
-      const h0 = terrain.heightAt(Math.max(B.minX + 0.5, Math.min(B.maxX - 0.5, ex)), Math.max(B.minZ + 0.5, Math.min(B.maxZ - 0.5, ez)));
-      // dunes grow with distance, low near the edge so the join stays clean
-      const dune = (hash(i * 0.37, r * 1.3) - 0.5) * 6 * t + Math.sin(i * 0.19 + r) * 1.5 * t;
-      const y = h0 * (1 - t) + dune;
-      pos.push(x, y - 0.06, z);   // 6 cm down at the join so the terrain edge wins the depth test
+      // round 22e (Ben's photo: "the seam where the map edge is doesn't match in some spots"): the height used to
+      // decay toward zero with distance (y = h0 * (1 - t)), so where the boundary sits on a 2.2 m spawn plateau the
+      // skirt fell away in the first ring and left a vertical wall of sand at the seam with the fence hanging over
+      // it. The skirt now STARTS at the terrain height (sampled exactly on the boundary) and settles gently toward
+      // a plain a third lower over the full 400 m, with the dunes growing on top of that.
+      const h0 = terrain.heightAt(Math.max(B.minX, Math.min(B.maxX, ex)), Math.max(B.minZ, Math.min(B.maxZ, ez)));
+      const dune = (hash(i * 0.37, r * 1.3) - 0.5) * 6 * ease + Math.sin(i * 0.19 + r) * 1.5 * ease;
+      const y = h0 * (1 - 0.35 * ease) + dune;
+      pos.push(x, y - 0.02, z);   // 2 cm down at the join so the terrain edge wins the depth test
     }
   }
   for (let r = 0; r < rings; r++) for (let i = 0; i < around; i++) {
