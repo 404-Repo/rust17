@@ -178,7 +178,16 @@ export class Audio {
   }
   stopMusic(fade = 1.0) { if (this.music) { const t = this.ctx.currentTime, old = this.music, og = this.musicOut; og.gain.linearRampToValueAtTime(0, t + fade); setTimeout(() => { try { old.stop(); } catch (e) { /* stopped */ } }, fade * 1000 + 100); this.music = null; this.musicKey = null; } }
   title() { this.start(); this.playMusic('music_title', 2.0); }
-  deploy() { this.start(); this._play('ui_deploy', null, 0.6); this.playMusic('music_ingame', 2.5); this.ambience(); }
+  deploy() {
+    // round 22g (Ben: "i don't hear music on the title screen"): browsers need a gesture before any audio, and on
+    // this screen the only gesture IS the Deploy press, so the title theme never got a chance. Deploy now opens on
+    // the theme for four seconds and crossfades into the combat bed, which is what a menu press sounds like in the
+    // games this is measured against. Clicking anywhere before Deploy still starts the theme properly (main.js).
+    this.start(); this._play('ui_deploy', null, 0.6); this.ambience();
+    if (this.musicKey === 'music_title') { setTimeout(() => this.playMusic('music_ingame', 3.0), 4000); return; }
+    this.playMusic('music_title', 0.4);
+    setTimeout(() => this.playMusic('music_ingame', 3.0), 4000);
+  }
   roundEnd() { this._play('ui_end', null, 0.7); this.playMusic('music_end', 0.6); }
 
   // ---------------------------------------------------------------- procedural fallbacks (the round 0 sounds)
