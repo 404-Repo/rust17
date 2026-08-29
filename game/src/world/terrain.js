@@ -31,9 +31,9 @@
  * texture carries the fine relief either way and heightAt stays exact against what was built.
  */
 import * as THREE from 'three';
-import { FOOTPRINT_PADS } from './footprint_pads.js?v=r18-202608291915';
-import { RECIPES } from '../../surfaces.js?v=r18-202608291915';
-import { PLACEMENTS } from '../level/placements.js?v=r18-202608291915';
+import { FOOTPRINT_PADS } from './footprint_pads.js?v=r19-202608291932';
+import { RECIPES } from '../../surfaces.js?v=r19-202608291932';
+import { PLACEMENTS } from '../level/placements.js?v=r19-202608291932';
 
 const DEG = Math.PI / 180;
 
@@ -779,6 +779,16 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
     }
   }
 
+  // ---- round 19 item 6: a slope mask from the finished S (after the cuts), for the detail pass: the blends
+  // around the yard pads are steep smooth banks; on them the hummocks run stronger and a lumpy slump term is
+  // added, so a bank reads as sand that has slid, not a blurred mound
+  const wSlope = new Float32Array(N);
+  for (let iz = 1; iz < NZ - 1; iz++) for (let ix = 1; ix < NX - 1; ix++) {
+    const i = iz * NX + ix;
+    const gx = (S[i + 1] - S[i - 1]) / (2 * cell), gz = (S[i + NX] - S[i - NX]) / (2 * cell);
+    wSlope[i] = Math.min(1, Math.hypot(gx, gz) / 0.55);
+  }
+
   // ---- bilinear samplers on the coarse masks, for the detail pass
   const bil = (A, x, z) => {
     let fx = (x - B.minX) / cell, fz = (z - B.minZ) / cell;
@@ -882,8 +892,11 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
     let h = 0;
     // hummocks: full on open sand, reduced on packed ground, none on concrete or in the cuts
     // spoil is clods, not sand: the hummocks run at double strength over a heap
-    const hk = (open + 0.4 * pack + 1.2 * smooth01(heap * 2)) * (1 - conc) * (1 - cut);
+    const slope = bil(wSlope, x, z);
+    const hk = (open + 0.4 * pack + 1.2 * smooth01(heap * 2)) * (1 - conc) * (1 - cut) * (1 + 1.8 * slope);
     if (hk > 0.001) for (const o of DT.hummocks) h += o.amp * hk * n1(x / o.wl + 31, z / o.wl + 17);
+    // round 19 item 6: slumps on the banks, 1.7 m lumps up to 12 cm, sand only
+    if (slope > 0.05 && open > 0.001) h += 0.12 * slope * open * (1 - cut) * n1(x / 1.7 + 5, z / 1.7 + 9);
     // wind ripples on open sand, in patches
     dq.ripple = 0;
     if (open > 0.001) {

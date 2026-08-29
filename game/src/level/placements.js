@@ -261,6 +261,10 @@ P('sandbag_wall', 26, -45, 0);
 // line, the east tanks, the near cover and the horizon rocks of this round.
 for (let i = 0; i < 7; i++) P('compound_wall_panel', -46 + i * 4, -50, 0, { tag: `bund_wall_${i + 1}` });
 for (let i = 0; i < 4; i++) P('corrugated_wall_panel', -18.5 + i * 3, -16, 0);         // shed wind break
+// round 19 item 6: rubble where the yard pads bank down to the sand
+many('rock_outcrop_small', [[24.5, 27, 40], [24.6, 45.5, 300], [-31, 39.2, 120], [6.2, -3.2, 200], [-38.6, 30.5, 20], [28, 52.2, 260]]);
+// round 19 item 2: litter as geometry beside cover, a spill under every machine (the decal pass reads these positions)
+for (const [x, z, r] of [[-47.5, 0.5, 30], [-24.5, -1.2, 110], [-4.5, 21, 200], [19, 43, 70], [-15.5, 6.5, 300], [33, 30.5, 150], [-55, -8, 40], [46, 30, 220], [-27, -34, 10], [22, 14.5, 90], [-19, -39.5, 250], [14, 30, 170]]) P('debris_scatter', x, z, r, { density: true });
 // round 18d (Ben: "run the fence all the way along the edge of the map to enclose the area just to see how that looks"):
 // a light card fence (assets/perimeter_fence.js, one 10 m chain link card per section) around the whole boundary,
 // 2 m outside the coded fence runs, with the two road gaps at the west and east berms (z 3 to 9) left open.
@@ -1118,6 +1122,11 @@ export const DECALS = (() => {
     }
   }
 
+  // ---- round 19 item 2: a spill under every machine
+  for (const e of [...by('generator_set'), ...by('wellhead_christmas_tree'), ...by('pump_jack'), ...by('valve_manifold')]) {
+    G('oil_stain_large', e.x + rr(-0.4, 0.4), e.z + rr(-0.4, 0.4), rr(0, 360), rr(1.6, 2.2), rr(1.6, 2.2), 1);
+    if (rnd() < 0.7) G('grease_smear', e.x + rr(-1.2, 1.2), e.z + rr(-1.2, 1.2), rr(0, 360), rr(0.6, 0.9), rr(0.6, 0.9));
+  }
   // ---- footprints: clusters at every spawn, doorway and cover point
   for (const team of Object.values(SPAWNS)) for (const [x, z] of team) { G('footprints', x + rr(-0.6, 0.6), z + rr(-0.6, 0.6), rr(0, 360), rr(1.6, 2.0), rr(1.6, 2.0)); if (rnd() < 0.5) G('footprints', x + rr(1, 2.5), z + rr(-1.5, 1.5), rr(0, 360), 1.5, 1.5); }
   const DOORS = [[-23.2, 34], [-30, 27.2], [30.2, 34], [41, 31.2], [25.2, 31], [47, 23.2], [33, 50.8], [-30, -23.4], [-27.2, -25.2], [14, 1.4], [14, 10.6], [-8.2, -3.0], [-19.9, -10], [-2, -3.9]];

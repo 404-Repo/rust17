@@ -68,8 +68,10 @@ export function makeFillet(p, size, spec, heightAt, baseY) {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setIndex(idx);
   geo.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({ color: 0xc9b48a, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
-  mat.name = 'ground';
+  // round 19 item 5: the trampled set (named outright, materials.js honours a set name) and a darker tone, so the
+  // collar reads as disturbed ground at the foot of the object instead of a pale ring on the sand
+  const mat = new THREE.MeshStandardMaterial({ color: 0xa8926c, roughness: 0.96, metalness: 0, side: THREE.DoubleSide });
+  mat.name = 'sand_disturbed';
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = 'fillet_' + (p.tag || p.asset);
   mesh.castShadow = false; mesh.receiveShadow = true;

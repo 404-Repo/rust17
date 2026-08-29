@@ -13,33 +13,33 @@
  * Everything loads relative to this folder: ./assets, ./assetlib.js, ./src/...
  */
 import * as THREE from 'three';
-import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r18-202608291915';
-import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r18-202608291915';
-import { createSky } from './src/render/sky.js?v=r18-202608291915';
-import { createPost } from './src/render/post.js?v=r18-202608291915';
-import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r18-202608291915';
-import { createSkirt } from './src/world/skirt.js?v=r18-202608291915';   // round 17 item 5: ground beyond the map edge
-import { World } from './src/world/collision.js?v=r18-202608291915';
-import { buildLevel } from './src/level/build.js?v=r18-202608291915';
-import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r18-202608291915';
-import { Player } from './src/player/controller.js?v=r18-202608291915';
-import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r18-202608291915';
-import { Viewmodel } from './src/player/viewmodel.js?v=r18-202608291915';
-import { FX } from './src/player/fx.js?v=r18-202608291915';
-import { NavGrid } from './src/ai/navgrid.js?v=r18-202608291915';
-import { Bot } from './src/ai/bot.js?v=r18-202608291915';
-import { SquadManager } from './src/ai/squad.js?v=r18-202608291915';
-import { Input, RAD_PER_PX } from './src/ui/input.js?v=r18-202608291915';
-import { TouchControls } from './src/ui/touch.js?v=r18-202608291915';
-import { HUD } from './src/ui/hud.js?v=r18-202608291915';
-import { Screens } from './src/ui/screens.js?v=r18-202608291915';
-import { Events } from './src/game/events.js?v=r18-202608291915';
-import { TDM } from './src/game/mode.js?v=r18-202608291915';
-import { createTelemetry } from './src/game/telemetry.js?v=r18-202608291915';
-import { Audio } from './src/game/audio.js?v=r18-202608291915';
-import { ASSET } from './assetlib.js?v=r18-202608291915';
-import { vertexiseMaterials } from './src/game/bake.js?v=r18-202608291915';
-import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r18-202608291915';   // materials r3
+import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r19-202608291932';
+import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r19-202608291932';
+import { createSky } from './src/render/sky.js?v=r19-202608291932';
+import { createPost } from './src/render/post.js?v=r19-202608291932';
+import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r19-202608291932';
+import { createSkirt } from './src/world/skirt.js?v=r19-202608291932';   // round 17 item 5: ground beyond the map edge
+import { World } from './src/world/collision.js?v=r19-202608291932';
+import { buildLevel } from './src/level/build.js?v=r19-202608291932';
+import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r19-202608291932';
+import { Player } from './src/player/controller.js?v=r19-202608291932';
+import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r19-202608291932';
+import { Viewmodel } from './src/player/viewmodel.js?v=r19-202608291932';
+import { FX } from './src/player/fx.js?v=r19-202608291932';
+import { NavGrid } from './src/ai/navgrid.js?v=r19-202608291932';
+import { Bot } from './src/ai/bot.js?v=r19-202608291932';
+import { SquadManager } from './src/ai/squad.js?v=r19-202608291932';
+import { Input, RAD_PER_PX } from './src/ui/input.js?v=r19-202608291932';
+import { TouchControls } from './src/ui/touch.js?v=r19-202608291932';
+import { HUD } from './src/ui/hud.js?v=r19-202608291932';
+import { Screens } from './src/ui/screens.js?v=r19-202608291932';
+import { Events } from './src/game/events.js?v=r19-202608291932';
+import { TDM } from './src/game/mode.js?v=r19-202608291932';
+import { createTelemetry } from './src/game/telemetry.js?v=r19-202608291932';
+import { Audio } from './src/game/audio.js?v=r19-202608291932';
+import { ASSET } from './assetlib.js?v=r19-202608291932';
+import { vertexiseMaterials } from './src/game/bake.js?v=r19-202608291932';
+import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r19-202608291932';   // materials r3
 
 const ROUND = 'r6';
 const DEG = Math.PI / 180;
@@ -115,6 +115,15 @@ for (const [x, z] of [[-23.2, 34], [-30, 27.2], [30.2, 34], [41, 31.2], [25.2, 3
 for (const c of COVER_POINTS) DISTURB.push([c.x, c.z, 1.5]);
 for (const team of Object.values(SPAWNS)) for (const [x, z] of team) DISTURB.push([x, z, 2.6]);
 for (const p of PLACEMENTS) if (!p.dy && /pipe_rack_stack|generator_set|control_cabinet|crate_stack|wooden_pallet_stack|ibc_tote|valve_manifold|wellhead_christmas_tree|shipping_container_open/.test(p.asset)) DISTURB.push([p.x, p.z, 2.0]);
+// round 19 item 2: worn paths, a 1.1 m wide band from every door to its two nearest cover points and from every spawn
+// to its nearest door, so the ground between where people stand is walked ground
+{
+  const DOORS = [[-23.2, 34], [-30, 27.2], [30.2, 34], [41, 31.2], [25.2, 31], [47, 23.2], [33, 50.8], [-30, -23.4], [-27.2, -25.2], [14, 1.4], [14, 10.6], [-8.2, -3.0], [-19.9, -10], [-2, -3.9]];
+  const near = (x, z, pts, k) => pts.map((p) => [Math.hypot(p[0] - x, p[1] - z), p]).sort((a, b) => a[0] - b[0]).slice(0, k).map((a) => a[1]);
+  const cov = COVER_POINTS.map((c) => [c.x, c.z]);
+  for (const [x, z] of DOORS) for (const [cx, cz] of near(x, z, cov, 2)) if (Math.hypot(cx - x, cz - z) < 30) DISTURB.push([x, z, cx, cz, 1.1]);
+  for (const team of Object.values(SPAWNS)) for (const [x, z] of team) { const [d] = near(x, z, DOORS, 1); if (d && Math.hypot(d[0] - x, d[1] - z) < 60) DISTURB.push([x, z, d[0], d[1], 1.0]); }
+}
 applyTerrainMaterial(terrain, tier, { disturb: DISTURB });   // materials r3: sand_sunlit and sand_packed tiles on the terrain's own material; r17: + sand_disturbed
 if (params.get('skirt') !== 'off') { const skirt = createSkirt(terrain); if (params.get('skirt') !== 'plain') applyMaterials(skirt, { asset: 'map_skirt' }); scene.add(skirt); }   // round 17 item 5 ('?skirt=off|plain' to debug)
 const world = new World(terrain);

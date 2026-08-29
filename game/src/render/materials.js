@@ -52,9 +52,9 @@
  * frond throws a leaflet shaped shadow, not a rectangle.
  */
 import * as THREE from 'three';
-import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r18-202608291915';
-import { classify, RECIPES } from '../../surfaces.js?v=r18-202608291915';
-import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r18-202608291915';   // round 5: the cards' backlight reads the rig's sun
+import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r19-202608291932';
+import { classify, RECIPES } from '../../surfaces.js?v=r19-202608291932';
+import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r19-202608291932';   // round 5: the cards' backlight reads the rig's sun
 
 /**
  * The sets. `scale` is metres per tile. `normal` is the normal map strength, `albedo` and
@@ -666,7 +666,14 @@ export function applyTerrainMaterial(terrain, tier = {}, opts = {}) {
       if (disturb.length) {
         for (let i = 0; i < pos.count; i++) {
           const x = pos.getX(i), z = pos.getZ(i); let w = 0;
-          for (const [sx, sz, r] of disturb) { const d = Math.hypot(sx - x, sz - z); if (d < r) { const u = 1 - d / r; const v = u * u * (3 - 2 * u); if (v > w) w = v; } }
+          for (const e of disturb) {
+            let d, r;
+            if (e.length >= 5) {   // a path segment [x0, z0, x1, z1, r]: distance to the segment
+              const [x0, z0, x1, z1, rr] = e; const dx = x1 - x0, dz = z1 - z0; const L2 = dx * dx + dz * dz || 1;
+              const t = Math.max(0, Math.min(1, ((x - x0) * dx + (z - z0) * dz) / L2)); d = Math.hypot(x - (x0 + dx * t), z - (z0 + dz * t)); r = rr;
+            } else { d = Math.hypot(e[0] - x, e[1] - z); r = e[2]; }
+            if (d < r) { const u = 1 - d / r; const v = u * u * (3 - 2 * u); if (v > w) w = v; }
+          }
           dk[i] = w;
         }
       }
