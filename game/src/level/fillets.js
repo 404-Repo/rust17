@@ -90,29 +90,33 @@ export const STILT_ASSETS = new Set(['pipe_run_straight', 'pipe_run_elbow', 'lar
   'steel_shelving', 'locker_bank', 'tank_catwalk_bridge', 'catwalk_section', 'external_steel_stair', 'watchtower_gantry']);
 
 export function makeStilts(p, size, heightAt, baseY, THREE_ = THREE, height = 1.5) {
+  // Round 22j, to Ben's drawing: a column directly UNDER each of the prop's own feet, the width of its base plate,
+  // running from just under the plate straight down into the sand. Not a thin post beside the object (22i) and not
+  // a pale block stopping at the surface (the first cut): a pier the pipe visibly stands on.
   const a = (p.rot || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
   const k = p.scale || 1;
-  const hw = (size[0] * k) / 2 - 0.25, hd = (size[1] * k) / 2 - 0.25;
-  if (hw <= 0.1 || hd <= 0.1) return null;
+  const hw = (size[0] * k) / 2, hd = (size[1] * k) / 2;
+  if (hw <= 0.2 || hd <= 0.1) return null;
+  // where the asset's own feet are: a long run carries saddles near its ends and at the middle, a compact prop
+  // stands on four corner feet, both inset from the outline the way a base plate is
+  const inset = 0.45;
+  const feet = hw > hd * 2
+    ? [[-(hw - inset), 0], [0, 0], [hw - inset, 0]]
+    : [[-(hw - inset), -(hd - 0.3)], [hw - inset, -(hd - 0.3)], [hw - inset, hd - 0.3], [-(hw - inset), hd - 0.3]];
   const geos = [];
-  const corners = hw > hd * 2
-    ? [[-hw, 0], [0, 0], [hw, 0]]           // a long thin run gets piers along its axis
-    : [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]];
-  for (const [lx, lz] of corners) {
+  for (const [lx, lz] of feet) {
     const x = p.x + lx * c + lz * s, z = p.z - lx * s + lz * c;
     const g = heightAt(x, z);
-    // up to 60 percent of the prop's height: that is where a pipe saddle or a table leg meets the body, so the pier
-    // reads as a trestle carrying it rather than a post standing near it (round 22i, second pass)
-    const top = baseY + Math.min(1.4, Math.max(0.3, height * 0.6));
-    const bottom = Math.min(g, baseY) - 0.4;
+    const top = baseY + 0.12;             // just under the foot plate
+    const bottom = Math.min(g, baseY) - 0.5;
     const h = top - bottom;
-    if (h < 0.65) continue;                 // only where the ground has really fallen away (a 25 cm dip is the fillet's job)
-    const box = new THREE_.BoxGeometry(0.18, h, 0.18);
+    if (h < 0.75) continue;               // the ground is close enough under this foot: the fillet covers it
+    const w = Math.min(0.45, Math.max(0.28, (hd * 2) * 0.45));
+    const box = new THREE_.BoxGeometry(w, h, w);
     box.translate(x, bottom + h / 2, z);
     geos.push(box);
   }
   if (!geos.length) return null;
-  // merge the piers into one geometry so a prop adds one mesh, not four
   const merged = new THREE_.BufferGeometry();
   const pos = [], idx = []; let base = 0;
   for (const g of geos) {
@@ -125,8 +129,7 @@ export function makeStilts(p, size, heightAt, baseY, THREE_ = THREE, height = 1.
   merged.setAttribute('position', new THREE_.Float32BufferAttribute(pos, 3));
   merged.setIndex(idx);
   merged.computeVertexNormals();
-  // a dark steel stub, not a concrete block: it reads as the asset's own leg continuing into the sand
-  const mat = new THREE_.MeshStandardMaterial({ color: 0x4a4d51, roughness: 0.8, metalness: 0.3 });
+  const mat = new THREE_.MeshStandardMaterial({ color: 0x6b6f74, roughness: 0.85, metalness: 0.25 });
   mat.name = 'metal';
   const mesh = new THREE_.Mesh(merged, mat);
   mesh.name = 'stilts_' + (p.tag || p.asset);
