@@ -90,44 +90,76 @@ export const STILT_ASSETS = new Set(['pipe_run_straight', 'pipe_run_elbow', 'lar
   'steel_shelving', 'locker_bank', 'tank_catwalk_bridge', 'catwalk_section', 'external_steel_stair', 'watchtower_gantry']);
 
 /**
- * Piers under a prop's OWN base plates (round 22j, second correction: Ben's drawing showed the column must match the
- * plate exactly, not sit near it). The plates are found in the loaded geometry rather than guessed: every vertex
- * within 35 cm of the prop's base is clustered on a 0.7 m grid, and each cluster becomes a column of exactly that
- * cluster's footprint, running from the plate down half a metre into the sand. Nothing is placed where the ground
- * is already close under that plate.
+ * Piers under a prop's own feet (round 22m, third correction, to Ben's photo: the 0.7 m grid split each saddle into
+ * its two thin struts, so the map grew pairs of slabs standing BESIDE the plate). Everything here is measured:
+ *   1. every vertex of the prop within 40 cm of its base is collected in world space (the feet region);
+ *   2. they are grouped by 1.2 m proximity, so one saddle (two struts plus its base plate) is exactly one group;
+ *   3. the group's x and z extent IS the plate outline, and its lowest vertex IS the plate underside;
+ *   4. the column runs from that underside down to half a metre below the terrain at the group centre;
+ *   5. a group whose plate already sits within 15 cm of the ground is skipped: the sand fillet covers that.
+ * No offsets, no assumed sizes, nothing guessed.
  */
 export function makeStiltsFromObject(obj, heightAt, baseY, THREE_ = THREE, tag = '') {
   obj.updateMatrixWorld(true);
-  const cells = new Map();
+  const pts = [];
   const v = new THREE_.Vector3();
-  const CELL = 0.7, TOP = baseY + 0.35;
+  const TOP = baseY + 0.40;
   obj.traverse((m) => {
     if (!m.isMesh || !m.geometry || !m.geometry.attributes.position) return;
     const pos = m.geometry.attributes.position;
-    const step = pos.count > 4000 ? 3 : 1;
+    const step = pos.count > 6000 ? 2 : 1;
     for (let i = 0; i < pos.count; i += step) {
       v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
-      if (v.y > TOP) continue;
-      const key = `${Math.floor(v.x / CELL)}_${Math.floor(v.z / CELL)}`;
-      let c = cells.get(key);
-      if (!c) { c = { x0: v.x, x1: v.x, z0: v.z, z1: v.z, n: 0 }; cells.set(key, c); }
-      c.x0 = Math.min(c.x0, v.x); c.x1 = Math.max(c.x1, v.x);
-      c.z0 = Math.min(c.z0, v.z); c.z1 = Math.max(c.z1, v.z); c.n++;
+      if (v.y <= TOP) pts.push(v.x, v.y, v.z);
     }
   });
+  const n = pts.length / 3;
+  if (!n) return null;
+  // group by proximity in XZ (1.2 m), union find over a coarse hash so one saddle is one group
+  const parent = new Int32Array(n); for (let i = 0; i < n; i++) parent[i] = i;
+  const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const union = (i, j) => { const a = find(i), b = find(j); if (a !== b) parent[b] = a; };
+  const R = 1.2, CELL = R;
+  const buckets = new Map();
+  for (let i = 0; i < n; i++) {
+    const key = `${Math.floor(pts[i * 3] / CELL)}_${Math.floor(pts[i * 3 + 2] / CELL)}`;
+    let b = buckets.get(key); if (!b) { b = []; buckets.set(key, b); }
+    b.push(i);
+  }
+  for (const [key, list] of buckets) {
+    const [bx, bz] = key.split('_').map(Number);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      const other = buckets.get(`${bx + dx}_${bz + dz}`); if (!other) continue;
+      for (const i of list) for (const j of other) {
+        if (j <= i) continue;
+        const ddx = pts[i * 3] - pts[j * 3], ddz = pts[i * 3 + 2] - pts[j * 3 + 2];
+        if (ddx * ddx + ddz * ddz <= R * R) union(i, j);
+      }
+    }
+  }
+  const groups = new Map();
+  for (let i = 0; i < n; i++) {
+    const r = find(i);
+    let g = groups.get(r);
+    if (!g) { g = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity, y: Infinity, n: 0 }; groups.set(r, g); }
+    const x = pts[i * 3], y = pts[i * 3 + 1], z = pts[i * 3 + 2];
+    g.x0 = Math.min(g.x0, x); g.x1 = Math.max(g.x1, x);
+    g.z0 = Math.min(g.z0, z); g.z1 = Math.max(g.z1, z);
+    g.y = Math.min(g.y, y); g.n++;
+  }
   const geos = [];
-  for (const c of cells.values()) {
-    if (c.n < 6) continue;                                  // a stray vertex, not a plate
-    const cx = (c.x0 + c.x1) / 2, cz = (c.z0 + c.z1) / 2;
-    const w = Math.max(0.16, c.x1 - c.x0), d = Math.max(0.16, c.z1 - c.z0);
-    if (w > 3 || d > 3) continue;                           // a deck or a body, not a foot
-    const g = heightAt(cx, cz);
-    const top = baseY + 0.10;
-    const bottom = Math.min(g, baseY) - 0.5;
-    const h = top - bottom;
-    if (h < 0.85) continue;                                 // the ground is close enough under this plate
-    const box = new THREE_.BoxGeometry(w, h, d);
-    box.translate(cx, bottom + h / 2, cz);
+  for (const g of groups.values()) {
+    if (g.n < 12) continue;
+    const w = g.x1 - g.x0, d = g.z1 - g.z0;
+    if (w > 4 || d > 4 || w < 0.1 || d < 0.1) continue;      // a body or a deck, not a foot
+    const cx = (g.x0 + g.x1) / 2, cz = (g.z0 + g.z1) / 2;
+    const ground = heightAt(cx, cz);
+    const gap = g.y - ground;                                // how far the plate underside floats
+    if (gap < 0.15) continue;
+    const top = g.y + 0.04;                                  // 4 cm into the plate: no seam
+    const bottom = ground - 0.5;
+    const box = new THREE_.BoxGeometry(w, top - bottom, d);
+    box.translate(cx, (top + bottom) / 2, cz);
     geos.push(box);
   }
   if (!geos.length) return null;

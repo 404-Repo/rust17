@@ -52,9 +52,9 @@
  * frond throws a leaflet shaped shadow, not a rectangle.
  */
 import * as THREE from 'three';
-import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r22-202608292253';
-import { classify, RECIPES } from '../../surfaces.js?v=r22-202608292253';
-import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r22-202608292253';   // round 5: the cards' backlight reads the rig's sun
+import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r22-202608292305';
+import { classify, RECIPES } from '../../surfaces.js?v=r22-202608292305';
+import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r22-202608292305';   // round 5: the cards' backlight reads the rig's sun
 
 /**
  * The sets. `scale` is metres per tile. `normal` is the normal map strength, `albedo` and

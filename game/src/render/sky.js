@@ -22,8 +22,8 @@
  * Colours are mixed in linear space and pushed through the renderer's ACES
  * curve and output colour space in the fragment shader.
  */
-import { sunDirection, SUN_COLOR, ATMOS_UNIFORMS_GLSL, ATMOS_GLSL, atmosUniforms } from './lighting.js?v=r22-202608292253';
-import { getTier } from './quality.js?v=r22-202608292253';
+import { sunDirection, SUN_COLOR, ATMOS_UNIFORMS_GLSL, ATMOS_GLSL, atmosUniforms } from './lighting.js?v=r22-202608292305';
+import { getTier } from './quality.js?v=r22-202608292305';
 
 export const ZENITH_COLOR = 0x6987b9;    // documentary: the linear values live in lighting.js ATMOS
 export const HORIZON_COLOR = 0xeee0c8;
@@ -87,7 +87,11 @@ void main() {
   vec3 sky = atmosSky(normalize(vec3(d.x, max(d.y, 0.012) + 0.07, d.z)), 0.0);   // round 16b: the sky 4 degrees up, so a hazed ridge is darker than the dust band it stands in
   vec3 col = mix(rock, sky, vHaze);
   // a soft dissolve at the foot of every band: no ridge meets the ground plane as a hard line
-  col = mix(col, sky, smoothstep(0.055, 0.0, d.y) * 0.55);
+  // round 22n (Ben: "revert back to the mountain silhouettes but make them blend into the sand"): the bottom of
+  // each ridge dissolves into the haze over the last 5 degrees, and the last degree goes all the way, so the
+  // silhouette has no cut line where it meets the desert floor
+  col = mix(col, sky, smoothstep(0.09, 0.0, d.y) * 0.85);
+  col = mix(col, sky, smoothstep(0.018, -0.002, d.y));
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -134,21 +138,10 @@ void main() {
  * (the high frequency terms carry more) so the ridge reads as rock, not as a swell.
  */
 function ridge(theta, layer) {
-  // Round 22k (Ben: "the mountain silhouettes take away from the nice sky ... layered atmospheric terrain with
-  // depth, tonal separation, erosion detail, and haze"). Four bands, each with its own phase and scale: sines for
-  // the massif plus a RIDGED (folded) term, which gives sharp crests and broad valleys the way erosion does and a
-  // plain sine never can.
-  const P = [
-    { base: 22, big: 16, bigF: 2.3, ph: 0.4, mid: 11, midF: 6.0, fine: 5, fineF: 15.0, rg: 9, rgF: 4.0 },
-    { base: 34, big: 24, bigF: 1.7, ph: 1.9, mid: 15, midF: 4.4, fine: 6, fineF: 11.0, rg: 12, rgF: 3.1 },
-    { base: 48, big: 30, bigF: 1.3, ph: 3.4, mid: 17, midF: 3.3, fine: 6, fineF: 8.0, rg: 14, rgF: 2.4 },
-    { base: 62, big: 34, bigF: 0.9, ph: 5.1, mid: 18, midF: 2.4, fine: 5, fineF: 6.0, rg: 15, rgF: 1.8 },
-  ][layer];
-  if (!P) return 10;
-  const fold = (x) => 1 - Math.abs(Math.sin(x));
-  const v = P.base + P.big * Math.sin(theta * P.bigF + P.ph) + P.mid * Math.sin(theta * P.midF + P.ph * 1.7)
-    + P.fine * Math.sin(theta * P.fineF + P.ph * 0.6) + P.rg * fold(theta * P.rgF + P.ph);
-  return Math.max(v * 1.35, 5);
+  const s = layer === 0
+    ? 30 + 24 * Math.sin(theta * 3.0 + 0.4) + 16 * Math.sin(theta * 7.0 + 2.1) + 10 * Math.sin(theta * 13.0 + 1.3) + 5 * Math.sin(theta * 29.0) + 3 * Math.sin(theta * 53.0 + 0.9)
+    : 46 + 34 * Math.sin(theta * 2.0 + 1.9) + 20 * Math.sin(theta * 5.0 + 0.7) + 12 * Math.sin(theta * 11.0 + 3.0) + 6 * Math.sin(theta * 23.0 + 0.5) + 3 * Math.sin(theta * 47.0 + 2.2);
+  return Math.max(s * 1.6, 6);
 }
 
 function buildHills(THREE, atm) {
@@ -157,10 +150,8 @@ function buildHills(THREE, atm) {
   // the far one paler behind it, both taking the dust band colour of the sky they stand in.
   // nearer bands darker and sharper, far ones paler and softer, each mixing toward the sky at its own depth
   const rings = [
-    { r: 620, haze: 0.30, layer: 0, tone: 1.00 },
-    { r: 950, haze: 0.46, layer: 1, tone: 0.93 },
-    { r: 1450, haze: 0.62, layer: 2, tone: 0.87 },
-    { r: 2200, haze: 0.76, layer: 3, tone: 0.82 },
+    { r: 700, haze: 0.42, layer: 0, tone: 1.0 },   // round 16b (Ben: "the mountains on the horizon seem very white"): 0.42 -> 0.30
+    { r: 1100, haze: 0.60, layer: 1, tone: 0.94 },  // 0.64 -> 0.48, and the haze now mixes toward the sky a few degrees UP, not the bright dust band
   ];
   const N = 480;
   const pos = [], haze = [], tone = [], idx = [];
