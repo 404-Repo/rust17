@@ -25,24 +25,47 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { getTier } from './quality.js?v=r22-202608292305';
-import { sunDirection, SUN_COLOR } from './lighting.js?v=r22-202608292305';
+import { getTier } from './quality.js?v=r23-202608292320';
+import { sunDirection, SUN_COLOR } from './lighting.js?v=r23-202608292320';
 
 const GRADE_VS = /* glsl */`varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 
 // Runs in display space, after OutputPass (ACES applied, sRGB encoded).
 const GRADE_FS = /* glsl */`
-uniform sampler2D tDiffuse;
-uniform float uHurt, uBlack, uContrast, uPivot;
+uniform sampler2D tDiffuse, tDepth;
+uniform float uHurt, uBlack, uContrast, uPivot, uTime, uShimmer, uNear, uFar;
+uniform vec3 uLutShadow, uLutMid, uLutHigh;
 varying vec2 vUv;
+float gLin(vec2 uv) { float z = texture2D(tDepth, uv).x; float n = z * 2.0 - 1.0; return (2.0 * uNear * uFar) / (uFar + uNear - n * (uFar - uNear)); }
 void main() {
-  vec3 col = texture2D(tDiffuse, vUv).rgb;
+  // round 23: heat shimmer. A slow vertical ripple applied ONLY to distant pixels low in the frame (hot sand and
+  // metal beyond about 25 m), a couple of pixels at most: the air over a desert at 30 degrees does exactly this and
+  // nothing else in the frame moves.
+  vec2 uv = vUv;
+  if (uShimmer > 0.0) {
+    float d = gLin(vUv);
+    float w = smoothstep(25.0, 90.0, d) * smoothstep(0.66, 0.30, vUv.y);
+    if (w > 0.001) {
+      float s1 = sin((vUv.y * 190.0) + uTime * 2.7) * sin((vUv.x * 61.0) - uTime * 1.3);
+      float s2 = sin((vUv.y * 97.0) - uTime * 1.9 + 2.1);
+      uv.x += (s1 * 0.0011 + s2 * 0.0006) * w * uShimmer;
+      uv.y += s1 * 0.0004 * w * uShimmer;
+    }
+  }
+  vec3 col = texture2D(tDiffuse, uv).rgb;
   // black point: ACES leaves the darkest shade near 0.03; pull it toward 0 so
   // the histogram reaches the darks (0.02, not more: the gunmetal viewmodel in
   // shade is already near black), then a mild S about the pivot. Same curve on
   // all three channels: no tint.
   col = max(col - uBlack, 0.0) / (1.0 - uBlack);
   col = (col - uPivot) * uContrast + uPivot;
+  col = clamp(col, 0.0, 1.0);
+  // round 23: the grade. A three way colour balance (shadow, mid, highlight) applied as a lift/gamma/gain triple,
+  // which is what a desert LUT does: shadows a shade cooler and bluer, mids held warm, highlights pulled a touch
+  // toward straw so the sun side never goes pure white. Deliberate, and one pass, no lookup texture to ship.
+  float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  float wS = smoothstep(0.45, 0.0, lum), wH = smoothstep(0.55, 1.0, lum), wM = 1.0 - wS - wH;
+  col *= uLutShadow * wS + uLutMid * wM + uLutHigh * wH;
   col = clamp(col, 0.0, 1.0);
   // damage: a red edge that closes in as t -> 1
   vec2 c = vUv - 0.5;
@@ -72,7 +95,7 @@ void main() {
 const AO_FS = /* glsl */`
 uniform sampler2D tDiffuse, tDepth;
 uniform vec2 uRes;
-uniform float uNear, uFar, uRadius, uStrength;
+uniform float uNear, uFar, uRadius, uStrength, uContact;
 uniform mat4 uProjInv;
 varying vec2 vUv;
 float linDepth(vec2 uv) {
@@ -130,8 +153,8 @@ const HAZE_FS = /* glsl */`
 uniform sampler2D tDiffuse, tDepth;
 uniform vec2 uSunUv;
 uniform float uSunFront, uNear, uFar, uAmount;
-uniform vec3 uSunCol;
-uniform float uAspect;
+uniform vec3 uSunCol, uDustCol;
+uniform float uAspect, uDust;
 varying vec2 vUv;
 float linDepth(vec2 uv) {
   float z = texture2D(tDepth, uv).x;
@@ -148,6 +171,10 @@ void main() {
   float lobe = exp(-r * r * 4.0) * uSunFront;                     // a wide warm lobe around the sun's screen position
   float glow = exp(-r * r * 22.0) * uSunFront;                    // and a tight core for the bloom to pick up
   col += uSunCol * uAmount * depthW * (lobe * 0.9 + glow * 1.4);
+  // round 23: a thin dust layer that thickens with distance and sits low in the frame, the way suspended sand does.
+  // It is a lift toward the horizon colour, not a fog: near geometry is untouched.
+  float low = smoothstep( 0.62, 0.12, vUv.y );
+  col = mix( col, uDustCol, depthW * low * uDust );
   gl_FragColor = vec4(col, 1.0);
 }`;
 
@@ -183,7 +210,7 @@ export function createPost(THREE, { renderer, scene, camera, tier }) {
         tDiffuse: { value: null }, tDepth: { value: rt.depthTexture },
         uRes: { value: new THREE.Vector2(size.x, size.y) },
         uNear: { value: camera.near }, uFar: { value: camera.far },
-        uRadius: { value: 0.6 }, uStrength: { value: 0.75 * qAo },
+        uRadius: { value: 0.6 }, uStrength: { value: 0.75 * qAo }, uContact: { value: 0.5 * qAo },
         uProjInv: { value: camera.projectionMatrixInverse.clone() },
       },
       vertexShader: GRADE_VS, fragmentShader: AO_FS,
@@ -198,6 +225,7 @@ export function createPost(THREE, { renderer, scene, camera, tier }) {
         uNear: { value: camera.near }, uFar: { value: camera.far },
         uAmount: { value: 0.28 * qHaze }, uAspect: { value: size.x / size.y },
         uSunCol: { value: new THREE.Color(SUN_COLOR).multiplyScalar(1.0) },
+        uDustCol: { value: new THREE.Color(0.92, 0.84, 0.72) }, uDust: { value: 0.16 },
       },
       vertexShader: GRADE_VS, fragmentShader: HAZE_FS,
     });
@@ -229,6 +257,12 @@ export function createPost(THREE, { renderer, scene, camera, tier }) {
       uniforms: {
         tDiffuse: { value: null },
         uHurt: { value: 0 },
+        tDepth: { value: rt.depthTexture },
+        uNear: { value: camera.near }, uFar: { value: camera.far },
+        uTime: { value: 0 }, uShimmer: { value: 1.0 },
+        uLutShadow: { value: new THREE.Color(0.96, 0.98, 1.06) },
+        uLutMid: { value: new THREE.Color(1.02, 1.00, 0.96) },
+        uLutHigh: { value: new THREE.Color(1.02, 0.995, 0.95) },
         uBlack: { value: 0.012 },   // round 2: 0.02 -> 0.012 and contrast 1.06 -> 1.04: the critic wants no object shade side under 0.15 luma, and the old curve took a 0.15 shade to 0.116
         uContrast: { value: 1.07 },   // round 15: 1.04 -> 1.07, shadows deeper toward the reference without cutting the fill
         uPivot: { value: 0.42 },
@@ -242,6 +276,8 @@ export function createPost(THREE, { renderer, scene, camera, tier }) {
       render(dt) {
         renderer.info.reset();
         grade.uniforms.uHurt.value = damage;
+        grade.uniforms.uTime.value += dt || 0.016;
+        grade.uniforms.uNear.value = renderPass.camera.near; grade.uniforms.uFar.value = renderPass.camera.far;
         const cam = renderPass.camera;
         ao.uniforms.uProjInv.value.copy(cam.projectionMatrixInverse);
         ao.uniforms.uNear.value = cam.near; ao.uniforms.uFar.value = cam.far;
