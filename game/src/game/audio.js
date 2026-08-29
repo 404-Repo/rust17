@@ -73,6 +73,7 @@ export class Audio {
     console.info(`[audio] ${ok} sounds loaded${fail ? `, ${fail} missing (procedural fallback)` : ''}`);
     if (this._pendingMusic) { const k = this._pendingMusic; this._pendingMusic = null; this.playMusic(k); }
     if (this._pendingAmbience) { this._pendingAmbience = false; this.ambience(); }
+    this.update();   // the positioned loops queued before the files were decoded (pump jacks, generators)
   }
 
   _buf(key) {
