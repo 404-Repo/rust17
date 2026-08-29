@@ -16,11 +16,11 @@
  * before the bake because the bake leaves no individual objects behind.
  */
 import * as THREE from 'three';
-import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js';
-import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js';
-import { applyMaterials } from '../render/materials.js';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
-import { collapsePerJoint } from '../ai/animation.js';
-import { buildDecals } from '../render/decals.js';   // decals r6: near field decals, built after the bake
+import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r10-202608291000';
+import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r10-202608291000';
+import { applyMaterials } from '../render/materials.js?v=r10-202608291000';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
+import { collapsePerJoint } from '../ai/animation.js?v=r10-202608291000';
+import { buildDecals } from '../render/decals.js?v=r10-202608291000';   // decals r6: near field decals, built after the bake
 
 const EYE = 1.65;
 const DEG = Math.PI / 180;

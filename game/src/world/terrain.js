@@ -31,8 +31,8 @@
  * texture carries the fine relief either way and heightAt stays exact against what was built.
  */
 import * as THREE from 'three';
-import { RECIPES } from '../../surfaces.js';
-import { PLACEMENTS } from '../level/placements.js';
+import { RECIPES } from '../../surfaces.js?v=r10-202608291000';
+import { PLACEMENTS } from '../level/placements.js?v=r10-202608291000';
 
 const DEG = Math.PI / 180;
 

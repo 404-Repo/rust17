@@ -13,32 +13,32 @@
  * Everything loads relative to this folder: ./assets, ./assetlib.js, ./src/...
  */
 import * as THREE from 'three';
-import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js';
-import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY } from './src/render/lighting.js';
-import { createSky } from './src/render/sky.js';
-import { createPost } from './src/render/post.js';
-import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js';
-import { World } from './src/world/collision.js';
-import { buildLevel } from './src/level/build.js';
-import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js';
-import { Player } from './src/player/controller.js';
-import { WeaponSystem, WEAPONS } from './src/player/weapons.js';
-import { Viewmodel } from './src/player/viewmodel.js';
-import { FX } from './src/player/fx.js';
-import { NavGrid } from './src/ai/navgrid.js';
-import { Bot } from './src/ai/bot.js';
-import { SquadManager } from './src/ai/squad.js';
-import { Input, RAD_PER_PX } from './src/ui/input.js';
-import { TouchControls } from './src/ui/touch.js';
-import { HUD } from './src/ui/hud.js';
-import { Screens } from './src/ui/screens.js';
-import { Events } from './src/game/events.js';
-import { TDM } from './src/game/mode.js';
-import { createTelemetry } from './src/game/telemetry.js';
-import { Audio } from './src/game/audio.js';
-import { ASSET } from './assetlib.js';
-import { vertexiseMaterials } from './src/game/bake.js';
-import { preloadMaterials, applyTerrainMaterial } from './src/render/materials.js';   // materials r3
+import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r10-202608291000';
+import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY } from './src/render/lighting.js?v=r10-202608291000';
+import { createSky } from './src/render/sky.js?v=r10-202608291000';
+import { createPost } from './src/render/post.js?v=r10-202608291000';
+import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r10-202608291000';
+import { World } from './src/world/collision.js?v=r10-202608291000';
+import { buildLevel } from './src/level/build.js?v=r10-202608291000';
+import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r10-202608291000';
+import { Player } from './src/player/controller.js?v=r10-202608291000';
+import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r10-202608291000';
+import { Viewmodel } from './src/player/viewmodel.js?v=r10-202608291000';
+import { FX } from './src/player/fx.js?v=r10-202608291000';
+import { NavGrid } from './src/ai/navgrid.js?v=r10-202608291000';
+import { Bot } from './src/ai/bot.js?v=r10-202608291000';
+import { SquadManager } from './src/ai/squad.js?v=r10-202608291000';
+import { Input, RAD_PER_PX } from './src/ui/input.js?v=r10-202608291000';
+import { TouchControls } from './src/ui/touch.js?v=r10-202608291000';
+import { HUD } from './src/ui/hud.js?v=r10-202608291000';
+import { Screens } from './src/ui/screens.js?v=r10-202608291000';
+import { Events } from './src/game/events.js?v=r10-202608291000';
+import { TDM } from './src/game/mode.js?v=r10-202608291000';
+import { createTelemetry } from './src/game/telemetry.js?v=r10-202608291000';
+import { Audio } from './src/game/audio.js?v=r10-202608291000';
+import { ASSET } from './assetlib.js?v=r10-202608291000';
+import { vertexiseMaterials } from './src/game/bake.js?v=r10-202608291000';
+import { preloadMaterials, applyTerrainMaterial } from './src/render/materials.js?v=r10-202608291000';   // materials r3
 
 const ROUND = 'r6';
 const DEG = Math.PI / 180;
