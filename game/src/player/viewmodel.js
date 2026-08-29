@@ -191,7 +191,7 @@ export class Viewmodel {
     // variants come from Atlas image_to_3d off concepts/assault_rifle.png (titan40k = Titan v1 remeshed to
     // 40k faces with the maps baked back on, 404gen = the 404-GEN backend as generated); textures stay as
     // generated, so no applyMaterials on those. 'js' is the coded round 4 asset.
-    let rifle = 'titan40k';
+    let rifle = 'js';   // Ben 2026-08-29 09:02: "The mesh gun looks worse"; the coded rifle is the default again, GLBs stay behind ?rifle=
     let rifleFlip = false, rifleUp = false;
     try { const qs = new URLSearchParams(location.search); const q = qs.get('rifle'); if (q) rifle = q; rifleFlip = qs.get('rifleflip') === '1'; rifleUp = qs.get('rifleup') === '1'; } catch (e) { /* no location */ }
     const loads = Object.entries(WEAPON_ASSET).map(async ([key, name]) => {
