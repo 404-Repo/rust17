@@ -61,12 +61,12 @@ export default function (THREE) {
     return pts;
   }
   // corrugated sheet as a closed extruded profile: centred, spans x +-W/2, y +-H/2, ribs bulge toward +z, back face at z = -thick
-  function corrExtrude(W, H, pitch, depth, thick, mod) {
+  function corrExtrude(W, H, pitch, depth, thick, mod, steps) {
     const pts = corrPts(W, pitch, depth, mod), s = new THREE.Shape();
     s.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) s.lineTo(pts[i][0], pts[i][1]);
     for (let i = pts.length - 1; i >= 0; i--) s.lineTo(pts[i][0], pts[i][1] - thick);
     s.closePath();
-    const geo = new THREE.ExtrudeGeometry(s, { depth: H, bevelEnabled: false });
+    const geo = new THREE.ExtrudeGeometry(s, { depth: H, bevelEnabled: false, steps: steps || 1 });
     geo.translate(-W / 2, 0, -H / 2); geo.rotateX(PI / 2); geo.computeVertexNormals(); return geo;
   }
   // corrugated sheet as a displaced plane: centred in XY, ribs bulge toward +z. hs = height segments, mod(x, y) adds z.
@@ -81,7 +81,13 @@ export default function (THREE) {
   }
   // ---- end helpers ----
 
-const CFG = { kind: 'red', livery: 0x9c4a3c, bleach: 0.28, plates: [{ on: 'door', w: 0.4, h: 0.3 }], rustHeavy: true };
+const CFG = { kind: 'red', livery: 0x9c4a3c, bleach: 0.28, plates: [{ on: 'door', w: 0.4, h: 0.3 }], rustHeavy: true,
+  // round 21: battle damage as GEOMETRY (the bullet hole and rust bloom decals were pulled: they read as stickers).
+  // side/door: [along, height, mouth radius] on the +z long side and the door end. dents: [x, y, rx, ry, depth].
+  dmg: { rim: 'rust', flap: [0.88, 0.75],
+    side: [[-0.62, 1.44, 0.030], [-0.30, 1.74, 0.025], [-0.04, 1.30, 0.032], [0.36, 1.60, 0.023], [0.66, 1.10, 0.027]],
+    door: [[0.42, 1.62, 0.030], [0.90, 1.18, 0.026]],
+    dents: [[-1.30, 1.52, 0.36, 0.31, 0.095], [1.22, 1.02, 0.31, 0.27, 0.075]] } };
   // ---- strategy c1: profiles. Every sheet is a closed trapezoid profile extruded; castings and rails are shapes with real holes. ----
   const L = 6.06, W = 2.44, H = 2.59, PITCH = 0.28, RIBD = 0.036, SHEET = 0.012;
   const liv = CFG.livery, bl = CFG.bleach;
@@ -183,6 +189,90 @@ const CFG = { kind: 'red', livery: 0x9c4a3c, bleach: 0.28, plates: [{ on: 'door'
     const r0 = 1 + Math.floor(rnd() * 4);
     for (let k = 0; k < 2; k++) mesh(g, corrPlane(p, 0.25 + 0.3 * rnd(), PITCH, RIBD, 1), mBloom[k], xo, 1.1 + 0.5 * rnd(), -sx * ((r0 + k) * p + p / 2 - EW / 2), 0, ry, 0);
   }
+  // ---- round 21 battle damage: PUNCHED GEOMETRY, not decals. A crater is an outer ring lying exactly on the
+  //      real corrugated surface, a torn collar standing 11 mm proud in bare scuffed steel, then a wall falling
+  //      away to a near black floor 8 mm below the collar. Dents are vertices actually moved, with a bright
+  //      scuffed ring where the paint let go. Everything is glued to the rib profile so nothing floats. ----
+  const DMG = CFG.dmg || null;
+  let dseed = 97; const drnd = () => { dseed = (dseed * 16807) % 2147483647; return (dseed & 0xffff) / 0x10000; };
+  const DENT_PANELS = new Set((DMG && DMG.dents || []).map((d) => Math.max(0, Math.min(NP - 1, Math.floor((d[0] + panelL / 2) / PW)))));
+  // rib height at a distance u along a corrugated run (the trapezoid corrPts uses: rise, crest, fall, trough)
+  const trapZ = (u, pitch, depth) => { const t = (((u % pitch) + pitch) % pitch) / pitch; return depth * (t < 0.22 ? t / 0.22 : t < 0.5 ? 1 : t < 0.72 ? (0.72 - t) / 0.22 : 0); };
+  const zFaceS = W / 2 - 0.046;                                        // back plane of the +z side sheet
+  const placeSide = (u, v, off) => [u, v, zFaceS + trapZ(u + panelL / 2, RP, RIBD) + dentZ(u, v) + off];
+  const xFaceD = L / 2 - 0.02;                                         // back plane of the +x door leaves
+  const placeDoor = (u, v, off) => [xFaceD + trapZ(1.02 - u, 0.25, 0.02) + off, v, u];
+  const mTorn = M(tint(P.galv, DMG && DMG.rim === 'steel' ? 0.62 : 0.52), 'metal', { roughness: 0.62, metalness: 0.5, side: DS });
+  const mHole = M(0x0e0c0a, 'metal', { roughness: 0.95, metalness: 0.1, side: DS });
+  const mScuff = M(tint(P.galv, 0.08), 'metal', { roughness: 0.6, metalness: 0.52, side: DS });
+  const rawMesh = (PA, IA, mat) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(PA, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Array((PA.length / 3) * 2).fill(0), 2));
+    geo.setIndex(IA); geo.computeVertexNormals();
+    return mesh(g, geo, mat, 0, 0, 0);
+  };
+  // holes: [u, v, r, au, av]. One cluster becomes two meshes: the torn collar and the dark inside.
+  function craters(list, place, o) {
+    o = o || {};
+    const fO = o.fO || 1.95, fL = o.fL || 1.30, fM = o.fM || 0.95;
+    const oL = o.oL === undefined ? 0.008 : o.oL, oM = o.oM === undefined ? 0.004 : o.oM, oC = o.oC === undefined ? 0.003 : o.oC;
+    const N = o.seg || 14, PA = [], IA = [], PB = [], IB = [];
+    for (const h of list) {
+      const u0 = h[0], v0 = h[1], r = h[2], au = h[3] || 1, av = h[4] || 1;
+      const ph = Math.abs(u0 * 7.31 + v0 * 3.17) % 6.2832, bA = PA.length / 3, bB = PB.length / 3;
+      const wob = (k, s) => 1 + 0.12 * Math.sin(k * 2.39 + ph + s) + 0.06 * Math.sin(k * 4.71 + ph * 2 + s);
+      for (let k = 0; k < N; k++) {
+        const a = (k / N) * PI * 2 + ph * 0.13, ca = Math.cos(a) * au, sa = Math.sin(a) * av;
+        const rO = r * fO * wob(k, 0), rL = r * fL * wob(k, 1.7), rM = r * fM * wob(k, 3.4);
+        PA.push(...place(u0 + ca * rO, v0 + sa * rO, 0), ...place(u0 + ca * rL, v0 + sa * rL, oL));
+        PB.push(...place(u0 + ca * rL, v0 + sa * rL, oL), ...place(u0 + ca * rM, v0 + sa * rM, oM));
+      }
+      PB.push(...place(u0, v0, oC));
+      for (let k = 0; k < N; k++) {
+        const k1 = (k + 1) % N, a = bA + k * 2, b = bA + k1 * 2, c = bB + k * 2, d = bB + k1 * 2;
+        IA.push(a, a + 1, b + 1, a, b + 1, b);
+        IB.push(c, c + 1, d + 1, c, d + 1, d, c + 1, bB + 2 * N, d + 1);
+      }
+    }
+    if (!list.length) return;
+    rawMesh(PA, IA, o.rim || mTorn); rawMesh(PB, IB, mHole);
+  }
+  const dentZ = (x, y) => {   // how far the sheet is pushed in at a point, 0 outside every dent
+    let dz = 0;
+    for (const [dx, dy, rx, ry, dp] of (DMG && DMG.dents) || []) {
+      const t = ((x - dx) / rx) * ((x - dx) / rx) + ((y - dy) / ry) * ((y - dy) / ry);
+      if (t < 1) dz = Math.min(dz, -dp * (1 - t) * (1 - 0.4 * t));
+    }
+    return dz;
+  };
+  function dishPanel(m, xc, yc) {
+    const p = m.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const dz = dentZ(p.getX(i) + xc, p.getY(i) + yc);
+      if (dz) p.setZ(i, p.getZ(i) + dz);
+    }
+    p.needsUpdate = true; m.geometry.computeVertexNormals();
+  }
+  // where the paint let go round a dent: broken arcs of bare metal on the crease, never a drawn circle
+  function dentRims() {
+    const N = 20, PA = [], IA = [];
+    for (const d of (DMG && DMG.dents) || []) {
+      const [dx, dy, rx, ry] = d, b = PA.length / 3, ph = Math.abs(dx * 5.9 + dy * 2.3) % 6.2832;
+      const on = [];
+      for (let k = 0; k < N; k++) {
+        const a = (k / N) * PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+        const w = 0.10 + 0.05 * Math.sin(a * 3 + ph);
+        for (const f of [1.0 - w, 1.0 + w * 0.22]) {
+          const x = dx + ca * rx * f, y = dy + sa * ry * f;
+          PA.push(...placeSide(x, y, 0.003));
+        }
+        on.push(Math.sin(a * 2.6 + ph) + 0.55 * Math.sin(a * 5.3 + ph * 2) > -0.35);
+      }
+      for (let k = 0; k < N; k++) { if (!on[k] || !on[(k + 1) % N]) continue; const k1 = (k + 1) % N, a0 = b + k * 2, b0 = b + k1 * 2; IA.push(a0, a0 + 1, b0 + 1, a0, b0 + 1, b0); }
+    }
+    if (IA.length) rawMesh(PA, IA, mScuff);
+  }
   function sideWall(sz) {
     const zBack = sz * (W / 2 - 0.046), ry = sz > 0 ? 0 : PI;
     const dent = CFG.dent && sz < 0 ? CFG.dent : null;
@@ -192,7 +282,11 @@ const CFG = { kind: 'red', livery: 0x9c4a3c, bleach: 0.28, plates: [{ on: 'door'
       const xc = (k + 0.5) * PW - panelL / 2, mOut = paint(bl * (sz > 0 ? 1 : 0.35) * pf[(k + (sz > 0 ? 0 : 2)) % NP]);
       const modk = mod ? (x) => mod(x + xc) : null;
       const bands = CFG.band ? [[wallY0, wallY0 + CFG.band.h, M(CFG.band.color, 'metal', { roughness: 0.86, metalness: 0.08, side: DS })], [wallY0 + CFG.band.h, wallY1, mOut]] : [[wallY0, wallY1, mOut]];
-      for (const [y0, y1, mat] of bands) mesh(g, corrExtrude(PW, y1 - y0, PITCH, RIBD, SHEET, modk), mat, wx(sz, xc), (y0 + y1) / 2, zBack, 0, ry, 0);
+      const dented = sz > 0 && DENT_PANELS.has(k);
+      for (const [y0, y1, mat] of bands) {
+        const pm = mesh(g, corrExtrude(PW, y1 - y0, PITCH, RIBD, SHEET, modk, dented ? 7 : 1), mat, wx(sz, xc), (y0 + y1) / 2, zBack, 0, ry, 0);
+        if (dented) dishPanel(pm, xc, (y0 + y1) / 2);
+      }
     }
     sideDetail(sz);
     if (sz > 0) { const p = CFG.plates.find((q) => q.on === 'side'); if (p) box(g, p.w, p.h, 0.012, M(tint(liv, 0.75), 'metal', { roughness: 0.85 }), 1.1, 1.55, sz * (W / 2 - 0.004)); }
@@ -245,6 +339,44 @@ const CFG = { kind: 'red', livery: 0x9c4a3c, bleach: 0.28, plates: [{ on: 'door'
     box(g, 0.1, 0.06, W - 0.36, RUST, sx * (L / 2 - 0.07), H - 0.16, 0);
   }
   if (CFG.open) { openFrame(1); openFrame(-1); } else { doorEnd(1); plainEnd(-1); }
+
+  // ---- the damage itself: craters on the sun side and the door end, the scuffed rings round the dents,
+  //      rust bleeding out of every rim (or bare chipped paint on the blue one), and a torn corner flap ----
+  if (DMG) {
+    dentRims();
+    craters((DMG.side || []).map((h) => [crestX(h[0]), h[1], h[2]]), placeSide);
+    craters(DMG.door || [], placeDoor);
+    for (const [x0, y, r] of DMG.side || []) {
+      const x = crestX(x0);
+      if (DMG.chips) for (let k = 0; k < 4; k++) {
+        const cx = x + (drnd() - 0.5) * r * 4.6, cy = y + (drnd() - 0.5) * r * 4.2;
+        box(g, 0.016 + 0.014 * drnd(), 0.013 + 0.013 * drnd(), 0.004, mTorn, cx, cy, placeSide(cx, cy, 0.003)[2], 0, 0, drnd());
+      } else streak(g, 'pz', x, y - r * 1.5, placeSide(x, y, 0)[2], 0.16 + 0.30 * drnd(), r * 2.1);
+    }
+    for (const [z, y, r] of DMG.door || []) {
+      if (DMG.chips) for (let k = 0; k < 4; k++) {
+        const cz = z + (drnd() - 0.5) * r * 4.6, cy = y + (drnd() - 0.5) * r * 4.2;
+        box(g, 0.004, 0.013 + 0.013 * drnd(), 0.016 + 0.014 * drnd(), mTorn, placeDoor(cz, cy, 0.003)[0], cy, cz, drnd());
+      } else streak(g, 'px', placeDoor(z, y, 0)[0], y - r * 1.5, z, 0.14 + 0.26 * drnd(), r * 2.1);
+    }
+    if (DMG.flap) {
+      const [fz, fy] = DMG.flap, fr = 0.072;
+      craters([[fz, fy, fr, 0.95, 1.30]], placeDoor, { fO: 1.50, fL: 1.14, fM: 0.92, oL: 0.014, oM: 0.005, oC: 0.004, seg: 11 });
+      // the piece that came out: hinged on its top edge, bent out and twisted, torn edges rusted through
+      const hw = 0.082, hh = 0.20, s = new THREE.Shape();
+      s.moveTo(-hw, 0); s.lineTo(-hw * 0.3, 0.02); s.lineTo(hw * 0.6, -0.015); s.lineTo(hw, 0.01);
+      s.lineTo(hw * 0.86, -hh + 0.05); s.lineTo(hw * 0.2, -hh - 0.03); s.lineTo(-hw * 0.55, -hh + 0.02); s.lineTo(-hw * 0.92, -hh * 0.55);
+      s.closePath();
+      const fgeo = new THREE.ExtrudeGeometry(s, { depth: 0.012, bevelEnabled: false }); fgeo.translate(0, 0, -0.012);
+      { const fp = fgeo.attributes.position; for (let i = 0; i < fp.count; i++) { const yy = fp.getY(i); fp.setZ(i, fp.getZ(i) + 2.6 * yy * yy); fp.setX(i, fp.getX(i) * (1 - 0.9 * yy * yy)); } fgeo.computeVertexNormals(); }
+      const hg = new THREE.Group(); hg.position.set(placeDoor(fz, fy + fr * 1.6, 0.008)[0], fy + fr * 1.6, fz); g.add(hg);
+      hg.rotation.z = 0.52; hg.rotation.x = 0.22;
+      mesh(hg, fgeo, M(tint(liv, -0.06), 'metal', { roughness: 0.9, metalness: 0.1, side: DS }), 0, 0, 0, 0, -PI / 2, 0);
+      box(hg, 0.012, 0.022, 2 * hw, RUST, 0.006, -0.004, 0);                  // the tear line along the hinge
+      box(hg, 0.012, hh * 0.9, 0.016, RUST, 0.006, -hh * 0.52, hw - 0.008);   // and down the free edge
+      streak(g, 'px', placeDoor(fz, fy, 0)[0], fy - fr * 1.7, fz, 0.34, 0.16);
+    }
+  }
 
   // roof: transverse corrugation profile along x with a sag, and a sand sheet of the same profile 8 mm above it
   const sag = (x) => -0.03 * (1 - (x / 2.85) * (x / 2.85));

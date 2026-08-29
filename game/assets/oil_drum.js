@@ -88,7 +88,7 @@ export default function (THREE) {
     }
     p.needsUpdate = true; mesh.geometry.computeVertexNormals();
   };
-  dentAt(upper, 0.32, 0.57, 0.45, Math.PI, 0.045, 0.075, 0.13);
+  dentAt(upper, 0.31, 0.64, 0.46, -0.30, 0.085, 0.105, 0.160);   // round 21: one big dent in the side, on the shell the player walks past   // round 21: the side dent is a real one now, deep enough to pull the 0.60 hoop in with it
   const lower = g.children[0];
   dentAt(lower, 0.04, 0.25, 0.15, -Math.PI / 2 + 0.5, 0.03, 0.06, 0.1);
   // lid: a flat disc inside the top chime with two hex bung plugs in raised flanges, dust settled on it
@@ -118,7 +118,7 @@ export default function (THREE) {
   curved(R + 0.003, 0.07, 0.42, -Math.PI / 2, 0.18, plateM);
   curved(R + 0.0035, 0.02, 0.3, -Math.PI / 2 + 0.03, 0.2, mat(tint(C.tank, 0.55), 'metal', 0.85, 0.15, THREE.DoubleSide));
   // rust streaks from the bungs, the top chime and both hoops, on several sides
-  dripAt(0.34, 0.05, 0.0, 0.85, rustM);
+  dripAt(0.24, 0.05, 0.0, 0.85, rustM);   // shortened so its tail stops above the dent shoulder
   dripAt(0.2, 0.04, Math.PI - 0.1, 0.85, rustM);
   dripAt(0.16, 0.035, Math.PI / 2 + 0.6, 0.845, rustM);
   dripAt(0.12, 0.03, -Math.PI / 2 - 0.4, 0.845, rustM);
@@ -131,6 +131,56 @@ export default function (THREE) {
   lathe([[R - 0.02, 0.09], [R + 0.012, 0.02], [R + 0.02, 0.0]], SEG, fill);
   const drift = lathe([[0.0, 0.14], [R * 0.6, 0.1], [R + 0.012, 0.02], [R + 0.02, 0.0]], SEG, fill);
   drift.scale.set(0.95, 1, 0.5); drift.position.z = -0.12;
+  // ---- round 21 battle damage: the bullet holes are PUNCHED GEOMETRY, not decals. Each is an outer ring
+  //      lying on the shell, a torn collar 10 mm proud in bare bright steel, a wall falling away to a near
+  //      black floor, and oil that has run out of the middle one as narrow ribbons of real geometry that
+  //      break at the rolling hoop and pick up again below it. ----
+  const tornM = mat(tint(bleachedTan, 1.22), 'metal', 0.62, 0.5, THREE.DoubleSide);
+  const holeM = mat(0x0e0c0a, 'metal', 0.95, 0.10, THREE.DoubleSide);
+  const oilM = mat(0x15110d, 'metal', 0.42, 0.15, THREE.DoubleSide);
+  const shellAt = (a, y, off) => [Math.cos(a) * (R + off), y, Math.sin(a) * (R + off)];
+  const rawAdd = (Pp, Ii, m) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(Pp, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Array((Pp.length / 3) * 2).fill(0), 2));
+    geo.setIndex(Ii); geo.computeVertexNormals(); return add(geo, m);
+  };
+  function craters(list) {
+    const PA = [], IA = [], PB = [], IB = [], N = 12;
+    for (const [a0, y0, r] of list) {
+      const bA = PA.length / 3, bB = PB.length / 3, ph = Math.abs(a0 * 7.31 + y0 * 3.17) % 6.2832;
+      const wob = (k, sd) => 1 + 0.10 * Math.sin(k * 2.39 + ph + sd) + 0.05 * Math.sin(k * 4.71 + ph * 2 + sd);
+      const put = (du, dv, off) => shellAt(a0 + du / R, y0 + dv, off);
+      for (let k = 0; k < N; k++) {
+        const t = (k / N) * Math.PI * 2 + ph * 0.13, ca = Math.cos(t), sa = Math.sin(t);
+        const rO = r * 1.70 * wob(k, 0), rL = r * 1.26 * wob(k, 1.7), rM = r * 0.95 * wob(k, 3.4);
+        PA.push(...put(ca * rO, sa * rO, 0.002), ...put(ca * rL, sa * rL, 0.011));
+        PB.push(...put(ca * rL, sa * rL, 0.011), ...put(ca * rM, sa * rM, 0.005));
+      }
+      PB.push(...put(0, 0, 0.004));
+      for (let k = 0; k < N; k++) {
+        const k1 = (k + 1) % N, a = bA + k * 2, b = bA + k1 * 2, c = bB + k * 2, d = bB + k1 * 2;
+        IA.push(a, a + 1, b + 1, a, b + 1, b);
+        IB.push(c, c + 1, d + 1, c, d + 1, d, c + 1, bB + 2 * N, d + 1);
+      }
+    }
+    rawAdd(PA, IA, tornM); rawAdd(PB, IB, holeM);
+  }
+  craters([[Math.PI / 2 - 0.78, 0.71, 0.021], [Math.PI / 2 - 0.60, 0.45, 0.024], [Math.PI / 2 + 0.22, 0.74, 0.018]]);
+  // a run of oil: a strip that starts wide at the rim and thins as it goes, standing off the shell and wandering
+  function ribbon(a0, yTop, len, w0, w1, seg, m) {
+    const PA = [], IA = [];
+    for (let i = 0; i <= seg; i++) {
+      const t = i / seg, y = yTop - len * t, w = w0 + (w1 - w0) * t, off = 0.005 - 0.002 * t;
+      const wa = 0.5 * w * Math.sin(t * 6.1 + a0 * 3.3);
+      PA.push(...shellAt(a0 + (wa - w / 2) / R, y, off), ...shellAt(a0 + (wa + w / 2) / R, y, off));
+    }
+    for (let i = 0; i < seg; i++) { const a = i * 2; IA.push(a, a + 1, a + 3, a, a + 3, a + 2); }
+    rawAdd(PA, IA, m);
+  }
+  ribbon(Math.PI / 2 - 0.60, 0.424, 0.124, 0.028, 0.015, 3, oilM);   // out of the rim, down to the hoop
+  ribbon(Math.PI / 2 - 0.58, 0.262, 0.20, 0.016, 0.006, 4, oilM);    // and on below it
+  ribbon(Math.PI / 2 - 0.66, 0.418, 0.085, 0.010, 0.004, 2, oilM);   // a second thinner trickle
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by

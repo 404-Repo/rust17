@@ -1174,12 +1174,16 @@ export const DECALS = (() => {
   // collider (the buildings' upper walls) still takes the decal at the asset face.
   for (const e of [...by('pump_house_building'), ...by('bunkhouse_building')]) {
     for (const f of faces(e)) {
+      // round 22 (decal review): the bunkhouse long walls are clad in corrugated sheet above 1.3 m, the pump house is
+      // cast concrete throughout. Paper, cracks and seepage go on CONCRETE only: below the cladding line on the
+      // bunkhouse, anywhere on the pump house. Drain stains only under the modelled scuppers (dropped here; the
+      // asset carries its own). No blooms.
+      const clad = e.asset === 'bunkhouse_building' && f.len > 5;
+      const topY = clad ? 1.25 : 3.9;
       if (f.len > 5) {
-        for (const u of [rr(-0.72, -0.5), rr(0.5, 0.72)]) wallOn('seepage_streak', e, f, u, 3.55, rr(0.6, 0.8), rr(1.9, 2.3), 'try');
-        if (rnd() < 0.7) wallOn('drain_stain', e, f, rr(-0.3, 0.3), 3.9, rr(0.9, 1.1), rr(1.1, 1.3), 'try');
-        if (rnd() < 0.8) wallOn('concrete_crack', e, f, rr(-0.4, 0.4), rr(0.9, 1.6), rr(1.4, 1.8), rr(0.45, 0.6), 'try');
-        if (rnd() < 0.5) wallOn('notice_poster', e, f, rr(-0.2, 0.2), 1.6, 0.44, 0.62, 'try', 1);
-        if (rnd() < 0.5) wallOn('rust_bloom', e, f, rr(-0.45, 0.45), rr(2.6, 3.4), rr(0.3, 0.45), rr(0.3, 0.45), 'try');
+        for (const u of [rr(-0.72, -0.5), rr(0.5, 0.72)]) if (!clad) wallOn('seepage_streak', e, f, u, 3.55, rr(0.6, 0.8), rr(1.9, 2.3), 'try');
+        if (rnd() < 0.8) wallOn('concrete_crack', e, f, rr(-0.4, 0.4), Math.min(rr(0.9, 1.6), topY - 0.4), rr(1.4, 1.8), rr(0.45, 0.6), 'try');
+        if (rnd() < 0.5) wallOn('notice_poster', e, f, rr(-0.2, 0.2), Math.min(1.6, topY - 0.35), 0.44, 0.62, 'try', 1);
       } else {
         if (rnd() < 0.7) wallOn('seepage_streak', e, f, rr(-0.4, 0.4), 3.55, 0.7, 2.1, 'try');
         if (rnd() < 0.5) wallOn('concrete_crack', e, f, rr(-0.3, 0.3), rr(1.0, 1.6), 1.5, 0.5, 'try');
@@ -1189,23 +1193,15 @@ export const DECALS = (() => {
   for (const e of by('compound_wall_panel')) {
     for (const f of faces(e).filter((f) => f.len > 2)) {
       if (rnd() < 0.45) wallOn('concrete_crack', e, f, rr(-0.35, 0.35), rr(1.0, 1.7), rr(1.2, 1.6), rr(0.4, 0.55), 'try');
-      if (rnd() < 0.5) wallOn('rust_bloom', e, f, rr(-0.5, 0.5), 2.2, 0.32, 0.32, 'try');
       if (rnd() < 0.18) wallOn('spill_wall', e, f, rr(-0.4, 0.4), 0.5, rr(0.9, 1.2), rr(0.9, 1.2), 'try');
     }
   }
-  for (const e of by('corrugated_wall_panel')) { const f = faces(e)[rnd() < 0.5 ? 0 : 1]; if (rnd() < 0.6) wallOn('rust_bloom', e, f, rr(-0.5, 0.5), rr(0.8, 1.9), 0.3, 0.3, 'try'); }
   for (const e of [...by('shipping_container_blue'), ...by('shipping_container_rust_red'), ...by('shipping_container_tan'), ...by('shipping_container_open')]) {
-    for (const f of faces(e).filter((f) => f.len > 5)) {
-      for (let i = 0; i < 2; i++) if (rnd() < 0.7) wallOn('rust_bloom', e, f, rr(-0.8, 0.8), rr(0.5, 2.2), rr(0.25, 0.4), rr(0.25, 0.4), 'try');
-      if (rnd() < 0.25) wallOn('notice_poster', e, f, rr(-0.5, 0.5), 1.55, 0.44, 0.62, 'try', 1);
-    }
+    // round 22: containers are corrugated steel: no paper notices, no blooms; the rust runs under the door hardware stay
+    for (const f of faces(e).filter((f) => f.len > 5)) { if (rnd() < 0.5) wallOn('rust_run', e, f, rr(-0.8, 0.8), rr(1.4, 2.3), 0.18, rr(0.7, 1.1), 'try'); }
   }
-  for (const e of [...by('oil_storage_tank'), ...by('oil_storage_tank_open')]) {
-    const r = 4 * (e.scale || 1);
-    for (let i = 0; i < 3; i++) wallRound('drain_stain', e, rr(0, 6.28), r, 3.7, rr(0.8, 1.0), rr(1.0, 1.2));
-    for (let i = 0; i < 4; i++) wallRound('rust_bloom', e, rr(0, 6.28), r, rr(0.8, 3.6), 0.3, 0.3);
-    if (rnd() < 0.6) wallRound('spill_wall', e, rr(0, 6.28), r, 0.55, 1.1, 1.1);
-  }
+  // round 22: the tanks carry no wrapped decals (see decals.js REMOVED and the round filter); their staining is
+  // painted into the asset and their plinth is geometry.
 
   // ---- wall: hazard stripes on jersey barriers, generator sets, control cabinets and the tank stair
   for (const e of by('jersey_barrier')) { const fs = faces(e).filter((f) => f.len > 2); for (const f of fs) if (rnd() < 0.8) wallOn('hazard_stripe', e, f, rr(-0.45, 0.45), 0.42, 1.2, 0.25, 'need', 1); }
@@ -1228,11 +1224,6 @@ export const DECALS = (() => {
   Wd('stencil_no_smoking', 42.4, 32, 38, 36, 1.75, 0, -1, 0.62, 0.62 / 1.54, 'need', 'bunkhouse', 1);
 
   // ---- bullet holes on cover facing the centre: jersey barriers, containers, compound walls (craters), corrugated panels
-  for (const e of by('jersey_barrier')) if (rnd() < 0.6) { const f = faceToward(e, 0, 6); wallOn('bullet_holes_concrete', e, f, rr(-0.5, 0.5), 0.42, 0.6, 0.6, 'need'); }
-  for (const e of CONTAINERS) { const f = sideToward(e, 0, 6); const n = 1 + (rnd() < 0.6 ? 1 : 0); for (let i = 0; i < n; i++) wallOn('bullet_holes', e, f, rr(-0.8, 0.8), rr(1.0, 1.6), 0.8, 0.8, 'need'); }
-  for (const e of by('compound_wall_panel')) { const f = faceToward(e, 0, 6); if (f.nx * (0 - e.x) + f.nz * (6 - e.z) <= 0) continue; if (rnd() < 0.55) wallOn('bullet_holes_concrete', e, f, rr(-0.55, 0.55), rr(1.0, 1.5), 0.8, 0.8, 'need'); }
-  for (const e of by('corrugated_wall_panel')) if (rnd() < 0.5) { const f = faceToward(e, 0, 6); wallOn('bullet_holes', e, f, rr(-0.5, 0.5), rr(0.9, 1.5), 0.7, 0.7, 'need'); }
-  for (const e of by('generator_set')) if (rnd() < 0.5) { const f = faceToward(e, 0, 6); wallOn('bullet_holes', e, f, rr(-0.5, 0.5), 1.1, 0.6, 0.6, 'need'); }
 
   // ---- rust runs under fixings on containers and tanks, several small ones each
   for (const e of CONTAINERS) for (const f of faces(e).filter((f) => f.len > 5)) for (let i = 0; i < 2; i++) wallOn('rust_run', e, f, rr(-0.85, 0.85), 1.95, 0.12, 0.9, 'need');
