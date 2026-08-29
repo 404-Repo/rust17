@@ -11,7 +11,8 @@
  */
 import * as THREE from 'three';
 import { ASSET } from '../../assetlib.js';
-import { loadGlbSoldier } from './glbsoldier.js';   // round 8: skinned soldiers from Atlas (Titan v1 + rig_humanoid_mesh)
+import { loadGlbSoldier } from './glbsoldier.js';
+import { applyTeamLook, attachTeamMarks, teamLookEnabled } from './teamlook.js';   // round 10: abstract team colour figures   // round 8: skinned soldiers from Atlas (Titan v1 + rig_humanoid_mesh)
 import { SoldierRig } from './animation.js';
 import { applyMaterials } from '../render/materials.js';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
 
@@ -102,7 +103,12 @@ export class Bot {
       model = await ASSET(`./assets/${soldier}.js`, { keepHierarchy: true, surfaces: true });
       if (!model.userData || !model.userData.joints) console.warn(`[bot] ${soldier} arrived without joints (missing asset or merged); ${this.id} will not animate`);
       this.model = model;
-      applyMaterials(model, { asset: soldier, unify: true, local: true });   // materials r3: was vertexiseMaterials(model, { unify: true }); one set per soldier, projected in its own space
+      // round 10: with the team look the set is forced to the neutral canvas_tan (olive_fabric's green basecolor
+      // turned the rangers' slate blue into grey green)
+      const look = teamLookEnabled();
+      if (look) applyTeamLook(model, this.team);
+      applyMaterials(model, { asset: soldier, unify: true, local: true, set: look ? 'canvas_tan' : undefined });   // materials r3: was vertexiseMaterials(model, { unify: true }); one set per soldier, projected in its own space
+      if (look) attachTeamMarks(model, this.team);
       this.object.add(model);
       this.rig = new SoldierRig(model);
     }
