@@ -53,20 +53,24 @@ export default function (THREE) {
   };
   const bar = (p, q, w, t, mat, up) => { const { gr, len } = frame(p, q, up); box(w, len, t, mat, 0, 0, 0, gr); return gr; };
 
-  const YT = 7.5, H0 = 3.25, H1 = 1.25;
+  // round 11 (Ben 2026-08-29: "the high tower in the center ... proportions seem weird / stretched"): the top
+  // section is 20.5 m of lattice, not 7.5, so the whole derrick stands 31 m on an 8 m base like the concept
+  // (concepts/oil_derrick.png). Same taper rule, same members; eleven bays of diamonds, three leg bands, a
+  // 2.6 m monkey board platform 4.5 m under the crown. Nothing is scaled: every member is drawn at its size.
+  const YT = 20.5, H0 = 3.25, H1 = 1.25;
   const hw = (y) => H0 - (H0 - H1) * (y / YT);
 
   // ---- legs: box section 0.16 in two bands, splice collars with bolts at 0.3 and 5.0 ----
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    for (const [ya, yb, matA] of [[0, 5.0, sz > 0 ? oxS : oxN], [5.0, YT + 0.1, sz > 0 ? oxBS : oxB]]) {
+    for (const [ya, yb, matA] of [[0, 7.0, sz > 0 ? oxS : oxN], [7.0, 14.0, sz > 0 ? oxS : oxN], [14.0, YT + 0.1, sz > 0 ? oxBS : oxB]]) {
       const p = V(sx * (hw(ya) - 0.08), ya, sz * (hw(ya) - 0.08)), q = V(sx * (hw(yb) - 0.08), yb, sz * (hw(yb) - 0.08));
       const { gr, len } = frame(p, q, V(0, 0, sz));
       box(0.16, len, 0.16, matA, 0, 0, 0, gr);
       box(0.17, len, 0.01, sz > 0 ? oxN : oxS, 0, 0, -0.08, gr);   // shaded inner face
     }
-    for (const yy of [0.3, 5.0]) {
+    for (const yy of [0.3, 7.0, 14.0]) {
       const c = V(sx * (hw(yy) - 0.08), yy, sz * (hw(yy) - 0.08));
-      box(0.22, 0.4, 0.22, yy > 4 ? oxB : ox, c.x, c.y, c.z);
+      box(0.22, 0.4, 0.22, yy > 13 ? oxB : ox, c.x, c.y, c.z);
       for (const [nx, nz] of [[sx, 0], [0, sz]]) for (const dy of [-0.12, 0, 0.12]) cyl(0.025, 0.03, gun, c.x + nx * 0.115, yy + dy, c.z + nz * 0.115, nx ? 'x' : 'z', 6);
       // the drip under the lower collar stops at the foot plate; it used to hang 0.45 m below the base plane and lift the crown off the mid deck
       const dl = yy > 1 ? 0.25 : 0.06, dy = yy - 0.2 - dl / 2;
@@ -80,9 +84,9 @@ export default function (THREE) {
   }
 
   // ---- diamonds: girts at 0, 1.85, 3.7, 5.55, 7.4 and X braces between, plates at crossings ----
-  const faceMat = (f, y) => y > 5 ? (f === 'S' ? oxBS : oxB) : (f === 'S' ? oxS : f === 'N' ? oxN : f === 'E' ? oxE : oxW);
+  const faceMat = (f, y) => y > 14 ? (f === 'S' ? oxBS : oxB) : (f === 'S' ? oxS : f === 'N' ? oxN : f === 'E' ? oxE : oxW);
   const faces = [['S', 0, 1], ['N', 0, -1], ['E', 1, 0], ['W', -1, 0]];
-  const levels = [0.12, 1.95, 3.7, 5.55, YT - 0.1];
+  const levels = [0.12]; for (let y = 1.95; y < YT - 1.2; y += 1.85) levels.push(+y.toFixed(2)); levels.push(YT - 0.1);
   for (const y of levels) {
     const w = hw(y);
     for (const [f, nx, nz] of faces) {
@@ -121,6 +125,18 @@ export default function (THREE) {
   }
 
   // ---- crown block: two deep I beams on edge 0.9 m tall, end ties, the sheaves stand proud ----
+  // ---- monkey board: a 2.6 m grating platform 4.5 m under the crown, rails, on outriggers off the legs ----
+  { const PY = YT - 4.5, pw = hw(PY) + 0.55;
+    box(2 * pw, 0.05, 2 * pw, steel, 0, PY + 0.025, 0);
+    box(2 * pw - 0.3, 0.006, 2 * pw - 0.3, dust, 0, PY + 0.053, 0);
+    for (const [nx, nz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      box(nz ? 2 * pw : 0.06, 0.06, nz ? 0.06 : 2 * pw, ox, nx * pw, PY - 0.02, nz * pw);              // kerb angle
+      for (const ry of [0.55, 1.1]) box(nz ? 2 * pw : 0.035, 0.035, nz ? 0.035 : 2 * pw, oxR, nx * pw, PY + ry, nz * pw);   // rails
+      for (const t of [-1, -0.33, 0.33, 1]) box(0.035, 1.1, 0.035, oxR, nz ? t * pw : nx * pw, PY + 0.55, nx ? t * pw : nz * pw);
+    }
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const c = hw(PY) - 0.08; bar(V(sx * c, PY - 0.9, sz * c), V(sx * pw, PY - 0.03, sz * pw), 0.06, 0.02, ox); }
+  }
+
   const BX = 1.25, BZ = 0.8, BY0 = YT, BH = 1.3, PH = 0.9;
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(0.3, 0.03, 0.3, steel, sx * (hw(YT) - 0.08), BY0 + 0.015, sz * (hw(YT) - 0.08));
   for (const sz of [-1, 1]) {

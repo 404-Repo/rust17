@@ -13,32 +13,32 @@
  * Everything loads relative to this folder: ./assets, ./assetlib.js, ./src/...
  */
 import * as THREE from 'three';
-import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r10-202608291001';
-import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY } from './src/render/lighting.js?v=r10-202608291001';
-import { createSky } from './src/render/sky.js?v=r10-202608291001';
-import { createPost } from './src/render/post.js?v=r10-202608291001';
-import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r10-202608291001';
-import { World } from './src/world/collision.js?v=r10-202608291001';
-import { buildLevel } from './src/level/build.js?v=r10-202608291001';
-import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r10-202608291001';
-import { Player } from './src/player/controller.js?v=r10-202608291001';
-import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r10-202608291001';
-import { Viewmodel } from './src/player/viewmodel.js?v=r10-202608291001';
-import { FX } from './src/player/fx.js?v=r10-202608291001';
-import { NavGrid } from './src/ai/navgrid.js?v=r10-202608291001';
-import { Bot } from './src/ai/bot.js?v=r10-202608291001';
-import { SquadManager } from './src/ai/squad.js?v=r10-202608291001';
-import { Input, RAD_PER_PX } from './src/ui/input.js?v=r10-202608291001';
-import { TouchControls } from './src/ui/touch.js?v=r10-202608291001';
-import { HUD } from './src/ui/hud.js?v=r10-202608291001';
-import { Screens } from './src/ui/screens.js?v=r10-202608291001';
-import { Events } from './src/game/events.js?v=r10-202608291001';
-import { TDM } from './src/game/mode.js?v=r10-202608291001';
-import { createTelemetry } from './src/game/telemetry.js?v=r10-202608291001';
-import { Audio } from './src/game/audio.js?v=r10-202608291001';
-import { ASSET } from './assetlib.js?v=r10-202608291001';
-import { vertexiseMaterials } from './src/game/bake.js?v=r10-202608291001';
-import { preloadMaterials, applyTerrainMaterial } from './src/render/materials.js?v=r10-202608291001';   // materials r3
+import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r11-202608291059';
+import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY } from './src/render/lighting.js?v=r11-202608291059';
+import { createSky } from './src/render/sky.js?v=r11-202608291059';
+import { createPost } from './src/render/post.js?v=r11-202608291059';
+import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r11-202608291059';
+import { World } from './src/world/collision.js?v=r11-202608291059';
+import { buildLevel } from './src/level/build.js?v=r11-202608291059';
+import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r11-202608291059';
+import { Player } from './src/player/controller.js?v=r11-202608291059';
+import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r11-202608291059';
+import { Viewmodel } from './src/player/viewmodel.js?v=r11-202608291059';
+import { FX } from './src/player/fx.js?v=r11-202608291059';
+import { NavGrid } from './src/ai/navgrid.js?v=r11-202608291059';
+import { Bot } from './src/ai/bot.js?v=r11-202608291059';
+import { SquadManager } from './src/ai/squad.js?v=r11-202608291059';
+import { Input, RAD_PER_PX } from './src/ui/input.js?v=r11-202608291059';
+import { TouchControls } from './src/ui/touch.js?v=r11-202608291059';
+import { HUD } from './src/ui/hud.js?v=r11-202608291059';
+import { Screens } from './src/ui/screens.js?v=r11-202608291059';
+import { Events } from './src/game/events.js?v=r11-202608291059';
+import { TDM } from './src/game/mode.js?v=r11-202608291059';
+import { createTelemetry } from './src/game/telemetry.js?v=r11-202608291059';
+import { Audio } from './src/game/audio.js?v=r11-202608291059';
+import { ASSET } from './assetlib.js?v=r11-202608291059';
+import { vertexiseMaterials } from './src/game/bake.js?v=r11-202608291059';
+import { preloadMaterials, applyTerrainMaterial } from './src/render/materials.js?v=r11-202608291059';   // materials r3
 
 const ROUND = 'r6';
 const DEG = Math.PI / 180;
@@ -226,7 +226,9 @@ function placeBotsAtSpawns() {
 }
 
 function spawnPlayer() {
-  const s = pickPlayerSpawn();
+  // round 11: '?spawn=x,z,yawDeg' (map plan yaw, 0 = facing south) puts the player somewhere exact, for tools/shot.mjs
+  const sp = (params.get('spawn') || '').split(',').map(Number);
+  const s = sp.length >= 2 && sp.every((v) => !Number.isNaN(v)) ? [sp[0], sp[1], sp[2] || 0] : pickPlayerSpawn();
   player.spawnAt(s[0], s[1], s[2] * DEG);
   hurt = 0;
 }

@@ -16,11 +16,12 @@
  * before the bake because the bake leaves no individual objects behind.
  */
 import * as THREE from 'three';
-import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r10-202608291001';
-import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r10-202608291001';
-import { applyMaterials } from '../render/materials.js?v=r10-202608291001';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
-import { collapsePerJoint } from '../ai/animation.js?v=r10-202608291001';
-import { buildDecals } from '../render/decals.js?v=r10-202608291001';   // decals r6: near field decals, built after the bake
+import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r11-202608291059';
+import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r11-202608291059';
+import { GLB_STATIC, loadGlbStatic } from './glbstatic.js?v=r11-202608291059';   // round 11: Atlas rocks
+import { applyMaterials } from '../render/materials.js?v=r11-202608291059';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
+import { collapsePerJoint } from '../ai/animation.js?v=r11-202608291059';
+import { buildDecals } from '../render/decals.js?v=r11-202608291059';   // decals r6: near field decals, built after the bake
 
 const EYE = 1.65;
 const DEG = Math.PI / 180;
@@ -144,7 +145,11 @@ const SPECS = {
     ...rail('z', -4, -4, 4, 4.6, 1.1),
     ...rail('z', 4, -4, 4, 4.6, 1.1, [[0, 0.8]]),
   ],
-  derrick_crown_module: () => [[-3.1, -3.1], [3.1, -3.1], [3.1, 3.1], [-3.1, 3.1]].map(([x, z]) => box(x, 4.4, z, 0.3, 8.8, 0.3)),
+  // round 11: the crown section is 21.8 m tall now; legs as three stacked boxes following the taper (3.25 -> 1.25 half width)
+  derrick_crown_module: () => { const out = []; const hw = (y) => 3.25 - 2.0 * (y / 20.5);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const [ya, yb] of [[0, 7], [7, 14], [14, 20.6]]) { const ym = (ya + yb) / 2, c = hw(ym) - 0.08; out.push(box(sx * c, ym, sz * c, 0.3, yb - ya, 0.3)); }
+    out.push(box(0, 20.9, 0, 3.0, 0.7, 2.0));   // the crown block
+    return out; },
   oil_storage_tank: (p) => tankSpec(p, false),
   oil_storage_tank_open: (p) => tankSpec(p, true),
   tank_catwalk_bridge: () => [
@@ -282,7 +287,7 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
   const present = new Set(), missing = [];
   await Promise.all(names.map(async (n) => {
     try {
-      const r = await fetch(url(n), { method: 'HEAD' });
+      const r = await fetch(GLB_STATIC[n] || url(n), { method: 'HEAD' });   // round 11: GLB props live at their own path
       if (r.ok) present.add(n); else missing.push(n);
     } catch { missing.push(n); }
   }));
@@ -346,13 +351,14 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
       // movers still take the plain merged prototype for their size.
       await Promise.all(chunk.map(async (n) => {
         try {
-          if (movingNames.has(n)) { await preloadAssets([url(n)]); sizes.set(n, await assetSize(url(n))); }
+          if (GLB_STATIC[n]) { const t = TSV_SIZES[n] || [4, 4, 2]; sizes.set(n, new THREE.Vector3(t[0], t[2], t[1])); await loadGlbStatic(n, t); }   // round 11: GLB props, size from the TSV
+          else if (movingNames.has(n)) { await preloadAssets([url(n)]); sizes.set(n, await assetSize(url(n))); }
           else sizes.set(n, (await loadSplit(n)).size);
         } catch (e) { console.warn('[level] load failed', n, e.message); }
       }));
     } else {
-      await preloadAssets(chunk.map(url));
-      for (const n of chunk) { try { sizes.set(n, await assetSize(url(n))); } catch (e) { console.warn('[level] assetSize failed', n, e.message); } }
+      await preloadAssets(chunk.filter((n) => !GLB_STATIC[n]).map(url));
+      for (const n of chunk) { try { if (GLB_STATIC[n]) { const t = TSV_SIZES[n] || [4, 4, 2]; sizes.set(n, new THREE.Vector3(t[0], t[2], t[1])); continue; } sizes.set(n, await assetSize(url(n))); } catch (e) { console.warn('[level] assetSize failed', n, e.message); } }
     }
     progress(0.05 + 0.5 * ((i + 6) / Math.max(1, toLoad.length)), 'loading assets');
   }
@@ -389,8 +395,9 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
     if (Number.isNaN(baseY)) { stats.sloped = (stats.sloped || 0) + 1; continue; }   // level r5: foliage on a bank
     // integrator r4: static props come from the split prototype (coarse and fine halves, each already
     // collapsed by material, see loadSplit above); movers keep their part tree as before
-    const split = (!p.moving && FINE_SIZE > 0) ? await loadSplit(p.asset) : null;
-    const obj = split ? split.coarse.clone(true) : await ASSET(url(p.asset), p.moving ? { keepHierarchy: true, surfaces: true } : { surfaces: true });
+    const glb = !p.moving && GLB_STATIC[p.asset] ? await loadGlbStatic(p.asset, (TSV_SIZES[p.asset] || [4, 4, 2])) : null;
+    const split = (!p.moving && !glb && FINE_SIZE > 0) ? await loadSplit(p.asset) : null;
+    const obj = glb || (split ? split.coarse.clone(true) : await ASSET(url(p.asset), p.moving ? { keepHierarchy: true, surfaces: true } : { surfaces: true }));
     let meshes = 0;
     obj.traverse((o) => { if (o.isMesh) meshes++; });
     if (!meshes) { console.warn(`[level] asset ${p.asset} loaded empty, placement ${p.tag} skipped`); stats.empty++; continue; }
@@ -420,6 +427,17 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
       obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       scene.add(obj);
       movers.push(p.asset === 'pump_jack' ? pumpJackMover(p, obj) : { asset: p.asset, object: obj, tag: p.tag, update() {} });
+      continue;
+    }
+    if (glb) {
+      // round 11: a GLB prop is one textured mesh already; it is NOT merged into the block (bakeStatic merges by
+      // material values and would drop its baked maps), it stands in the scene on its own, one draw each
+      // the edge ridges stand outside the walls: their shadows fall where nobody walks, and 6 x 8.5k tris in the
+      // shadow pass put the gate over budget (1.80M against 1.7M), so they receive but do not cast
+      const casts = p.asset !== 'rock_ridge';
+      obj.traverse((o) => { if (o.isMesh) { o.castShadow = casts; o.receiveShadow = true; } });
+      scene.add(obj);
+      stats.glb = (stats.glb || 0) + 1;
       continue;
     }
     applyMaterials(obj, { asset: p.asset });   // materials r3: was vertexiseMaterials(obj); textures per set, then the same vertex bake
@@ -547,7 +565,7 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
 
 // w, d, h from docs/OBJECTS.tsv, for the size sanity warning only
 const TSV_SIZES = {
-  derrick_base_module: [10, 10, 5.7], derrick_mid_module: [8, 8, 5.7], derrick_crown_module: [6.5, 6.5, 8.8],
+  derrick_base_module: [10, 10, 5.7], derrick_mid_module: [8, 8, 5.7], derrick_crown_module: [6.5, 6.5, 21.8],
   oil_storage_tank: [8, 8, 5.2], oil_storage_tank_open: [8, 8, 5.2], tank_catwalk_bridge: [5, 1.2, 1.1],
   bullet_tank_horizontal: [8, 2.6, 3.2], pump_house_building: [12, 8, 5.2], bunkhouse_building: [14, 8, 5.2],
   mud_pump_shed: [10, 6, 4.9], watchtower_gantry: [3, 3, 7], culvert_crossing: [3.4, 8, 2.6],
@@ -559,7 +577,7 @@ const TSV_SIZES = {
   oil_drum: [0.585, 0.585, 0.88], ibc_tote: [1.2, 1, 1.16], tyre_stack: [1, 1, 1.2],
   shipping_container_rust_red: [6.06, 2.44, 2.59], shipping_container_blue: [6.06, 2.44, 2.59],
   shipping_container_tan: [6.06, 2.44, 2.59], shipping_container_open: [6.06, 2.44, 2.59],
-  rock_outcrop_large: [8, 5, 3], rock_outcrop_small: [2, 1.5, 1], generator_set: [3.2, 1.2, 1.9],
+  rock_outcrop_large: [8, 5, 3], rock_outcrop_small: [2, 1.5, 1], rock_ridge: [20, 8, 5], generator_set: [3.2, 1.2, 1.9],
   fuel_truck_wreck: [8, 2.5, 3.2], pickup_wreck: [5.2, 2, 1.8], wooden_pallet_stack: [1.2, 0.8, 0.6],
   valve_manifold: [2.4, 1, 1.6], wellhead_christmas_tree: [1.2, 1.2, 2.4], palm_tree: [6, 6, 9],
   dead_shrub: [1.2, 1.2, 0.8], grass_tuft: [0.6, 0.6, 0.45], debris_scatter: [2, 2, 0.3], bunk_bed: [2, 0.9, 1.7], locker_bank: [1.2, 0.5, 1.8],
