@@ -28,7 +28,32 @@
  */
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
-import { applySurfaces } from './surfaces.js?v=r11-202608291059';
+import { applySurfaces } from './surfaces.js?v=r12-202608291139';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+// DERRICK round 12 (audit, "hard CG edges everywhere"): every box an asset builds with a smallest side of
+// 25 cm or more gets a 1.5 cm chamfer (RoundedBoxGeometry, one segment, so 12 triangles become about 60), and
+// the sun catches its edges the way it catches a real crate, cabinet or container. Smaller boxes (bolts,
+// slats, rails) stay plain. RoundedBoxGeometry extends BoxGeometry, so `geometry.parameters` and
+// `instanceof THREE.BoxGeometry` still hold for asset code that reads them. The assets receive this
+// namespace in place of THREE; nothing else in it is touched. This is the one edit to the canonical loader.
+class ChamferBox extends RoundedBoxGeometry {
+  constructor(w = 1, h = 1, d = 1) {
+    const m = Math.min(w, h, d);
+    super(w, h, d, 1, Math.min(0.015, m * 0.12));
+  }
+}
+const ASSET_THREE = new Proxy(THREE, {
+  get(t, k) {
+    if (k === 'BoxGeometry') return ChamferBoxOrPlain;
+    return t[k];
+  },
+});
+function ChamferBoxOrPlain(w = 1, h = 1, d = 1, ws, hs, ds) {
+  if (Math.min(w, h, d) >= 0.25 && ws === undefined) return new ChamferBox(w, h, d);
+  return new THREE.BoxGeometry(w, h, d, ws, hs, ds);
+}
+ChamferBoxOrPlain.prototype = THREE.BoxGeometry.prototype;   // `new` returns the explicit object above; instanceof keeps working
 
 const cache = new Map();   // url -> Promise<prototype>
 
@@ -180,7 +205,7 @@ async function loadPrototype(url, keepHierarchy = false) {
     const mod = await import(/* @vite-ignore */ new URL(url, location.href).href);
     const fn = mod.default || mod.build || mod.create;
     if (typeof fn !== 'function') throw new Error(`asset has no default export function: ${url}`);
-    const built = fn(THREE);
+    const built = fn(ASSET_THREE);   // round 12: THREE with the chamfered BoxGeometry, see the top of this file
     // Merging is what keeps the draw calls down and it is right for scenery. It
     // is also destructive: it collapses the hierarchy and drops everything the
     // asset attached to userData, so anything with moving parts arrives welded

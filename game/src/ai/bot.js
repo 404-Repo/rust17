@@ -10,11 +10,11 @@
  * 2x the player's hip spread; reaction time 0.35 s at point blank to 0.7 s at 60 m.
  */
 import * as THREE from 'three';
-import { ASSET } from '../../assetlib.js?v=r11-202608291059';
-import { loadGlbSoldier } from './glbsoldier.js?v=r11-202608291059';
-import { applyTeamLook, attachTeamMarks, teamLookEnabled } from './teamlook.js?v=r11-202608291059';   // round 10: abstract team colour figures   // round 8: skinned soldiers from Atlas (Titan v1 + rig_humanoid_mesh)
-import { SoldierRig } from './animation.js?v=r11-202608291059';
-import { applyMaterials } from '../render/materials.js?v=r11-202608291059';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
+import { ASSET } from '../../assetlib.js?v=r12-202608291139';
+import { loadGlbSoldier } from './glbsoldier.js?v=r12-202608291139';
+import { applyTeamLook, attachTeamMarks, teamLookEnabled } from './teamlook.js?v=r12-202608291139';   // round 10: abstract team colour figures   // round 8: skinned soldiers from Atlas (Titan v1 + rig_humanoid_mesh)
+import { SoldierRig } from './animation.js?v=r12-202608291139';
+import { applyMaterials } from '../render/materials.js?v=r12-202608291139';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
 
 export const BOT_WEAPONS = {
   // integrator: spread was 2x the player's HIP cone (0.020 / 0.032 / 0.012); a bot shoulders its rifle,

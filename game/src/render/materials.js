@@ -52,9 +52,9 @@
  * frond throws a leaflet shaped shadow, not a rectangle.
  */
 import * as THREE from 'three';
-import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r11-202608291059';
-import { classify, RECIPES } from '../../surfaces.js?v=r11-202608291059';
-import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r11-202608291059';   // round 5: the cards' backlight reads the rig's sun
+import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r12-202608291139';
+import { classify, RECIPES } from '../../surfaces.js?v=r12-202608291139';
+import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r12-202608291139';   // round 5: the cards' backlight reads the rig's sun
 
 /**
  * The sets. `scale` is metres per tile. `normal` is the normal map strength, `albedo` and
@@ -299,6 +299,7 @@ uniform vec3 uTriTint;       // per set colour bias (SETS[].tint), 1 for most se
 uniform float uTriRoughMean;
 uniform float uTriLocal;
 uniform float uTriNFlip;
+uniform float uTriWear;      // round 12: edge wear amount per set (SETS[].wear, default 1 for metal and timber, 0.4 otherwise)
 uniform mat4 modelMatrix;`;
 
 /**
@@ -357,6 +358,27 @@ vec3 triN; float triR;
   diffuseColor.rgb *= mix( vec3( 1.0 ), ratio, uTriK.z ) * uTriTint;
   triN = normalize( nrm );
   triR = clamp( mix( 1.0, rgh / max( uTriRoughMean, 0.05 ), uTriK.w ), 0.2, 1.6 );
+  // round 12 (audit): MACRO VARIATION. The same tile read once more at 1/9 of the frequency on the dominant
+  // projection; its luminance against the tile mean modulates albedo and roughness by up to 35 percent, so
+  // three tiles side by side no longer read as three copies. One extra texture read, no new texture.
+  {
+    vec3 pm = vTriPos * uTriK.x * 0.11;
+    vec2 uvm = bw.y >= bw.x && bw.y >= bw.z ? vec2( pm.x, -s.y * pm.z ) : ( bw.x >= bw.z ? vec2( -s.x * pm.z, pm.y ) : vec2( s.z * pm.x, pm.y ) );
+    vec3 m = texture2D( uTriMap, uvm + vec2( 0.37, 0.61 ) ).rgb;
+    float lm = dot( m, vec3( 0.3, 0.59, 0.11 ) ) / max( dot( uTriMean, vec3( 0.3, 0.59, 0.11 ) ), 0.02 );
+    lm = clamp( lm, 0.5, 1.8 );
+    diffuseColor.rgb *= mix( 1.0, lm, 0.35 );
+    triR *= mix( 1.0, 1.0 / lm, 0.25 );
+  }
+  // round 12 (audit): EDGE WEAR. Where the surface normal leaves the three projection axes (the chamfers the
+  // loader now cuts on every box over 25 cm, the shoulders of every cylinder) the paint is worn to a lighter,
+  // smoother base. Axis aligned faces get none; a 45 degree face gets the full amount.
+  {
+    float offAxis = 1.0 - max( bw.x, max( bw.y, bw.z ) );
+    float wear = smoothstep( 0.08, 0.45, offAxis ) * uTriWear;
+    diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * 1.3 + vec3( 0.06 ), wear * 0.7 );
+    triR = mix( triR, triR * 0.7, wear );
+  }
 }`;
 
 const TRI_ROUGH_FS = /* glsl */`float roughnessFactor = clamp( vRM.x * triR, 0.04, 1.0 );`;
@@ -392,6 +414,7 @@ export class TriplanarMaterial extends VertexPBRMaterial {
     shader.uniforms.uTriK = { value: new THREE.Vector4(1 / (S.scale * detail), S.normal, S.albedo, T.rough ? S.rough : 0) };
     shader.uniforms.uTriMean = { value: T.mean };
     shader.uniforms.uTriTint = { value: new THREE.Color(...(S.tint || [1, 1, 1])) };
+    shader.uniforms.uTriWear = { value: S.wear !== undefined ? S.wear : ((S.recipe === 'metal' || S.recipe === 'timber') ? 1.0 : 0.4) };
     shader.uniforms.uTriRoughMean = { value: T.roughMean };
     shader.uniforms.uTriLocal = { value: this.userData.triLocal ? 1 : 0 };
     shader.uniforms.uTriNFlip = { value: NORMAL_FLIP };
