@@ -13,33 +13,33 @@
  * Everything loads relative to this folder: ./assets, ./assetlib.js, ./src/...
  */
 import * as THREE from 'three';
-import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r20-202608291954';
-import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r20-202608291954';
-import { createSky } from './src/render/sky.js?v=r20-202608291954';
-import { createPost } from './src/render/post.js?v=r20-202608291954';
-import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r20-202608291954';
-import { createSkirt } from './src/world/skirt.js?v=r20-202608291954';   // round 17 item 5: ground beyond the map edge
-import { World } from './src/world/collision.js?v=r20-202608291954';
-import { buildLevel } from './src/level/build.js?v=r20-202608291954';
-import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r20-202608291954';
-import { Player } from './src/player/controller.js?v=r20-202608291954';
-import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r20-202608291954';
-import { Viewmodel } from './src/player/viewmodel.js?v=r20-202608291954';
-import { FX } from './src/player/fx.js?v=r20-202608291954';
-import { NavGrid } from './src/ai/navgrid.js?v=r20-202608291954';
-import { Bot } from './src/ai/bot.js?v=r20-202608291954';
-import { SquadManager } from './src/ai/squad.js?v=r20-202608291954';
-import { Input, RAD_PER_PX } from './src/ui/input.js?v=r20-202608291954';
-import { TouchControls } from './src/ui/touch.js?v=r20-202608291954';
-import { HUD } from './src/ui/hud.js?v=r20-202608291954';
-import { Screens } from './src/ui/screens.js?v=r20-202608291954';
-import { Events } from './src/game/events.js?v=r20-202608291954';
-import { TDM } from './src/game/mode.js?v=r20-202608291954';
-import { createTelemetry } from './src/game/telemetry.js?v=r20-202608291954';
-import { Audio } from './src/game/audio.js?v=r20-202608291954';
-import { ASSET } from './assetlib.js?v=r20-202608291954';
-import { vertexiseMaterials } from './src/game/bake.js?v=r20-202608291954';
-import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r20-202608291954';   // materials r3
+import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r21-202608292004';
+import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r21-202608292004';
+import { createSky } from './src/render/sky.js?v=r21-202608292004';
+import { createPost } from './src/render/post.js?v=r21-202608292004';
+import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r21-202608292004';
+import { createSkirt } from './src/world/skirt.js?v=r21-202608292004';   // round 17 item 5: ground beyond the map edge
+import { World } from './src/world/collision.js?v=r21-202608292004';
+import { buildLevel } from './src/level/build.js?v=r21-202608292004';
+import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r21-202608292004';
+import { Player } from './src/player/controller.js?v=r21-202608292004';
+import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r21-202608292004';
+import { Viewmodel } from './src/player/viewmodel.js?v=r21-202608292004';
+import { FX } from './src/player/fx.js?v=r21-202608292004';
+import { NavGrid } from './src/ai/navgrid.js?v=r21-202608292004';
+import { Bot } from './src/ai/bot.js?v=r21-202608292004';
+import { SquadManager } from './src/ai/squad.js?v=r21-202608292004';
+import { Input, RAD_PER_PX } from './src/ui/input.js?v=r21-202608292004';
+import { TouchControls } from './src/ui/touch.js?v=r21-202608292004';
+import { HUD } from './src/ui/hud.js?v=r21-202608292004';
+import { Screens } from './src/ui/screens.js?v=r21-202608292004';
+import { Events } from './src/game/events.js?v=r21-202608292004';
+import { TDM } from './src/game/mode.js?v=r21-202608292004';
+import { createTelemetry } from './src/game/telemetry.js?v=r21-202608292004';
+import { Audio } from './src/game/audio.js?v=r21-202608292004';
+import { ASSET } from './assetlib.js?v=r21-202608292004';
+import { vertexiseMaterials } from './src/game/bake.js?v=r21-202608292004';
+import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r21-202608292004';   // materials r3
 
 const ROUND = (globalThis.__BUILD_STAMP__ || 'r19-dev').split('-')[0];   // the round label on the HUD and screens comes from the publish stamp (was a hardcoded 'r6' for thirteen rounds)
 const DEG = Math.PI / 180;
@@ -303,6 +303,7 @@ events.on('death', (p) => {
   hurt = 1;
 });
 events.on('roundEnd', (p) => {
+  audio.roundEnd();   // round 21: the sting and the end cue
   screens.roundEnd({
     winner: p.winner, rangers: p.rangers, militia: p.militia,
     kills: mode.playerStats.kills, deaths: mode.playerStats.deaths, accuracy: mode.accuracy(),
@@ -322,7 +323,7 @@ camera.updateMatrixWorld(true);
 function startGame() {
   if (started) return;
   started = true;
-  audio.start();
+  audio.deploy();   // round 21: deploy thunk, the in game bed, the ambience
   hud.show(true);
   touch.show(true);
   mode.reset();
@@ -529,6 +530,7 @@ function frame() {
   fx.update(dt);
   sky.update(camera, dt);
   rig.update(camera, dt);
+  audio.update();   // round 21: positioned loops follow the listener
 
   if (window.__GOD__) { player.hp = 100; hurt = 0; }
   hurt = Math.max(0, hurt - dt * 1.4);
@@ -559,6 +561,14 @@ rig.refresh();
 post.render(0);
 telemetry.publish();
 screens.ready();
+// round 21: the title theme starts on the first gesture on the title screen (browsers need one); the pump jacks and
+// generators get positioned loops; audio.update() every frame sets their distance gain
+{
+  const first = () => { audio.title(); removeEventListener('pointerdown', first); removeEventListener('keydown', first); removeEventListener('touchstart', first); };
+  addEventListener('pointerdown', first); addEventListener('keydown', first); addEventListener('touchstart', first, { passive: true });
+  for (const mv of level.movers) if (mv.asset === 'pump_jack' && mv.object) audio.addLoop('pumpjack', mv.object.position.clone(), 0.5);
+  for (const p of PLACEMENTS) if (p.asset === 'generator_set' && !p.dy) audio.addLoop('generator', new THREE.Vector3(p.x, 0, p.z), 0.22);
+}
 window.__READY__ = true;
 console.info(`[main] ready: ${level.stats.placed} props in ${level.blocks.size} blocks, ${level.staticMeshes} static meshes, ${bots.length} bots, nav ${nav.count} nodes`);
 requestAnimationFrame(frame);

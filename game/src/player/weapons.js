@@ -12,7 +12,7 @@
  * viewmodel gets the same kick through play('fire').
  */
 import * as THREE from 'three';
-import { ASSET } from '../../assetlib.js?v=r20-202608291954';
+import { ASSET } from '../../assetlib.js?v=r21-202608292004';
 
 export const WEAPONS = {
   ar:  { asset: 'assault_rifle',  name: 'M4 CARBINE',  damage: 28, headMult: 2.0, rpm: 720, mag: 30, reserve: 150, reload: 2.1, spread: 0.010, adsSpread: 0.003, recoil: [0.012, 0.004], range: 80,  auto: true,  adsFov: 55, sight: 0.075, switchTime: 0.45 },
@@ -88,6 +88,7 @@ export class WeaponSystem {
     if (a.mag >= w.mag || a.reserve <= 0) return false;
     this.reloading = w.reload; this.reloadTotal = w.reload;
     if (this.viewmodel && this.viewmodel.play) this.viewmodel.play('reload', w.reload);
+    this.events && this.events.emit && this.events.emit('reload', { weapon: this.current });   // round 21: audio
     return true;
   }
 
@@ -163,7 +164,11 @@ export class WeaponSystem {
 
   fire() {
     const p = this.player, w = WEAPONS[this.current], a = this.mags[this.current];
-    if (!p || a.mag <= 0) return null;
+    if (!p || a.mag <= 0) {
+      // round 21: the dry click, once per 0.3 s while the trigger is held on an empty magazine
+      if (p && a.mag <= 0 && this.events && this.events.emit) { const now = performance.now(); if (!this._dryAt || now - this._dryAt > 300) { this._dryAt = now; this.events.emit('dry', { weapon: this.current }); } }
+      return null;
+    }
     a.mag--; this.shots++;
     this.fireCooldown = 60 / w.rpm;
     this.bloom = Math.min(this.bloom + 0.0018, 0.012);
@@ -234,7 +239,9 @@ export class WeaponSystem {
         });
       }
     } else if (best && this.fx && this.fx.impact) {
-      this.fx.impact(best.point, best.normal, this._surfaceOf(best));
+      const surf = this._surfaceOf(best);
+      this.fx.impact(best.point, best.normal, surf);
+      this.events && this.events.emit && this.events.emit('impact', { pos: best.point, surface: surf, by: 'player' });   // round 21: audio
     }
 
     // kick

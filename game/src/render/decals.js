@@ -31,7 +31,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { DECALS } from '../level/placements.js?v=r20-202608291954';
+import { DECALS } from '../level/placements.js?v=r21-202608292004';
 
 // UV rects in the atlas, three.js convention (v = 0 at the bottom): [u0, v0, u1, v1, w / h]
 export const ATLAS_RECTS = {
