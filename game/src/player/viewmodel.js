@@ -34,6 +34,7 @@
  */
 import * as THREE from 'three';
 import { ASSET } from '../../assetlib.js';
+import { loadGlbWeapon } from './glbweapon.js';   // round 8: generated hero rifle (Atlas image_to_3d)
 import { applyMaterials } from '../render/materials.js';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
 import { collapsePerJoint } from '../ai/animation.js';
 
@@ -186,7 +187,21 @@ export class Viewmodel {
     else { this.holder.scale.set(1, 1, 1); this.holder.rotation.set(0, Math.PI, 0); this.mirrored = false; }
     this._prepMeshes(arms);
 
+    // round 8: '?rifle=titan40k' (default) | '404gen' | 'js' picks the assault rifle source. The GLB
+    // variants come from Atlas image_to_3d off concepts/assault_rifle.png (titan40k = Titan v1 remeshed to
+    // 40k faces with the maps baked back on, 404gen = the 404-GEN backend as generated); textures stay as
+    // generated, so no applyMaterials on those. 'js' is the coded round 4 asset.
+    let rifle = 'titan40k';
+    let rifleFlip = false, rifleUp = false;
+    try { const qs = new URLSearchParams(location.search); const q = qs.get('rifle'); if (q) rifle = q; rifleFlip = qs.get('rifleflip') === '1'; rifleUp = qs.get('rifleup') === '1'; } catch (e) { /* no location */ }
     const loads = Object.entries(WEAPON_ASSET).map(async ([key, name]) => {
+      if (key === 'ar' && rifle !== 'js') {
+        const w = await loadGlbWeapon(base + 'assault_rifle_' + rifle + '.glb', { length: 0.9, name: 'assault_rifle_' + rifle, flipFwd: rifleFlip !== (rifle === '404gen'), flipUp: rifleUp });   // 404gen comes out muzzle-back under the same test; checked in the gate frames (work/titan/orient3.png)
+        this._prepMeshes(w);
+        w.visible = false;
+        this.weapons[key] = w;
+        return;
+      }
       const w = await ASSET(base + name + '.js', { keepHierarchy: true, surfaces: true });
       if (!w || !w.children.length) console.warn(`[viewmodel] weapon asset missing: ${name}`);
       applyMaterials(w, { asset: name, local: true, detail: 0.15 });   // materials r3: was vertexiseMaterials(w)
