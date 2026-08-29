@@ -77,3 +77,59 @@ export function makeFillet(p, size, spec, heightAt, baseY) {
   mesh.castShadow = false; mesh.receiveShadow = true;
   return mesh;
 }
+
+/**
+ * Stilts (round 22i, Ben: "what if we just create pillars underneath them that extend through the ground, we could
+ * just do this for all to be safe and then everyone would be grounded?"). For a prop that stands on legs or
+ * saddles, a short concrete pier is dropped at each corner of its footprint wherever the terrain there sits below
+ * the prop's base, running from the base down to 40 cm INTO the ground. Nothing floats, whatever the dunes do,
+ * and no terrain is reshaped: this is the safe version of the pad sweep the owner reverted.
+ */
+export const STILT_ASSETS = new Set(['pipe_run_straight', 'pipe_run_elbow', 'large_pipe_section', 'pipe_rack_stack',
+  'valve_manifold', 'bullet_tank_horizontal', 'wellhead_christmas_tree', 'generator_set', 'mess_table', 'office_desk',
+  'steel_shelving', 'locker_bank', 'tank_catwalk_bridge', 'catwalk_section', 'external_steel_stair', 'watchtower_gantry']);
+
+export function makeStilts(p, size, heightAt, baseY, THREE_ = THREE, height = 1.5) {
+  const a = (p.rot || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  const k = p.scale || 1;
+  const hw = (size[0] * k) / 2 - 0.25, hd = (size[1] * k) / 2 - 0.25;
+  if (hw <= 0.1 || hd <= 0.1) return null;
+  const geos = [];
+  const corners = hw > hd * 2
+    ? [[-hw, 0], [0, 0], [hw, 0]]           // a long thin run gets piers along its axis
+    : [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]];
+  for (const [lx, lz] of corners) {
+    const x = p.x + lx * c + lz * s, z = p.z - lx * s + lz * c;
+    const g = heightAt(x, z);
+    // up to 60 percent of the prop's height: that is where a pipe saddle or a table leg meets the body, so the pier
+    // reads as a trestle carrying it rather than a post standing near it (round 22i, second pass)
+    const top = baseY + Math.min(1.4, Math.max(0.3, height * 0.6));
+    const bottom = Math.min(g, baseY) - 0.4;
+    const h = top - bottom;
+    if (h < 0.65) continue;                 // only where the ground has really fallen away (a 25 cm dip is the fillet's job)
+    const box = new THREE_.BoxGeometry(0.18, h, 0.18);
+    box.translate(x, bottom + h / 2, z);
+    geos.push(box);
+  }
+  if (!geos.length) return null;
+  // merge the piers into one geometry so a prop adds one mesh, not four
+  const merged = new THREE_.BufferGeometry();
+  const pos = [], idx = []; let base = 0;
+  for (const g of geos) {
+    const gp = g.attributes.position, gi = g.index;
+    for (let i = 0; i < gp.count; i++) pos.push(gp.getX(i), gp.getY(i), gp.getZ(i));
+    for (let i = 0; i < gi.count; i++) idx.push(base + gi.getX(i));
+    base += gp.count;
+    g.dispose();
+  }
+  merged.setAttribute('position', new THREE_.Float32BufferAttribute(pos, 3));
+  merged.setIndex(idx);
+  merged.computeVertexNormals();
+  // a dark steel stub, not a concrete block: it reads as the asset's own leg continuing into the sand
+  const mat = new THREE_.MeshStandardMaterial({ color: 0x4a4d51, roughness: 0.8, metalness: 0.3 });
+  mat.name = 'metal';
+  const mesh = new THREE_.Mesh(merged, mat);
+  mesh.name = 'stilts_' + (p.tag || p.asset);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  return mesh;
+}

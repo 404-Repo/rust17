@@ -16,13 +16,13 @@
  * before the bake because the bake leaves no individual objects behind.
  */
 import * as THREE from 'three';
-import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r22-202608292220';
-import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r22-202608292220';
-import { GLB_STATIC, loadGlbStatic } from './glbstatic.js?v=r22-202608292220';   // round 11: Atlas rocks
-import { applyMaterials } from '../render/materials.js?v=r22-202608292220';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
-import { collapsePerJoint } from '../ai/animation.js?v=r22-202608292220';
-import { buildDecals } from '../render/decals.js?v=r22-202608292220';   // decals r6: near field decals, built after the bake
-import { FILLET_ASSETS, makeFillet } from './fillets.js?v=r22-202608292220';   // round 17 item 1: contact fillets
+import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r22-202608292234';
+import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r22-202608292234';
+import { GLB_STATIC, loadGlbStatic } from './glbstatic.js?v=r22-202608292234';   // round 11: Atlas rocks
+import { applyMaterials } from '../render/materials.js?v=r22-202608292234';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
+import { collapsePerJoint } from '../ai/animation.js?v=r22-202608292234';
+import { buildDecals } from '../render/decals.js?v=r22-202608292234';   // decals r6: near field decals, built after the bake
+import { FILLET_ASSETS, makeFillet, STILT_ASSETS, makeStilts } from './fillets.js?v=r22-202608292234';   // round 17: contact fillets; round 22i: stilts
 // round 17 item 1: props that sit IN the sand (4 cm down) so the fillet has something to climb; nothing with a walkable
 const SINK = new Set(['crate_stack', 'wooden_pallet_stack', 'oil_drum', 'tyre_stack', 'ibc_tote', 'sandbag_wall', 'jersey_barrier', 'generator_set', 'control_cabinet', 'ammo_crate', 'locker_bank', 'steel_shelving', 'shipping_container_blue', 'shipping_container_rust_red', 'shipping_container_tan', 'shipping_container_open', 'fuel_truck_wreck', 'pickup_wreck', 'valve_manifold', 'wellhead_christmas_tree', 'compound_wall_panel', 'corrugated_wall_panel', 'bullet_tank_horizontal']);
 
@@ -465,6 +465,12 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
       const sz = TSV_SIZES[p.asset] || [size.x, size.z, size.y];
       const fil = makeFillet(p, [sz[0], sz[1]], fspec, (x, z) => terrain.heightAt(x, z), baseY - sink);
       if (fil) { applyMaterials(fil, { asset: 'sand_fillet' }); g.add(fil); stats.fillets = (stats.fillets || 0) + 1; }
+    }
+    // round 22i: piers under anything that stands on legs, so a prop can never hang over a dip
+    if (!p.dy && STILT_ASSETS.has(p.asset) && terrain && terrain.heightAt) {
+      const sz2 = TSV_SIZES[p.asset] || [size.x, size.z, size.y];
+      const st = makeStilts(p, [sz2[0], sz2[1]], (x, z) => terrain.heightAt(x, z), baseY - sink, THREE, sz2[2] || size.y);
+      if (st) { applyMaterials(st, { asset: 'stilt' }); g.add(st); stats.stilts = (stats.stilts || 0) + 1; }
     }
     // round 17 item 4: the storage tanks stand on a real concrete plinth (12 cm slab, 45 degree edge) instead of a painted ring
     if (!p.dy && (p.asset === 'oil_storage_tank' || p.asset === 'oil_storage_tank_open')) {
