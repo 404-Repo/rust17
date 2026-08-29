@@ -31,7 +31,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { DECALS } from '../level/placements.js?v=r16-202608291533';
+import { DECALS } from '../level/placements.js?v=r17-202608291627';
 
 // UV rects in the atlas, three.js convention (v = 0 at the bottom): [u0, v0, u1, v1, w / h]
 export const ATLAS_RECTS = {
@@ -60,7 +60,7 @@ export const ATLAS_RECTS = {
   concrete_crack: [0.52612, 0.36597, 0.73022, 0.43237, 3.0288],
 };
 // blended, feathered edges; everything else is an alpha cut
-const REMOVED = new Set(['tyre_track_straight', 'tyre_track_curve', 'cable_on_ground']);
+const REMOVED = new Set(['tyre_track_straight', 'tyre_track_curve', 'cable_on_ground', 'gravel_patch', 'litter_patch']);   // round 17 item 4: the gravel and litter sprites read as grey stickers ("the rocks"); gravel is a terrain paint class, litter is debris_scatter geometry
 const SOFT = new Set(['seepage_streak', 'drain_stain', 'rust_bloom', 'spill_wall', 'tyre_track_straight', 'tyre_track_curve', 'oil_stain_large', 'oil_stain_small', 'sand_drift', 'footprints', 'litter_patch', 'gravel_patch', 'rust_run', 'scuff_marks', 'grease_smear']);
 // text and the arrow never mirror; a rust run hangs from its bolt, so it never mirrors vertically either
 const NO_FLIP = new Set(['notice_poster', 'seepage_streak', 'drain_stain', 'rust_bloom', 'spill_wall', 'stencil_02', 'stencil_07', 'stencil_danger', 'stencil_no_smoking', 'stencil_arrow', 'hazard_stripe']);

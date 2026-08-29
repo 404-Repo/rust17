@@ -52,9 +52,9 @@
  * frond throws a leaflet shaped shadow, not a rectangle.
  */
 import * as THREE from 'three';
-import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r16-202608291533';
-import { classify, RECIPES } from '../../surfaces.js?v=r16-202608291533';
-import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r16-202608291533';   // round 5: the cards' backlight reads the rig's sun
+import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r17-202608291627';
+import { classify, RECIPES } from '../../surfaces.js?v=r17-202608291627';
+import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r17-202608291627';   // round 5: the cards' backlight reads the rig's sun
 
 /**
  * The sets. `scale` is metres per tile. `normal` is the normal map strength, `albedo` and
@@ -67,7 +67,8 @@ export const SETS = {
   // micro tile the terrain samples, so a fillet and the ground it sits on carry the same ripple) and the
   // relief to 0.5. The macro 12 m sample on the terrain carries the drift scale variation.
   sand_sunlit:           { scale: 1.0, normal: 0.5, albedo: 1.0, rough: 0.8, recipe: 'ground' },
-  sand_packed:           { scale: 2.0, normal: 0.7, albedo: 1.0, rough: 0.8, recipe: 'ground' },
+  sand_packed:           { scale: 2.0, normal: 0.7, albedo: 1.0, rough: 0.8, recipe: 'ground' },   // round 17: the v2 tile, no baked tyre marks
+  sand_disturbed:        { scale: 1.6, normal: 0.9, albedo: 1.0, rough: 0.9, recipe: 'ground' },   // round 17 item 2: churned, trampled sand; painted on the terrain around doors, cover, spawns and rack feet (aDist)
   red_oxide_steel:       { scale: 2.0, normal: 0.8, albedo: 1.0, rough: 1.0, recipe: 'metal' },
   // round 4 (owner): zinc sheet in shade went blue grey. The fill is now warm neutral (lighting.js) and the set
   // takes a small warm bias on top: dust and rust bloom on twenty year old galvanising
@@ -640,8 +641,10 @@ export function applyMaterials(root, opts = {}) {
  * 20 m; the micro normal carries the ripples, weighted by the terrain's own ripple mask so
  * the road, the pads and the cuts are calmer than the open dunes.
  */
-export function applyTerrainMaterial(terrain, tier = {}) {
-  const S = TEX.sand_sunlit, P = TEX.sand_packed;
+export function applyTerrainMaterial(terrain, tier = {}, opts = {}) {
+  const S = TEX.sand_sunlit, P = TEX.sand_packed, D = TEX.sand_disturbed || TEX.sand_packed;
+  // round 17 item 2: opts.disturb = [[x, z, radius], ...] where the sand is trampled (doors, cover, spawns, rack feet)
+  const disturb = opts.disturb || [];
   const m = terrain && terrain.material;
   if (!m || !S || !P) { console.warn('[materials] terrain: sand sets not loaded, terrain keeps its procedural tiles'); return false; }
   // per vertex packed weight from the class grid: 1 = packed or concrete (road, tracks, bed, pads), 0 = sand or rock
@@ -658,6 +661,15 @@ export function applyTerrainMaterial(terrain, tier = {}) {
         pk[i] = c === 1 || c === 2 ? 1 : 0;
       }
       t.geometry.setAttribute('aPack', new THREE.BufferAttribute(pk, 1));
+      const dk = new Float32Array(pos.count);
+      if (disturb.length) {
+        for (let i = 0; i < pos.count; i++) {
+          const x = pos.getX(i), z = pos.getZ(i); let w = 0;
+          for (const [sx, sz, r] of disturb) { const d = Math.hypot(sx - x, sz - z); if (d < r) { const u = 1 - d / r; const v = u * u * (3 - 2 * u); if (v > w) w = v; } }
+          dk[i] = w;
+        }
+      }
+      t.geometry.setAttribute('aDist', new THREE.BufferAttribute(dk, 1));
     }
   }
   const prev = m.onBeforeCompile;
@@ -672,10 +684,12 @@ export function applyTerrainMaterial(terrain, tier = {}) {
     shader.uniforms.uTrPackR = { value: P.rough || P.normal };
     shader.uniforms.uTrMean = { value: new THREE.Vector4(S.mean.r, S.mean.g, S.mean.b, S.roughMean) };
     shader.uniforms.uTrMeanP = { value: new THREE.Vector4(P.mean.r, P.mean.g, P.mean.b, P.roughMean) };
+    shader.uniforms.uTrDist = { value: D.map }; shader.uniforms.uTrDistN = { value: D.normal }; shader.uniforms.uTrDistR = { value: D.rough || D.normal };
+    shader.uniforms.uTrMeanD = { value: new THREE.Vector4(D.mean.r, D.mean.g, D.mean.b, D.roughMean) };
     shader.uniforms.uTrNFlip = { value: NORMAL_FLIP };
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aPack;\nvarying float vPack;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvPack = aPack;');
+      .replace('#include <common>', '#include <common>\nattribute float aPack;\nvarying float vPack;\nattribute float aDist;\nvarying float vDist;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvPack = aPack;\nvDist = aDist;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>' + TERRAIN_PARS_FS)
       .replace('vec4 sampledDiffuseColor = mix( texture2D( map, vMapUv ), texture2D( derrickGravelMap, vMapUv ), dMask );', TERRAIN_ALB_FS)
@@ -694,6 +708,8 @@ export function applyTerrainMaterial(terrain, tier = {}) {
 
 const TERRAIN_PARS_FS = /* glsl */`
 varying float vPack;
+varying float vDist;
+uniform sampler2D uTrDist; uniform sampler2D uTrDistN; uniform sampler2D uTrDistR; uniform vec4 uTrMeanD;
 uniform sampler2D uTrSand; uniform sampler2D uTrSandN; uniform sampler2D uTrSandR;
 uniform sampler2D uTrPack; uniform sampler2D uTrPackN; uniform sampler2D uTrPackR;
 uniform vec4 uTrMean; uniform vec4 uTrMeanP; uniform float uTrNFlip;
@@ -713,8 +729,13 @@ vec3 trP = texture2D( uTrPack, trUvP ).rgb / max( uTrMeanP.rgb, 0.02 );
 vec3 trPM = texture2D( uTrPack, trUvPM ).rgb / max( uTrMeanP.rgb, 0.02 );
 float trPk = smoothstep( 0.35, 0.65, vPack );
 vec3 trRatio = mix( trS * mix( vec3( 1.0 ), trSM, 0.6 ), trP * mix( vec3( 1.0 ), trPM, 0.5 ), trPk );
+// round 17 item 2: trampled sand where people and vehicles stand (aDist), a step darker, over sand and packed alike
+vec2 trUvD = trWP * ( 1.0 / 1.6 ) + 0.23;
+float trDk = smoothstep( 0.15, 0.85, vDist );
+vec3 trD = texture2D( uTrDist, trUvD ).rgb / max( uTrMeanD.rgb, 0.02 ) * 0.92;
+trRatio = mix( trRatio, trD, trDk );
 vec4 sampledDiffuseColor = vec4( clamp( trRatio, 0.25, 2.5 ), 1.0 );
-trRough = mix( texture2D( uTrSandR, trUvS ).r / max( uTrMean.a, 0.05 ), texture2D( uTrPackR, trUvP ).r / max( uTrMeanP.a, 0.05 ), trPk );`;
+trRough = mix( mix( texture2D( uTrSandR, trUvS ).r / max( uTrMean.a, 0.05 ), texture2D( uTrPackR, trUvP ).r / max( uTrMeanP.a, 0.05 ), trPk ), texture2D( uTrDistR, trUvD ).r / max( uTrMeanD.a, 0.05 ), trDk );`;
 // the world agent's fold (terrain.js): the map wide detail gradient (ruts, ripples, hollows) into the normal
 const TERRAIN_FOLD_FS = /* glsl */`
 {
@@ -734,6 +755,8 @@ const TERRAIN_NRM_FS = /* glsl */`
   float trRip = mix( 0.35, 0.7, dTex.a );
   vec3 trNS = normalize( vec3( trNA.xy * trRip + trNB.xy * 0.25, trNA.z * trNB.z ) );
   vec3 mapN = normalize( mix( trNS, trNP, trPk ) );
+  vec3 trND = texture2D( uTrDistN, trUvD ).xyz * 2.0 - 1.0;
+  mapN = normalize( mix( mapN, trND, trDk ) );
   mapN.y *= -uTrNFlip;
   mapN.xy *= normalScale * ( 1.0 - smoothstep( 25.0, 60.0, length( vViewPosition ) ) );
   normal = normalize( tbn * mapN );

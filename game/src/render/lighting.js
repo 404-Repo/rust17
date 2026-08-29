@@ -44,7 +44,7 @@
  *   rig.update(camera);
  */
 import { CSM } from 'three/addons/csm/CSM.js';
-import { getTier } from './quality.js?v=r16-202608291533';
+import { getTier } from './quality.js?v=r17-202608291627';
 
 /** Sun placement, MAP-PLAN section 1: azimuth 250 degrees, elevation 22. */
 export const SUN_AZIMUTH_DEG = 250;
@@ -109,7 +109,7 @@ export const ATMOS = {
   high:    [0.210, 0.241, 0.257],   // 176,186,204 at 55 degrees, the blue starts (was 170,184,207)
   zenith:  [0.151, 0.189, 0.221],   // 104,134,188 overhead
   haze:    [1.450, 0.800, 0.360],   // 244,233,212 the dust band, thickest at the horizon, gone by 9 degrees
-  below:   [1.150, 0.630, 0.290],   // 228,214,194 the dome under the horizon: a little darker than the haze so the far ground edge is not a bright seam
+  below:   [0.950, 0.520, 0.240],   // 228,214,194 the dome under the horizon: a little darker than the haze so the far ground edge is not a bright seam
   sunGlow: [1.0, 0.72, 0.42],
   cloud:   [1.790, 1.322, 1.009],   // 238,231,224 thin high cloud
 };
@@ -208,7 +208,7 @@ export function createAtmosUniforms(THREE, sunDir) {
     uAtmSunDir: { value: sunDir },
     uAtmGlow: { value: 1.0 },
     uAtmTime: { value: 0 },
-    uAerDensity: { value: 0.0038 },   // 30 m: 9 percent, 60 m: 19, 140 m (map edge): 40
+    uAerDensity: { value: 0.0027 },   // round 17 item 5: 0.0038 -> 0.0027 so the skirt dunes at 200 to 400 m keep some of their own colour (was 78 percent haze at 400 m, a pale wall); 30 m: 6, 140 m: 30, 400 m: 65
     uAerLift: { value: 1.6 },         // looking 30 degrees up the density is 2.4x: the crown pales before the base
     uAerStart: { value: 6.0 },
   };

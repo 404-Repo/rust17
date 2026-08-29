@@ -31,9 +31,9 @@
  * texture carries the fine relief either way and heightAt stays exact against what was built.
  */
 import * as THREE from 'three';
-import { FOOTPRINT_PADS } from './footprint_pads.js?v=r16-202608291533';
-import { RECIPES } from '../../surfaces.js?v=r16-202608291533';
-import { PLACEMENTS } from '../level/placements.js?v=r16-202608291533';
+import { FOOTPRINT_PADS } from './footprint_pads.js?v=r17-202608291627';
+import { RECIPES } from '../../surfaces.js?v=r17-202608291627';
+import { PLACEMENTS } from '../level/placements.js?v=r17-202608291627';
 
 const DEG = Math.PI / 180;
 
@@ -119,8 +119,8 @@ export const TERRAIN_SPEC = {
     { name: 'shed pad', x0: -19, x1: -13, z0: -15, z1: -5, y: 0.3, surface: 'concrete', blend: 1.5 },
     { name: 'tank farm hardstand', x0: -48, x1: -16, z0: -48, z1: -22, y: 0.6, surface: 'packed', blend: 1.5 },
     { name: 'pipe yard', x0: -12, x1: 30, z0: -48, z1: -22, y: 0.2, surface: 'packed', blend: 1.5 },
-    { name: 'pump house pad', x0: -37, x1: -23, z0: 27, z1: 37, y: 0.3, surface: 'concrete', blend: 1.5 },
-    { name: 'compound yard', x0: 26, x1: 56, z0: 24, z1: 50, y: 0.4, surface: 'packed', blend: 1.5 },
+    { name: 'pump house pad', x0: -37, x1: -23, z0: 27, z1: 37, y: 0.3, surface: 'concrete', blend: 3.0 },   // round 17 item 3: 1.5 -> 3.0, the yard sat on a bare dune
+    { name: 'compound yard', x0: 26, x1: 56, z0: 24, z1: 50, y: 0.4, surface: 'packed', blend: 3.5 },   // round 17 item 3: 1.5 -> 3.5
     { name: 'watchtower pad', x0: 24, x1: 28, z0: -50, z1: -46, y: 0.3, surface: 'concrete', blend: 1.5 },
     { name: 'west spawn plateau', x0: -70, x1: -58, z0: -14, z1: 14, y: 2.2, surface: 'sand', blend: 1.5 },
     { name: 'east spawn plateau', x0: 58, x1: 70, z0: -14, z1: 14, y: 2.2, surface: 'sand', blend: 1.5 },
@@ -762,6 +762,20 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
         if (w > wFoot[i]) wFoot[i] = w;
       }
       S[i] = h;
+    }
+  }
+
+  // ---- pass 2c (round 17 item 3): the 0.5 m grid showed as polygon creases where pads, berms and cuts meet.
+  // Two light 3x3 smoothing passes on S, held off on the road and inside the wadi and trench cuts (their edges
+  // are meant to be sharp) and fully applied on the blends around pads and berms.
+  for (let pass = 0; pass < 2; pass++) {
+    const T0 = Float32Array.from(S);
+    for (let iz = 1; iz < NZ - 1; iz++) for (let ix = 1; ix < NX - 1; ix++) {
+      const i = iz * NX + ix;
+      const keep = Math.max(onRoadA[i], wCut[i], wTrench ? wTrench[i] : 0);
+      if (keep > 0.9) continue;
+      const b = (T0[i - 1] + T0[i + 1] + T0[i - NX] + T0[i + NX]) * 0.125 + (T0[i - NX - 1] + T0[i - NX + 1] + T0[i + NX - 1] + T0[i + NX + 1]) * 0.0625 + T0[i] * 0.25;
+      S[i] = mix(b, T0[i], keep);
     }
   }
 

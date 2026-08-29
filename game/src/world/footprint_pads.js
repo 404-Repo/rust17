@@ -2,7 +2,8 @@
  * Footprint pads (owner: world). Round 15, Ben 2026-08-29 14:22: "some objects don't sit correctly on the ground,
  * they overhang in places, adjust the ground accordingly". Measured with work/ground_probe3.js (tools/shot.mjs
  * --eval): every placed object whose footprint had the terrain more than 12 cm above or below its base. Each one
- * gets a flat sand pad at its base height with a 0.8 m blend, 40 cm beyond the footprint. mode 'fill' only raises ground, 'cut' only lowers it, 'flat' does both, so a pad
+ * (round 17 item 1: only objects on a REAL slope, terrain range over 0.5 m under the footprint, keep a pad, with a
+ * 3 m blend; the rest rely on the contact fillets in level/fillets.js) gets a flat sand pad at its base height with a 0.8 m blend, 40 cm beyond the footprint. mode 'fill' only raises ground, 'cut' only lowers it, 'flat' does both, so a pad
  * cannot drag a neighbour's ground the wrong way (the first flat version pulled the tank farm 3 m down). Objects that legitimately
  * span the wadi cut (the pipe yard racks and lines over it, the derrick pad edge) are excluded by tag (work/ground_probe3.js). Generated, do not edit
  * by hand: rerun the probe and regenerate (work/ground_bad.json holds the measurement).
@@ -16,7 +17,7 @@ export const FOOTPRINT_PADS = [
 "z1": -42.3,
 "y": -1.852,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -27,7 +28,7 @@ export const FOOTPRINT_PADS = [
 "z1": -27.3,
 "y": -0.319,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -38,7 +39,7 @@ export const FOOTPRINT_PADS = [
 "z1": 42.4,
 "y": 0.229,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -49,7 +50,7 @@ export const FOOTPRINT_PADS = [
 "z1": 46.4,
 "y": -2.027,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -60,8 +61,8 @@ export const FOOTPRINT_PADS = [
 "z1": -30.8,
 "y": -0.165,
 "surface": "sand",
-"blend": 0.8,
-"mode": "cut"
+"blend": 3.0,
+"mode": "flat"
 },
 {
 "name": "fp jersey_barrier_1",
@@ -71,8 +72,8 @@ export const FOOTPRINT_PADS = [
 "z1": 2.7,
 "y": 1.978,
 "surface": "sand",
-"blend": 0.8,
-"mode": "cut"
+"blend": 3.0,
+"mode": "flat"
 },
 {
 "name": "fp compound_wall_panel_12",
@@ -82,7 +83,7 @@ export const FOOTPRINT_PADS = [
 "z1": 50.6,
 "y": -1.984,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -93,8 +94,8 @@ export const FOOTPRINT_PADS = [
 "z1": 10.7,
 "y": 1.81,
 "surface": "sand",
-"blend": 0.8,
-"mode": "cut"
+"blend": 3.0,
+"mode": "flat"
 },
 {
 "name": "fp jersey_barrier_13",
@@ -104,7 +105,7 @@ export const FOOTPRINT_PADS = [
 "z1": 2.7,
 "y": 2.958,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -115,7 +116,7 @@ export const FOOTPRINT_PADS = [
 "z1": 2.7,
 "y": 2.91,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -126,7 +127,7 @@ export const FOOTPRINT_PADS = [
 "z1": 10.7,
 "y": 2.686,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -137,7 +138,7 @@ export const FOOTPRINT_PADS = [
 "z1": -4.27,
 "y": 3.065,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -148,7 +149,7 @@ export const FOOTPRINT_PADS = [
 "z1": 10.7,
 "y": 2.633,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -159,8 +160,8 @@ export const FOOTPRINT_PADS = [
 "z1": 24.6,
 "y": 0.417,
 "surface": "sand",
-"blend": 0.8,
-"mode": "fill"
+"blend": 3.0,
+"mode": "flat"
 },
 {
 "name": "fp east_line_b",
@@ -170,7 +171,7 @@ export const FOOTPRINT_PADS = [
 "z1": -1.85,
 "y": 1.941,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -181,7 +182,7 @@ export const FOOTPRINT_PADS = [
 "z1": -8.1,
 "y": 2.471,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -192,8 +193,8 @@ export const FOOTPRINT_PADS = [
 "z1": 13.36,
 "y": 1.733,
 "surface": "sand",
-"blend": 0.8,
-"mode": "cut"
+"blend": 3.0,
+"mode": "flat"
 },
 {
 "name": "fp tyre_stack_7",
@@ -203,7 +204,7 @@ export const FOOTPRINT_PADS = [
 "z1": 44.9,
 "y": -0.156,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -214,7 +215,7 @@ export const FOOTPRINT_PADS = [
 "z1": -4.4,
 "y": 1.065,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -225,7 +226,7 @@ export const FOOTPRINT_PADS = [
 "z1": 50.8,
 "y": -0.88,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -236,7 +237,7 @@ export const FOOTPRINT_PADS = [
 "z1": 48.8,
 "y": -0.904,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -247,7 +248,7 @@ export const FOOTPRINT_PADS = [
 "z1": 48.8,
 "y": -0.882,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -258,7 +259,7 @@ export const FOOTPRINT_PADS = [
 "z1": -18.59,
 "y": 0.552,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -269,7 +270,7 @@ export const FOOTPRINT_PADS = [
 "z1": 50.8,
 "y": -0.844,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -280,19 +281,8 @@ export const FOOTPRINT_PADS = [
 "z1": -8.15,
 "y": 1.758,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
-},
-{
-"name": "fp compound_wall_panel_2",
-"x0": 25.4,
-"x1": 26.6,
-"z0": 33.6,
-"z1": 38.4,
-"y": 0.427,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
 },
 {
 "name": "fp sandbag_wall_14",
@@ -302,7 +292,7 @@ export const FOOTPRINT_PADS = [
 "z1": 48.8,
 "y": -0.951,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -313,7 +303,7 @@ export const FOOTPRINT_PADS = [
 "z1": 48.8,
 "y": -0.938,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -324,7 +314,7 @@ export const FOOTPRINT_PADS = [
 "z1": 48.8,
 "y": -0.943,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -335,7 +325,7 @@ export const FOOTPRINT_PADS = [
 "z1": -1.85,
 "y": 1.107,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -346,7 +336,7 @@ export const FOOTPRINT_PADS = [
 "z1": 48.8,
 "y": -0.927,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -357,7 +347,7 @@ export const FOOTPRINT_PADS = [
 "z1": 50.8,
 "y": -0.827,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -368,7 +358,7 @@ export const FOOTPRINT_PADS = [
 "z1": 50.8,
 "y": -0.828,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -379,7 +369,7 @@ export const FOOTPRINT_PADS = [
 "z1": 48.8,
 "y": -0.928,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -390,7 +380,7 @@ export const FOOTPRINT_PADS = [
 "z1": 48.8,
 "y": -0.915,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -401,41 +391,8 @@ export const FOOTPRINT_PADS = [
 "z1": 22.9,
 "y": 0.797,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
-},
-{
-"name": "fp generator_set_3",
-"x0": 30.0,
-"x1": 32.0,
-"z0": -23.0,
-"z1": -19.0,
-"y": 0.17,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp large_pipe_section_1",
-"x0": -16.4,
-"x1": -7.6,
-"z0": 22.85,
-"z1": 25.15,
-"y": 0.008,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp large_pipe_section_2",
-"x0": -8.4,
-"x1": 0.4,
-"z0": 22.85,
-"z1": 25.15,
-"y": 0.007,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
 },
 {
 "name": "fp tank_e2",
@@ -445,7 +402,7 @@ export const FOOTPRINT_PADS = [
 "z1": -23.2,
 "y": 0.147,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -456,7 +413,7 @@ export const FOOTPRINT_PADS = [
 "z1": 49.66,
 "y": -0.087,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -467,19 +424,8 @@ export const FOOTPRINT_PADS = [
 "z1": -10.3,
 "y": 0.978,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
-},
-{
-"name": "fp pipe_run_straight_1",
-"x0": 1.6,
-"x1": 8.4,
-"z0": -36.85,
-"z1": -35.15,
-"y": 0.197,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
 },
 {
 "name": "fp ibc_tote_3",
@@ -489,7 +435,7 @@ export const FOOTPRINT_PADS = [
 "z1": -39.1,
 "y": -0.155,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -500,30 +446,8 @@ export const FOOTPRINT_PADS = [
 "z1": -1.85,
 "y": 2.07,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
-},
-{
-"name": "fp p4_elbow",
-"x0": -7.22,
-"x1": -3.42,
-"z0": -4.3,
-"z1": -0.5,
-"y": -0.092,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp corrugated_wall_panel_4",
-"x0": -11.4,
-"x1": -7.6,
-"z0": -16.45,
-"z1": -15.55,
-"y": -0.045,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
 },
 {
 "name": "fp wellhead_west",
@@ -533,7 +457,7 @@ export const FOOTPRINT_PADS = [
 "z1": -10.0,
 "y": 1.846,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -544,7 +468,7 @@ export const FOOTPRINT_PADS = [
 "z1": 2.0,
 "y": 3.849,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -555,7 +479,7 @@ export const FOOTPRINT_PADS = [
 "z1": -7.92,
 "y": 2.007,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -566,7 +490,7 @@ export const FOOTPRINT_PADS = [
 "z1": 10.6,
 "y": 0.583,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -577,7 +501,7 @@ export const FOOTPRINT_PADS = [
 "z1": -12.4,
 "y": 1.345,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -588,7 +512,7 @@ export const FOOTPRINT_PADS = [
 "z1": -14.6,
 "y": -1.975,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -599,30 +523,8 @@ export const FOOTPRINT_PADS = [
 "z1": -37.9,
 "y": 0.124,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
-},
-{
-"name": "fp jersey_barrier_6",
-"x0": 40.1,
-"x1": 43.9,
-"z0": 9.3,
-"z1": 10.7,
-"y": 1.582,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp compound_wall_panel_5",
-"x0": 25.4,
-"x1": 26.6,
-"z0": 45.6,
-"z1": 50.4,
-"y": -2.437,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
 },
 {
 "name": "fp ibc_tote_2",
@@ -632,51 +534,7 @@ export const FOOTPRINT_PADS = [
 "z1": -39.1,
 "y": 0.294,
 "surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp fuel_truck",
-"x0": -28.94,
-"x1": -23.06,
-"z0": 4.91,
-"z1": 14.09,
-"y": 0.688,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp sandbag_wall_1",
-"x0": -9.4,
-"x1": -6.6,
-"z0": -4.7,
-"z1": -3.3,
-"y": 0.3,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
-},
-{
-"name": "fp pickup_wreck_1",
-"x0": 38.81,
-"x1": 45.19,
-"z0": 9.77,
-"z1": 14.23,
-"y": 1.577,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp sandbag_wall_7",
-"x0": 26.34,
-"x1": 28.66,
-"z0": 29.58,
-"z1": 32.42,
-"y": -0.095,
-"surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
 },
 {
@@ -687,458 +545,7 @@ export const FOOTPRINT_PADS = [
 "z1": 47.08,
 "y": -0.836,
 "surface": "sand",
-"blend": 0.8,
+"blend": 3.0,
 "mode": "flat"
-},
-{
-"name": "fp pipe_rack_stack_4",
-"x0": -44.4,
-"x1": -37.6,
-"z0": -20.4,
-"z1": -17.6,
-"y": 0.934,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp jersey_barrier_4",
-"x0": -39.9,
-"x1": -36.1,
-"z0": 1.3,
-"z1": 2.7,
-"y": 1.7,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp tyre_stack_1",
-"x0": 2.6,
-"x1": 4.4,
-"z0": -14.9,
-"z1": -13.1,
-"y": -1.399,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp pipe_run_straight_7",
-"x0": 7.6,
-"x1": 14.4,
-"z0": -25.25,
-"z1": -23.55,
-"y": 0.209,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
-},
-{
-"name": "fp wooden_pallet_stack_4",
-"x0": 28.15,
-"x1": 29.85,
-"z0": 38.97,
-"z1": 41.03,
-"y": 0.358,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
-},
-{
-"name": "fp watchtower_west",
-"x0": -49.9,
-"x1": -46.1,
-"z0": -7.9,
-"z1": -4.1,
-"y": 1.87,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp p3_b",
-"x0": -43.4,
-"x1": -36.6,
-"z0": -11.85,
-"z1": -10.15,
-"y": 1.414,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp generator_set_5",
-"x0": -46.5,
-"x1": -42.5,
-"z0": -10.5,
-"z1": -8.5,
-"y": 1.582,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp tank_t3",
-"x0": -34.4,
-"x1": -25.6,
-"z0": -32.4,
-"z1": -23.6,
-"y": 0.593,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp p3_a",
-"x0": -49.4,
-"x1": -42.6,
-"z0": -11.85,
-"z1": -10.15,
-"y": 1.567,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp derrick_stair_1",
-"x0": -9.2,
-"x1": -7.2,
-"z0": -7.4,
-"z1": -3.0,
-"y": 0.263,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
-},
-{
-"name": "fp tank_t1",
-"x0": -44.4,
-"x1": -35.6,
-"z0": -44.4,
-"z1": -35.6,
-"y": 0.599,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp tank_t2",
-"x0": -31.4,
-"x1": -22.6,
-"z0": -44.4,
-"z1": -35.6,
-"y": 0.605,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp container_stack_w_low",
-"x0": -31.45,
-"x1": -24.55,
-"z0": -18.6,
-"z1": -15.4,
-"y": 0.232,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp p3_manifold",
-"x0": -37.1,
-"x1": -33.9,
-"z0": -11.9,
-"z1": -10.1,
-"y": 1.246,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
-},
-{
-"name": "fp gatehouse_rack",
-"x0": -25.4,
-"x1": -18.6,
-"z0": 16.6,
-"z1": 19.4,
-"y": 0.058,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp crate_stack_23",
-"x0": -21.63,
-"x1": -19.37,
-"z0": -5.68,
-"z1": -3.52,
-"y": 0.233,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp bullet_tank_horizontal_3",
-"x0": 38.3,
-"x1": 41.7,
-"z0": -44.4,
-"z1": -35.6,
-"y": 0.254,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
-},
-{
-"name": "fp ibc_tote_4",
-"x0": -20.2,
-"x1": -18.2,
-"z0": -39.7,
-"z1": -37.9,
-"y": 0.445,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp compound_wall_panel_1",
-"x0": 25.4,
-"x1": 26.6,
-"z0": 23.6,
-"z1": 28.4,
-"y": -0.28,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp jersey_barrier_17",
-"x0": -29.4,
-"x1": -25.6,
-"z0": 0.8,
-"z1": 2.2,
-"y": 0.815,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp crate_stack_22",
-"x0": -23.78,
-"x1": -21.42,
-"z0": -10.17,
-"z1": -7.83,
-"y": 0.27,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp large_pipe_section_3",
-"x0": -0.4,
-"x1": 8.4,
-"z0": 22.85,
-"z1": 25.15,
-"y": -0.164,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp crate_stack_17",
-"x0": -26.58,
-"x1": -24.42,
-"z0": -5.63,
-"z1": -3.37,
-"y": 0.57,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp ibc_tote_14",
-"x0": -32.45,
-"x1": -30.55,
-"z0": -0.09,
-"z1": 1.99,
-"y": 1.222,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp tyre_stack_9",
-"x0": -31.1,
-"x1": -29.3,
-"z0": 0.1,
-"z1": 1.9,
-"y": 1.108,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp pump_stair_1",
-"x0": -38.2,
-"x1": -36.2,
-"z0": 32.2,
-"z1": 36.6,
-"y": 0.262,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
-},
-{
-"name": "fp crate_stack_16",
-"x0": -39.63,
-"x1": -37.37,
-"z0": -7.08,
-"z1": -4.92,
-"y": 1.7,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp ibc_tote_12",
-"x0": -28.08,
-"x1": -25.92,
-"z0": -7.5,
-"z1": -5.5,
-"y": 0.654,
-"surface": "sand",
-"blend": 0.8,
-"mode": "flat"
-},
-{
-"name": "fp container_blue",
-"x0": 20.4,
-"x1": 23.6,
-"z0": -2.45,
-"z1": 4.45,
-"y": 0.342,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp jersey_barrier_3",
-"x0": -43.9,
-"x1": -40.1,
-"z0": 1.3,
-"z1": 2.7,
-"y": 1.983,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp gantry_tower_n",
-"x0": -15.9,
-"x1": -12.1,
-"z0": -0.9,
-"z1": 2.9,
-"y": 0.018,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp jersey_barrier_5",
-"x0": 36.1,
-"x1": 39.9,
-"z0": 9.3,
-"z1": 10.7,
-"y": 1.457,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
-},
-{
-"name": "fp compound_wall_panel_15",
-"x0": 43.6,
-"x1": 48.4,
-"z0": 49.4,
-"z1": 50.6,
-"y": 0.547,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
-},
-{
-"name": "fp compound_wall_panel_17",
-"x0": 51.6,
-"x1": 56.4,
-"z0": 49.4,
-"z1": 50.6,
-"y": 0.537,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
-},
-{
-"name": "fp sandbag_wall_28",
-"x0": -58.7,
-"x1": -57.3,
-"z0": -11.4,
-"z1": -8.6,
-"y": 2.241,
-"surface": "sand",
-"blend": 0.8,
-"mode": "fill"
-},
-{
-"name": "fp crate_stack_19",
-"x0": -34.16,
-"x1": -31.84,
-"z0": -0.11,
-"z1": 2.11,
-"y": 1.424,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp crate_stack_5",
-"x0": -47.08,
-"x1": -44.92,
-"z0": -23.13,
-"z1": -20.87,
-"y": 0.602,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp sandbag_wall_24",
-"x0": 14.84,
-"x1": 17.16,
-"z0": 26.58,
-"z1": 29.42,
-"y": -2.706,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp sandbag_wall_25",
-"x0": 18.84,
-"x1": 21.16,
-"z0": 30.58,
-"z1": 33.42,
-"y": -2.59,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
-},
-{
-"name": "fp container_open_gate",
-"x0": -7.66,
-"x1": -0.34,
-"z0": 11.65,
-"z1": 16.35,
-"y": 0.062,
-"surface": "sand",
-"blend": 0.8,
-"mode": "cut"
 }
 ];
