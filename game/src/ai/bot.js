@@ -90,7 +90,7 @@ export class Bot {
     const soldier = this.team === 'rangers' ? 'friendly_soldier' : 'enemy_soldier';
     // round 8: '?soldiers=titan' (default) loads the skinned Atlas soldiers (assets/<name>_titan.glb, textures as
     // generated, no collapse: the skin must stay one mesh); '?soldiers=js' is the coded round 4 figure.
-    let src = 'titan';
+    let src = 'js';   // Ben 2026-08-29 09:22: "the soldiers are also bad, let's remove those meshes"; GLBs stay behind ?soldiers=titan
     try { const q = new URLSearchParams(location.search).get('soldiers'); if (q) src = q; } catch (e) { /* no location */ }
     let model;
     if (src !== 'js') {
