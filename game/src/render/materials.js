@@ -52,9 +52,9 @@
  * frond throws a leaflet shaped shadow, not a rectangle.
  */
 import * as THREE from 'three';
-import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r18-202608291646';
-import { classify, RECIPES } from '../../surfaces.js?v=r18-202608291646';
-import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r18-202608291646';   // round 5: the cards' backlight reads the rig's sun
+import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r18-202608291915';
+import { classify, RECIPES } from '../../surfaces.js?v=r18-202608291915';
+import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r18-202608291915';   // round 5: the cards' backlight reads the rig's sun
 
 /**
  * The sets. `scale` is metres per tile. `normal` is the normal map strength, `albedo` and
@@ -105,6 +105,7 @@ export const CARDS = {
   dead_shrub_b: { sss: 0.10, tint: 0.45 },   // the saltbush photo is grey green; the lock allows barely green
   grass_tuft_a: { sss: 0.20, tint: 0.35 },
   grass_tuft_b: { sss: 0.20, tint: 0.35 },
+  fence_panel: { sss: 0.0, tint: 0.0 },   // round 18d: the perimeter fence card (Ben: "run the fence all the way along the edge of the map")
 };
 const CARD_PREFIX = 'card:';
 

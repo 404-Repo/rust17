@@ -44,7 +44,7 @@
  *   rig.update(camera);
  */
 import { CSM } from 'three/addons/csm/CSM.js';
-import { getTier } from './quality.js?v=r18-202608291646';
+import { getTier } from './quality.js?v=r18-202608291915';
 
 /** Sun placement, MAP-PLAN section 1: azimuth 250 degrees, elevation 22. */
 export const SUN_AZIMUTH_DEG = 250;

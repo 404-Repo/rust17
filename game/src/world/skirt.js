@@ -8,27 +8,37 @@
  */
 import * as THREE from 'three';
 
-export function createSkirt(terrain, { far = 400, rings = 6, around = 96 } = {}) {
+export function createSkirt(terrain, { far = 400, rings = 6, around = 200 } = {}) {
   const B = terrain.bounds;
   const cx = (B.minX + B.maxX) / 2, cz = (B.minZ + B.maxZ) / 2;
   const hw = (B.maxX - B.minX) / 2, hd = (B.maxZ - B.minZ) / 2;
   const hash = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
   const pos = [], idx = [];
-  // a point on the boundary rectangle at angle th, then pushed out by t in [0, 1] toward `far`
-  const edge = (th) => {
-    const dx = Math.cos(th), dz = Math.sin(th);
-    const k = Math.min(hw / Math.abs(dx || 1e-6), hd / Math.abs(dz || 1e-6));   // rectangle radius at th
-    return [cx + dx * k, cz + dz * k, dx, dz];
+  // the boundary rectangle walked by ARC LENGTH with the four corners as vertices (round 18c: walking it by angle
+  // put a segment across each corner, and that triangle folded into a grey flat sheet at the map corner, Ben's
+  // photo); the push out direction is the outward normal of the side, blended at the corners
+  const per = 2 * (2 * hw + 2 * hd);
+  const edge = (u) => {   // u in [0, 1) along the perimeter, clockwise from the west south corner
+    let d = u * per;
+    const sides = [[-hw, -hd, 1, 0, 2 * hw, 0, -1], [hw, -hd, 0, 1, 2 * hd, 1, 0], [hw, hd, -1, 0, 2 * hw, 0, 1], [-hw, hd, 0, -1, 2 * hd, -1, 0]];
+    for (const [sx, sz, tx, tz, L, nx, nz] of sides) {
+      if (d <= L + 1e-9) { const f = d / L; const px = sx + tx * d, pz = sz + tz * d;
+        // outward direction: the side normal, bent toward the diagonal within 8 percent of a corner
+        const kx = Math.sign(px || 1) * Math.max(0, Math.abs(px) / hw - 0.92) / 0.08, kz = Math.sign(pz || 1) * Math.max(0, Math.abs(pz) / hd - 0.92) / 0.08;
+        let dx = nx + kx * 0.7, dz = nz + kz * 0.7; const n = Math.hypot(dx, dz) || 1; dx /= n; dz /= n;
+        return [cx + px, cz + pz, dx, dz]; }
+      d -= L;
+    }
+    return [cx - hw, cz - hd, -0.7, -0.7];
   };
   for (let r = 0; r <= rings; r++) {
     const t = r / rings, ease = t * t;
     for (let i = 0; i <= around; i++) {
-      const th = (i / around) * Math.PI * 2;
-      const [ex, ez, dx, dz] = edge(th);
+      const [ex, ez, dx, dz] = edge((i % around) / around);
       const x = ex + dx * ease * far, z = ez + dz * ease * far;
       const h0 = terrain.heightAt(Math.max(B.minX + 0.5, Math.min(B.maxX - 0.5, ex)), Math.max(B.minZ + 0.5, Math.min(B.maxZ - 0.5, ez)));
       // dunes grow with distance, low near the edge so the join stays clean
-      const dune = (hash(i * 0.37, r * 1.3) - 0.5) * 6 * t + Math.sin(th * 3.1 + r) * 1.5 * t;
+      const dune = (hash(i * 0.37, r * 1.3) - 0.5) * 6 * t + Math.sin(i * 0.19 + r) * 1.5 * t;
       const y = h0 * (1 - t) + dune;
       pos.push(x, y - 0.06, z);   // 6 cm down at the join so the terrain edge wins the depth test
     }

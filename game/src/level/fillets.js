@@ -18,7 +18,7 @@ export const FILLET_ASSETS = {
   compound_wall_panel: {}, corrugated_wall_panel: { width: 0.25 }, fuel_truck_wreck: {}, pickup_wreck: {},
   valve_manifold: {}, wellhead_christmas_tree: {}, pipe_rack_stack: { width: 0.3 }, large_pipe_section: { width: 0.3 },
   pump_jack: {}, floodlight_mast: { r: 0.7 }, watchtower_gantry: { width: 0.4 }, derrick_base_module: { width: 0.5 },
-  palm_tree: { r: 0.45, width: 0.7, lift: 0.16 },   // sunk 25 cm (build.js), a wider, taller fillet over the buried boots rock_outcrop_large: { width: 0.6 }, rock_outcrop_small: { width: 0.4 },
+  palm_tree: { r: 0.42, width: 0.5, lift: 0.05 },   // 18c: a low collar; the 16 cm one read as a hat on a slope   // sunk 25 cm (build.js), a wider, taller fillet over the buried boots rock_outcrop_large: { width: 0.6 }, rock_outcrop_small: { width: 0.4 },
 };
 
 const _v = new THREE.Vector3();
@@ -55,7 +55,8 @@ export function makeFillet(p, size, spec, heightAt, baseY) {
       const [lx, lz, nx, nz] = pts[i];
       const [x, z] = toWorld(lx + nx * width * t, lz + nz * width * t);
       const g = heightAt(x, z);
-      const y = t === 0 ? Math.max(g, baseY) + lift : g + lift * prof;   // the inner ring climbs the object, the outer sits on the sand
+      // the inner ring follows the terrain up the object (never a flat plate over a drop: the object is sunk to the low side)
+      const y = t === 0 ? g + lift : g + lift * prof;
       pos.push(x, y + 0.01, z);
     }
   }

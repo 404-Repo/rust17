@@ -28,7 +28,7 @@
  */
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
-import { applySurfaces } from './surfaces.js?v=r18-202608291646';
+import { applySurfaces } from './surfaces.js?v=r18-202608291915';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // DERRICK round 12 (audit, "hard CG edges everywhere"): every box an asset builds with a smallest side of

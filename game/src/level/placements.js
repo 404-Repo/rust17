@@ -261,6 +261,14 @@ P('sandbag_wall', 26, -45, 0);
 // line, the east tanks, the near cover and the horizon rocks of this round.
 for (let i = 0; i < 7; i++) P('compound_wall_panel', -46 + i * 4, -50, 0, { tag: `bund_wall_${i + 1}` });
 for (let i = 0; i < 4; i++) P('corrugated_wall_panel', -18.5 + i * 3, -16, 0);         // shed wind break
+// round 18d (Ben: "run the fence all the way along the edge of the map to enclose the area just to see how that looks"):
+// a light card fence (assets/perimeter_fence.js, one 10 m chain link card per section) around the whole boundary,
+// 2 m outside the coded fence runs, with the two road gaps at the west and east berms (z 3 to 9) left open.
+{
+  const L = 10;
+  for (let x = -68; x < 68; x += L) { P('perimeter_fence', x + L / 2, -56.5, 0, { tag: 'pf_n' }); P('perimeter_fence', x + L / 2, 56.5, 0, { tag: 'pf_s' }); }
+  for (let z = -56; z < 56; z += L) { if (z + L > 2 && z < 10) continue; P('perimeter_fence', -71, z + L / 2, 90, { tag: 'pf_w' }); P('perimeter_fence', 71, z + L / 2, 90, { tag: 'pf_e' }); }
+}
 for (let i = 0; i < 14; i++) P('barbed_wire_fence_section', -14.5 + i * 3, -54, 0);   // north edge fence
 for (let i = 0; i < 6; i++) P('barbed_wire_fence_section', -16.5 + i * 3, 54, 0);     // south edge, x -18..0
 

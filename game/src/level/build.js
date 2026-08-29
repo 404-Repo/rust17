@@ -16,13 +16,13 @@
  * before the bake because the bake leaves no individual objects behind.
  */
 import * as THREE from 'three';
-import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r18-202608291646';
-import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r18-202608291646';
-import { GLB_STATIC, loadGlbStatic } from './glbstatic.js?v=r18-202608291646';   // round 11: Atlas rocks
-import { applyMaterials } from '../render/materials.js?v=r18-202608291646';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
-import { collapsePerJoint } from '../ai/animation.js?v=r18-202608291646';
-import { buildDecals } from '../render/decals.js?v=r18-202608291646';   // decals r6: near field decals, built after the bake
-import { FILLET_ASSETS, makeFillet } from './fillets.js?v=r18-202608291646';   // round 17 item 1: contact fillets
+import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r18-202608291915';
+import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r18-202608291915';
+import { GLB_STATIC, loadGlbStatic } from './glbstatic.js?v=r18-202608291915';   // round 11: Atlas rocks
+import { applyMaterials } from '../render/materials.js?v=r18-202608291915';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
+import { collapsePerJoint } from '../ai/animation.js?v=r18-202608291915';
+import { buildDecals } from '../render/decals.js?v=r18-202608291915';   // decals r6: near field decals, built after the bake
+import { FILLET_ASSETS, makeFillet } from './fillets.js?v=r18-202608291915';   // round 17 item 1: contact fillets
 // round 17 item 1: props that sit IN the sand (4 cm down) so the fillet has something to climb; nothing with a walkable
 const SINK = new Set(['crate_stack', 'wooden_pallet_stack', 'oil_drum', 'tyre_stack', 'ibc_tote', 'sandbag_wall', 'jersey_barrier', 'generator_set', 'control_cabinet', 'ammo_crate', 'locker_bank', 'steel_shelving', 'shipping_container_blue', 'shipping_container_rust_red', 'shipping_container_tan', 'shipping_container_open', 'fuel_truck_wreck', 'pickup_wreck', 'valve_manifold', 'wellhead_christmas_tree', 'compound_wall_panel', 'corrugated_wall_panel', 'bullet_tank_horizontal']);
 
@@ -32,7 +32,7 @@ const CYLINDER_ASSETS = new Set(['oil_drum', 'tyre_stack', 'palm_tree', 'floodli
 const NO_COLLIDER = new Set(['dead_shrub', 'grass_tuft', 'debris_scatter', 'ammo_crate', 'external_steel_stair', 'caged_ladder']);   // level r5: grass_tuft
 const SIZE_TOLERANCE = 0.25;
 // integrator: scatter and wire fences are baked into a second group per block that casts no shadow (render notes lever)
-const NO_SHADOW = new Set(['dead_shrub', 'grass_tuft', 'debris_scatter', 'barbed_wire_fence_section']);
+const NO_SHADOW = new Set(['dead_shrub', 'grass_tuft', 'debris_scatter', 'barbed_wire_fence_section', 'perimeter_fence']);
 // level r5: grass_tuft (44 triangles, three alpha cards) joins the no shadow scatter group: its cast would be
 // a solid bar from the base clump, it is culled with the shrubs at FAR_CULL_N, and the group takes no fine split.
 // level r2: furniture inside the two buildings joins the no shadow group. It stands under a roof
@@ -409,7 +409,14 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
     const size = sizes.get(p.asset) || new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
     const yaw = p.rot * DEG;
     // Ben 2026-08-29 16:33: "the palm trees all sit bad on the ground ... sinking them into the floor a bit more": 25 cm
-    const sink = (!p.moving && !p.dy && SINK.has(p.asset)) ? 0.04 : (!p.moving && !p.dy && p.asset === 'palm_tree') ? 0.25 : 0;
+    let sink = (!p.moving && !p.dy && SINK.has(p.asset)) ? 0.04 : 0;
+    if (!p.moving && !p.dy && p.asset === 'palm_tree' && terrain && terrain.heightAt) {
+      // Ben 2026-08-29 16:49 (photo): a palm on a dune stood on the high side with its fillet as a flat plate over the
+      // low side. The trunk now goes down to the LOWEST ground within 0.6 m of it, 15 cm further, so the boots are
+      // buried on the uphill side and nothing floats on the downhill side.
+      let lo = baseY; for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; lo = Math.min(lo, terrain.heightAt(p.x + Math.cos(a) * 0.6, p.z + Math.sin(a) * 0.6)); }
+      sink = baseY - lo + 0.15;
+    }
     obj.position.set(p.x, baseY - sink, p.z);
     obj.rotation.y = yaw;
     if (p.scale && p.scale !== 1) obj.scale.setScalar(p.scale);   // level r2: uniform, far objects only (see placements.js)
@@ -595,7 +602,7 @@ const TSV_SIZES = {
   compound_wall_panel: [4, 0.4, 2.4], corrugated_wall_panel: [3, 0.15, 2.4], pipe_run_straight: [6, 0.9, 1.5],
   pipe_run_elbow: [3, 3, 1.5], pipe_rack_stack: [6, 2, 1.6], large_pipe_section: [8, 1.5, 1.6],
   external_steel_stair: [1.2, 3.6, 2.3], catwalk_section: [3, 1.2, 1.1], caged_ladder: [0.8, 0.5, 4.6],
-  floodlight_mast: [1.4, 1.4, 9], barbed_wire_fence_section: [3, 0.3, 2.6], pump_jack: [9, 2.6, 6],
+  floodlight_mast: [1.4, 1.4, 9], barbed_wire_fence_section: [3, 0.3, 2.6], perimeter_fence: [10, 0.3, 3.0], pump_jack: [9, 2.6, 6],
   sandbag_wall: [2, 0.6, 1], jersey_barrier: [3, 0.6, 0.82], crate_stack: [1.2, 1, 1.3], ammo_crate: [0.6, 0.35, 0.3],
   oil_drum: [0.585, 0.585, 0.88], ibc_tote: [1.2, 1, 1.16], tyre_stack: [1, 1, 1.2],
   shipping_container_rust_red: [6.06, 2.44, 2.59], shipping_container_blue: [6.06, 2.44, 2.59],

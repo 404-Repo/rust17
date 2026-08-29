@@ -10,7 +10,7 @@ export default function (THREE) {
   const rr = (a, b) => a + (b - a) * rnd();
   const V3 = THREE.Vector3;
   const P = { sand: 0xcdb88e, packed: 0xa89372, rock: 0xc4b393, rockPale: 0xd2c2a0, rockDark: 0x9e8a6f, rockBand: 0xb09b7c, rockBase: 0xb7a283 };
-  const mat = (hex, name, r = 0.92, mt = 0.0, flat = false) => { const m = new THREE.MeshStandardMaterial({ color: hex, roughness: r, metalness: mt, flatShading: flat }); m.name = name; return m; };
+  const mat = (hex, name, r = 0.92, mt = 0.0, flat = false) => { const m = new THREE.MeshStandardMaterial({ color: hex, roughness: r, metalness: mt, flatShading: flat, side: THREE.DoubleSide });   // round 18c: two sided, the bands read as open shells from below with front faces only m.name = name; return m; };
   const add = (geo, m, x = 0, y = 0, z = 0, parent = g) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); parent.add(o); return o; };
 
   // ---- layered value noise (inline, seeded). fbm(p, oct) in [-1, 1]
