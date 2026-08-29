@@ -49,6 +49,7 @@ export default function (THREE) {
     const toneMats = {};
     const matFor = (tone) => toneMats[tone] || (toneMats[tone] = mat(tone, 'stone', 0.93, 0, true));
     const meshes = [];
+    let prevTop = null;                                // top ring of the band below: the next band starts from it (ledge face, no seam)
     bands.forEach((b, bi) => {
       const isTop = bi === bands.length - 1;
       const rings = [];                                // {y, t (0..1 in band), cap (0 side, >0 = inset fraction), tuck (metres)}
@@ -59,6 +60,7 @@ export default function (THREE) {
       if (isTop) { rings.push({ y: b.y1 - shoulder * 0.35, t: 1, cap: 0, tuck: shoulder * 0.45 }); [0.12, 0.34, 0.6, 0.85, 1].forEach((c) => rings.push({ y: b.y1, t: 1, cap: c, tuck: 0 })); }
       const nR = rings.length, pos = [], col = [], idx = [];
       const cbase = new THREE.Color(b.tone);
+      const topRing = [];
       for (let r = 0; r < nR; r++) {
         const R = rings[r];
         const edge = isTop && R.cap === 0.12;          // the top edge ring: chips live here
@@ -82,15 +84,27 @@ export default function (THREE) {
           if (edge && chip) py -= chip.d * 0.8;
           if (R.cap === 1) { px = cx + fbm(1, bi + seedB, 2) * hx * 0.1; pz = cz + fbm(3, bi + seedB, 5) * hz * 0.1; }
           pos.push(px, py, pz);
+          if (r === nr - 1) topRing.push(px, py, pz);
           const k = 0.88 + 0.14 * R.t + (R.cap > 0 ? 0.08 : 0) + 0.06 * fbm(px * 2, py * 2, pz * 2, 2) - (R.t === 0 && bi > 0 ? 0.1 : 0) - (R.t === 1 && !isTop ? 0.12 : 0);
           col.push(cbase.r * k, cbase.g * k, cbase.b * k);
         }
       }
-      for (let r = 0; r < nR - 1; r++) {
-        const capPole = rings[r + 1].cap === 1;
+      // closure: band 0 gets a bottom fan (the block may be lifted or tilted, so its underside is seen); every
+      // later band starts from a copy of the band below's top ring so its tucked bottom ring is a real ledge face.
+      let off = 1, bottomPole = false;
+      if (bi === 0) {
+        const bp = [], bc = []; for (let i = 0; i < S; i++) { bp.push(cx, b.y0, cz); bc.push(cbase.r * 0.7, cbase.g * 0.7, cbase.b * 0.7); }
+        pos.unshift(...bp); col.unshift(...bc); bottomPole = true;
+      } else {
+        const lc = []; for (let i = 0; i < S; i++) lc.push(cbase.r * 0.72, cbase.g * 0.72, cbase.b * 0.72);
+        pos.unshift(...prevTop); col.unshift(...lc);
+      }
+      prevTop = topRing;
+      for (let r = 0; r < nR + off - 1; r++) {
+        const capPole = rings[r + 1 - off].cap === 1;
         for (let i = 0; i < S; i++) {
           const a = r * S + i, b2 = r * S + (i + 1) % S, c = (r + 1) * S + i, d = (r + 1) * S + (i + 1) % S;
-          if (capPole) idx.push(a, c, b2); else idx.push(a, c, b2, b2, c, d);
+          if (r === 0 && bottomPole) idx.push(d, a, c); else if (capPole) idx.push(a, c, b2); else idx.push(a, c, b2, b2, c, d);
         }
       }
       const geo = new THREE.BufferGeometry();

@@ -16,13 +16,13 @@
  * before the bake because the bake leaves no individual objects behind.
  */
 import * as THREE from 'three';
-import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r17-202608291627';
-import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r17-202608291627';
-import { GLB_STATIC, loadGlbStatic } from './glbstatic.js?v=r17-202608291627';   // round 11: Atlas rocks
-import { applyMaterials } from '../render/materials.js?v=r17-202608291627';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
-import { collapsePerJoint } from '../ai/animation.js?v=r17-202608291627';
-import { buildDecals } from '../render/decals.js?v=r17-202608291627';   // decals r6: near field decals, built after the bake
-import { FILLET_ASSETS, makeFillet } from './fillets.js?v=r17-202608291627';   // round 17 item 1: contact fillets
+import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r18-202608291639';
+import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r18-202608291639';
+import { GLB_STATIC, loadGlbStatic } from './glbstatic.js?v=r18-202608291639';   // round 11: Atlas rocks
+import { applyMaterials } from '../render/materials.js?v=r18-202608291639';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
+import { collapsePerJoint } from '../ai/animation.js?v=r18-202608291639';
+import { buildDecals } from '../render/decals.js?v=r18-202608291639';   // decals r6: near field decals, built after the bake
+import { FILLET_ASSETS, makeFillet } from './fillets.js?v=r18-202608291639';   // round 17 item 1: contact fillets
 // round 17 item 1: props that sit IN the sand (4 cm down) so the fillet has something to climb; nothing with a walkable
 const SINK = new Set(['crate_stack', 'wooden_pallet_stack', 'oil_drum', 'tyre_stack', 'ibc_tote', 'sandbag_wall', 'jersey_barrier', 'generator_set', 'control_cabinet', 'ammo_crate', 'locker_bank', 'steel_shelving', 'shipping_container_blue', 'shipping_container_rust_red', 'shipping_container_tan', 'shipping_container_open', 'fuel_truck_wreck', 'pickup_wreck', 'valve_manifold', 'wellhead_christmas_tree', 'compound_wall_panel', 'corrugated_wall_panel', 'bullet_tank_horizontal']);
 
@@ -406,7 +406,8 @@ export async function buildLevel(THREE_, { scene, world, terrain, quality, onPro
     if (!meshes) { console.warn(`[level] asset ${p.asset} loaded empty, placement ${p.tag} skipped`); stats.empty++; continue; }
     const size = sizes.get(p.asset) || new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
     const yaw = p.rot * DEG;
-    const sink = (!p.moving && !p.dy && SINK.has(p.asset)) ? 0.04 : 0;
+    // Ben 2026-08-29 16:33: "the palm trees all sit bad on the ground ... sinking them into the floor a bit more": 25 cm
+    const sink = (!p.moving && !p.dy && SINK.has(p.asset)) ? 0.04 : (!p.moving && !p.dy && p.asset === 'palm_tree') ? 0.25 : 0;
     obj.position.set(p.x, baseY - sink, p.z);
     obj.rotation.y = yaw;
     if (p.scale && p.scale !== 1) obj.scale.setScalar(p.scale);   // level r2: uniform, far objects only (see placements.js)

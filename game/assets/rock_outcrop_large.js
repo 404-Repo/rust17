@@ -49,6 +49,8 @@ export default function (THREE) {
     const toneMats = {};
     const matFor = (tone) => toneMats[tone] || (toneMats[tone] = mat(tone, 'stone', 0.93, 0, !!o.flat));
     const skirtPts = [];                          // foot outline for the sand skirt
+    let prevTop = null;                           // the top ring of the band below: the next band starts from it, so
+                                                  // its recessed underside is a real ledge face and not an open seam
     bands.forEach((b, bi) => {
       const isTop = bi === bands.length - 1;
       const bh = b.y1 - b.y0;
@@ -60,6 +62,7 @@ export default function (THREE) {
       if (isTop) { [0.08, 0.3, 0.52, 0.72, 0.88, 1].forEach((c) => rings.push({ y: b.y1, t: 1, cap: c })); }
       const nR = rings.length, pos = [], col = [], idx = [];
       const cbase = new THREE.Color(b.tone);
+      const topRing = [];
       for (let r = 0; r < nR; r++) {
         const R = rings[r];
         for (let i = 0; i < S; i++) {
@@ -90,13 +93,22 @@ export default function (THREE) {
             if (R.cap === 1) { px = cx0 + fbm(1, bi, 2) * rx * 0.1; pz = cz0 + fbm(3, bi, 5) * rz * 0.1; }
           }
           pos.push(px, py, pz);
+          if (r === nr - 1) topRing.push(px, py, pz);
           // vertex tone: paler toward the top of a band and on the cap, darker in the recess under a bed
           const k = 0.86 + 0.2 * R.t + (R.cap > 0 ? 0.08 : 0) + 0.06 * fbm(px * 2, py * 2, pz * 2, 2);
           col.push(cbase.r * k, cbase.g * k, cbase.b * k);
         }
       }
-      for (let r = 0; r < nR - 1; r++) {
-        const capPole = rings[r + 1].cap === 1;
+      // ledge: ring 0 of this band is a copy of the band below's top ring, so the face from it to this band's
+      // tucked bottom ring is the underside of the bed (dark, in shadow). Closes the seam between bands.
+      let off = 0;
+      if (bi > 0 && prevTop) {
+        const lc = []; for (let i = 0; i < S; i++) lc.push(cbase.r * 0.72, cbase.g * 0.72, cbase.b * 0.72);
+        pos.unshift(...prevTop); col.unshift(...lc); off = 1;
+      }
+      prevTop = topRing;
+      for (let r = 0; r < nR + off - 1; r++) {
+        const capPole = rings[r + 1 - off].cap === 1;
         for (let i = 0; i < S; i++) {
           const a = r * S + i, b2 = r * S + (i + 1) % S, c = (r + 1) * S + i, d = (r + 1) * S + (i + 1) % S;
           if (capPole) { idx.push(a, c, b2); } else { idx.push(a, c, b2, b2, c, d); }
@@ -145,7 +157,7 @@ export default function (THREE) {
   // ---- sand skirt: a low ring lattice from the foot outline out to a feathered toe at y = 0
   const skirt = (pts, cx, cz, out, hIn) => {
     const S = pts.length, pos = [], idx = [];
-    const rows = [[0.0, hIn, -0.06], [0.42, hIn * 0.55, 0], [0.75, hIn * 0.18, 0], [1.0, 0, 0]];
+    const rows = [[0.0, hIn, -(0.3)], [0.42, hIn * 0.55, 0], [0.75, hIn * 0.18, 0], [1.0, 0, 0]];
     rows.forEach(([f, y, inset]) => {
       for (let i = 0; i < S; i++) {
         const [px, pz] = pts[i];
