@@ -12,7 +12,7 @@
  * viewmodel gets the same kick through play('fire').
  */
 import * as THREE from 'three';
-import { ASSET } from '../../assetlib.js?v=r18-202608291639';
+import { ASSET } from '../../assetlib.js?v=r18-202608291646';
 
 export const WEAPONS = {
   ar:  { asset: 'assault_rifle',  name: 'M4 CARBINE',  damage: 28, headMult: 2.0, rpm: 720, mag: 30, reserve: 150, reload: 2.1, spread: 0.010, adsSpread: 0.003, recoil: [0.012, 0.004], range: 80,  auto: true,  adsFov: 55, sight: 0.075, switchTime: 0.45 },
