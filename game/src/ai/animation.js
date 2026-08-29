@@ -341,8 +341,18 @@ export class SoldierRig {
       const qU = localQ(upper), qL = localQ(lower);
       const dU = E0.clone().sub(S0).normalize().applyQuaternion(qU.clone().invert());
       const dL = H0.clone().sub(E0).normalize().applyQuaternion(qL.clone().invert());
-      const pick = (d) => (Math.abs(d.x) < 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1));
-      return { upper, lower, S0, L1, L2, dU, dL, xU: pick(dU), xL: pick(dL), side, S0x: S0.x };
+      // round 8: the twist reference is the rest pose's own elbow normal (arm direction x the pole the
+      // solver will use), carried into each joint's local frame, so the IK reproduces the rest twist
+      // exactly. The old rule picked local X or Z, which is right for the coded soldiers (identity
+      // joint frames) and put a quarter to half turn of twist on a skinned rig whose bones point Y.
+      const pole0 = new THREE.Vector3(0.45 * (Math.sign(S0.x) || -1), -0.8, -0.1);
+      const U0 = E0.clone().sub(S0).normalize();
+      const pp0 = pole0.clone().addScaledVector(U0, -pole0.dot(U0));
+      const n0 = new THREE.Vector3().crossVectors(U0, pp0);
+      if (n0.lengthSq() < 1e-6) n0.set(0, 0, 1).addScaledVector(U0, -U0.z);
+      n0.normalize();
+      const xU = n0.clone().applyQuaternion(qU.clone().invert()), xL = n0.clone().applyQuaternion(qL.clone().invert());
+      return { upper, lower, S0, L1, L2, dU, dL, xU, xL, side, S0x: S0.x };
     };
     const W = measure(weaponSide, true);
     const S = measure(weaponSide === 'R' ? 'L' : 'R', false);

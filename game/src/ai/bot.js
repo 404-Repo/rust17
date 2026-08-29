@@ -11,6 +11,7 @@
  */
 import * as THREE from 'three';
 import { ASSET } from '../../assetlib.js';
+import { loadGlbSoldier } from './glbsoldier.js';   // round 8: skinned soldiers from Atlas (Titan v1 + rig_humanoid_mesh)
 import { SoldierRig } from './animation.js';
 import { applyMaterials } from '../render/materials.js';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
 
@@ -87,12 +88,24 @@ export class Bot {
 
   async load() {
     const soldier = this.team === 'rangers' ? 'friendly_soldier' : 'enemy_soldier';
-    const model = await ASSET(`./assets/${soldier}.js`, { keepHierarchy: true, surfaces: true });
-    if (!model.userData || !model.userData.joints) console.warn(`[bot] ${soldier} arrived without joints (missing asset or merged); ${this.id} will not animate`);
-    this.model = model;
-    applyMaterials(model, { asset: soldier, unify: true, local: true });   // materials r3: was vertexiseMaterials(model, { unify: true }); one set per soldier, projected in its own space
-    this.object.add(model);
-    this.rig = new SoldierRig(model);
+    // round 8: '?soldiers=titan' (default) loads the skinned Atlas soldiers (assets/<name>_titan.glb, textures as
+    // generated, no collapse: the skin must stay one mesh); '?soldiers=js' is the coded round 4 figure.
+    let src = 'titan';
+    try { const q = new URLSearchParams(location.search).get('soldiers'); if (q) src = q; } catch (e) { /* no location */ }
+    let model;
+    if (src !== 'js') {
+      model = await loadGlbSoldier(`./assets/${soldier}_${src}.glb`, { height: 1.8, name: soldier });
+      this.model = model;
+      this.object.add(model);
+      this.rig = new SoldierRig(model, { collapse: false });
+    } else {
+      model = await ASSET(`./assets/${soldier}.js`, { keepHierarchy: true, surfaces: true });
+      if (!model.userData || !model.userData.joints) console.warn(`[bot] ${soldier} arrived without joints (missing asset or merged); ${this.id} will not animate`);
+      this.model = model;
+      applyMaterials(model, { asset: soldier, unify: true, local: true });   // materials r3: was vertexiseMaterials(model, { unify: true }); one set per soldier, projected in its own space
+      this.object.add(model);
+      this.rig = new SoldierRig(model);
+    }
     const wep = await ASSET(`./assets/${this.weapon.asset}.js`, { keepHierarchy: true, surfaces: true });
     applyMaterials(wep, { asset: this.weapon.asset, unify: true, local: true, detail: 0.15 });   // materials r3: was vertexiseMaterials(wep, { unify: true })
     if (wep.children.length) { this.weaponObject = wep; this.rig.attachWeapon(wep); }

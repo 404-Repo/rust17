@@ -145,17 +145,17 @@ export async function loadGlbWeapon(url, { length = 0.9, name = 'glb_weapon', fl
   const meanOf = (idx) => { const m = new THREE.Vector3(); for (const i of idx) m.add(new THREE.Vector3(xs[i], ys[i], zs[i])); return m.divideScalar(Math.max(1, idx.length)); };
   // barrel line height: the median y of the front third (barrel and handguard), the reference every socket hangs from
   const front = slab(0.6, 0.95); front.sort((i, j) => ys[i] - ys[j]); const barrelY = ys[front[Math.floor(front.length / 2)]] || H * 0.7;
-  const grip = meanOf(lowest(slab(0.22, 0.42), 0.08));     // pistol grip bottom (z 0.22 to 0.42 of the length from the stock end)
-  const mag = meanOf(lowest(slab(0.42, 0.56), 0.05));      // magazine bottom
-  const fore = meanOf(lowest(slab(0.6, 0.8), 0.08));       // foregrip or handguard underside
-  const sight = meanOf(highest(slab(0.3, 0.55), 0.04));    // optic top
   const muz = meanOf(slab(0.98, 1.0));
+  // the coded assault_rifle's sockets relative to ITS barrel line (y 0.210) and length (0.899), measured with
+  // tools/glbprobe.mjs: gripR -0.052 / -0.184 L, gripL -0.084 / +0.177 L, mag -0.004 / -0.07 L, sight +0.072 /
+  // -0.106 L, muzzle on the line at +L/2. Proportions off the barrel line, not the base: a generated mesh's
+  // base is wherever its lowest fragment ends (Titan left the foregrip floating), the barrel line is stable.
   const S = {
-    muzzle: [muz.x, muz.y, zMax],
-    gripR: [0, Math.min(barrelY - 0.04, grip.y + 0.06), grip.z],       // hand wraps the grip a little above its bottom
-    gripL: [0, Math.min(barrelY - 0.02, fore.y + 0.03), fore.z],
-    mag: [0, barrelY - 0.03, mag.z],
-    sight: [0, sight.y - 0.018, sight.z],                             // the optic window centre, just under the hood top
+    muzzle: [muz.x, barrelY, zMax],
+    gripR: [0, barrelY - 0.052, -0.184 * Lz],
+    gripL: [0, barrelY - 0.084, 0.177 * Lz],
+    mag: [0, barrelY - 0.004, -0.07 * Lz],
+    sight: [0, barrelY + 0.072, -0.106 * Lz],
   };
   g.userData.sockets = {};
   for (const [nm, p] of Object.entries(S)) { const o = new THREE.Object3D(); o.name = 'socket_' + nm; o.position.set(p[0], p[1], p[2]); g.add(o); g.userData.sockets[nm] = o; }
