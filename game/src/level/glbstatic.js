@@ -19,9 +19,9 @@ const cache = new Map();
 
 /** name -> file, for level/build.js: an asset listed here loads the GLB instead of assets/<name>.js */
 export const GLB_STATIC = {
-  rock_outcrop_large: './assets/rock_outcrop_large.glb',
-  rock_outcrop_small: './assets/rock_outcrop_small.glb',
-  rock_ridge: './assets/rock_ridge.glb',
+  // round 15 (Ben: "rocks - go back to 3JS ... the meshes look out of place with everything else 3JS"): the three
+  // rocks are coded again (assets/rock_*.js, bedded sandstone lattices). The Titan GLBs stay in game/assets/ and
+  // this map can bring any of them back: rock_outcrop_large: './assets/rock_outcrop_large.glb' and so on.
 };
 
 /** Sampled world positions of the vertices that are actually DRAWN (walks the index, so vertices left behind

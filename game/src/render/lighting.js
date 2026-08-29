@@ -44,12 +44,12 @@
  *   rig.update(camera);
  */
 import { CSM } from 'three/addons/csm/CSM.js';
-import { getTier } from './quality.js?v=r14-202608291403';
+import { getTier } from './quality.js?v=r15-202608291450';
 
 /** Sun placement, MAP-PLAN section 1: azimuth 250 degrees, elevation 22. */
 export const SUN_AZIMUTH_DEG = 250;
 export const SUN_ELEVATION_DEG = 22;
-export const SUN_COLOR = 0xffdab4;   // was 0xffd2a0; the critic's tells included a red ORANGE derrick and orange sand, so the key is a shade less saturated. round 4: a hair yellower (0xffd8b0 -> 0xffdab4), the reference's lit sand is yellow tan (218,185,123), not orange
+export const SUN_COLOR = 0xffd6ac;   // round 15: a notch warmer for the same reason   // was 0xffd2a0; the critic's tells included a red ORANGE derrick and orange sand, so the key is a shade less saturated. round 4: a hair yellower (0xffd8b0 -> 0xffdab4), the reference's lit sand is yellow tan (218,185,123), not orange
 export const SUN_INTENSITY = 5.6;   // round 2: was 5.6 at EXPOSURE 1.15, and lit sand measured 205 to 233 luma on the critic frames (bar 170 to 205, palette sand 0xcdb88e); the sun and the exposure both come down a step, the fill does not, so shade lifts relative to sun
 /**
  * ROUND 4, the fill re-solved against eyedrops of the reference (work/r4/render/ref_eyedrops.txt). In the
@@ -69,16 +69,16 @@ export const SUN_INTENSITY = 5.6;   // round 2: was 5.6 at EXPOSURE 1.15, and li
  *                 shadow drops to 45) and a HemisphereLight alone cannot make: its ground colour
  *                 lights undersides more than walls.
  */
-export const SKY_COLOR = 0x8c98b8;   // hemisphere sky term: a desaturated blue grey (round 3: 0x7d9de8 blue; the cyan leaning contract value 0x8fb0d8 went green on sand; iterations 1 to 3: 0x8c9bc0, 0x929cb4). Shade on sand should land a little warm of neutral, the reference's is (134,122,105) to (46,37,30), B minus R -16 to -28; iteration 3 measured -22 to -29 on the shadowed frames
+export const SKY_COLOR = 0x8797c2;   // round 15: 0x8c98b8 -> 0x8797c2, warmCool measured 15 against the reference median 42 (shade a notch cooler)   // hemisphere sky term: a desaturated blue grey (round 3: 0x7d9de8 blue; the cyan leaning contract value 0x8fb0d8 went green on sand; iterations 1 to 3: 0x8c9bc0, 0x929cb4). Shade on sand should land a little warm of neutral, the reference's is (134,122,105) to (46,37,30), B minus R -16 to -28; iteration 3 measured -22 to -29 on the shadowed frames
 export const GROUND_COLOR = 0x6e6c68;   // the ground an underside sees: its own shadow, near neutral, dim. Round 4 iteration 1 tried warm (0x7c6a54) and the frame's darkest quarter went as warm as its brightest (warmCool +5); the reference's deep shade is neutral (B minus R -5 to -12), so the underside terms are neutral and only the wall bounce is warm
-export const SKY_INTENSITY = 0.40;  // round 4: 0.50 -> 0.40 with the sky colour desaturated: shade on sand was 0.41 to 0.5 of lit sand and blue; the bar is 0.35 to 0.45 and neutral
+export const SKY_INTENSITY = 0.36;   // round 15: 0.40 -> 0.36, shadowRatio measured 0.46 against the CoD median 0.35 (docs/CLAIMS.md 2)  // round 4: 0.50 -> 0.40 with the sky colour desaturated: shade on sand was 0.41 to 0.5 of lit sand and blue; the bar is 0.35 to 0.45 and neutral
 /** Lit sand bounce onto vertical faces, linear irradiance: the sun on flat sand is (2.1, 1.5, 1.0) x sand albedo (0.61, 0.48, 0.27) / pi = (0.41, 0.23, 0.09) radiance; a wall sees half that hemisphere, cut by the ground its own shadow covers. */
 export const BOUNCE_COLOR = [0.20, 0.14, 0.08];   // iteration 4: a touch less saturated than the pure sand bounce (0.21, 0.135, 0.062): the reference's shaded rust is (76,62,50), ours measured redder
 export const BOUNCE_UNDER = 0.25;   // fraction of the bounce an underside gets: the ground beneath a deck is that deck's shadow (0.35 in iteration 1: undersides read warm, the reference's are neutral dark)
 export const FOG_COLOR = 0xeadcc4;  // plain Fog colour for unpatched materials: the horizon haze after ACES
 export const FOG_NEAR = 35;
 export const FOG_FAR = 190;
-export const EXPOSURE = 0.85;       // round 2: 1.15 -> 0.88, lit sand was blown to near white (critic item 100); measured after the change in work/fix2_render/NOTES.md. round 4: 0.88 -> 0.85, the brightest 30 percent of the near sand measured 200 to 202 on the sun facing dune (bar 170 to 200) with 175 on flat ground; the ATMOS stops below were solved at 0.88 and land 2 to 3 units darker now, inside the reference spread
+export const EXPOSURE = 0.82;       // round 15: 0.85 -> 0.82 with the panorama sky, the sky band and lit sand sat a step above the reference       // round 2: 1.15 -> 0.88, lit sand was blown to near white (critic item 100); measured after the change in work/fix2_render/NOTES.md. round 4: 0.88 -> 0.85, the brightest 30 percent of the near sand measured 200 to 202 on the sun facing dune (bar 170 to 200) with 175 on flat ground; the ATMOS stops below were solved at 0.88 and land 2 to 3 units darker now, inside the reference spread
 
 /**
  * Atmosphere palette, LINEAR radiance before the ACES curve (EXPOSURE 1.15).

@@ -31,8 +31,9 @@
  * texture carries the fine relief either way and heightAt stays exact against what was built.
  */
 import * as THREE from 'three';
-import { RECIPES } from '../../surfaces.js?v=r14-202608291403';
-import { PLACEMENTS } from '../level/placements.js?v=r14-202608291403';
+import { FOOTPRINT_PADS } from './footprint_pads.js?v=r15-202608291450';
+import { RECIPES } from '../../surfaces.js?v=r15-202608291450';
+import { PLACEMENTS } from '../level/placements.js?v=r15-202608291450';
 
 const DEG = Math.PI / 180;
 
@@ -114,7 +115,7 @@ export const TERRAIN_SPEC = {
 
   // 3.7 flatten pads: override to y with a blended edge; painted by surface.
   pads: [
-    { name: 'derrick pad', x0: -8, x1: 4, z0: -16, z1: -4, y: 0.3, surface: 'concrete', blend: 1.5 },
+    { name: 'derrick pad', x0: -8.6, x1: 4.6, z0: -16.6, z1: -3.4, y: 0.3, surface: 'concrete', blend: 1.5 },   // round 15: 0.6 m wider, the base module's deck overhung the pad edge
     { name: 'shed pad', x0: -19, x1: -13, z0: -15, z1: -5, y: 0.3, surface: 'concrete', blend: 1.5 },
     { name: 'tank farm hardstand', x0: -48, x1: -16, z0: -48, z1: -22, y: 0.6, surface: 'packed', blend: 1.5 },
     { name: 'pipe yard', x0: -12, x1: 30, z0: -48, z1: -22, y: 0.2, surface: 'packed', blend: 1.5 },
@@ -123,6 +124,7 @@ export const TERRAIN_SPEC = {
     { name: 'watchtower pad', x0: 24, x1: 28, z0: -50, z1: -46, y: 0.3, surface: 'concrete', blend: 1.5 },
     { name: 'west spawn plateau', x0: -70, x1: -58, z0: -14, z1: 14, y: 2.2, surface: 'sand', blend: 1.5 },
     { name: 'east spawn plateau', x0: 58, x1: 70, z0: -14, z1: 14, y: 2.2, surface: 'sand', blend: 1.5 },
+    ...FOOTPRINT_PADS,   // round 15: one flat sand pad under every object that overhung (footprint_pads.js)
   ],
   // concrete rings under the three storage tanks, paint only (8.6 m diameter)
   tankRings: [ { x: -40, z: -40, r: 4.3 }, { x: -27, z: -40, r: 4.3 }, { x: -30, z: -28, r: 4.3 } ],
@@ -565,7 +567,9 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
         const d = rectDist(x, z, p.x0, p.x1, p.z0, p.z1);
         if (d >= p.blend) continue;
         const w = smooth01(1 - d / p.blend);
-        h = mix(h, p.y, w);
+        // round 15: footprint pads may be fill only or cut only (footprint_pads.js); the level pads flatten
+        const target = p.mode === 'fill' ? Math.max(h, p.y) : p.mode === 'cut' ? Math.min(h, p.y) : p.y;
+        h = mix(h, target, w);
         if (p.surface === 'packed') wPack[i] = Math.max(wPack[i], w);
         else if (p.surface === 'concrete') wConc[i] = Math.max(wConc[i], w);
       }
@@ -737,6 +741,27 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
 
       S[i] = h;
       wOpen[i] = 1 - Math.max(onRoadA[i], wCut[i], wPack[i], wConc[i], Math.min(1, wRoad[i] * 2));
+    }
+  }
+
+  // ---- pass 2b (round 15): footprint pads AFTER the road, wadi and trench, so a berm, a heap edge or a cut
+  // under a placed object is levelled at its base (footprint_pads.js, fill / cut / flat), and wFoot holds the
+  // detail field off inside them (hummocks and drifts were what floated the crates)
+  const wFoot = new Float32Array(N);
+  for (let iz = 0; iz < NZ; iz++) {
+    const z = Z(iz);
+    for (let ix = 0; ix < NX; ix++) {
+      const i = iz * NX + ix, x = X(ix);
+      let h = S[i];
+      for (const p of FOOTPRINT_PADS) {
+        const d = rectDist(x, z, p.x0, p.x1, p.z0, p.z1);
+        if (d >= p.blend) continue;
+        const w = smooth01(1 - d / p.blend);
+        const target = p.mode === 'fill' ? Math.max(h, p.y) : p.mode === 'cut' ? Math.min(h, p.y) : p.y;
+        h = mix(h, target, w);
+        if (w > wFoot[i]) wFoot[i] = w;
+      }
+      S[i] = h;
     }
   }
 
@@ -924,7 +949,7 @@ export function buildTerrain(THREE_, spec = TERRAIN_SPEC) {
     const z = Z(iz);
     for (let ix = 0; ix < NX; ix++) {
       const i = iz * NX + ix;
-      H[i] = S[i] + detailAt(X(ix), z);
+      H[i] = S[i] + detailAt(X(ix), z) * (1 - wFoot[i]);   // round 15: no hummocks or drifts under a footprint pad
       wTrack[i] = dq.track;
     }
   }

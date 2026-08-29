@@ -13,32 +13,32 @@
  * Everything loads relative to this folder: ./assets, ./assetlib.js, ./src/...
  */
 import * as THREE from 'three';
-import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r14-202608291403';
-import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY } from './src/render/lighting.js?v=r14-202608291403';
-import { createSky } from './src/render/sky.js?v=r14-202608291403';
-import { createPost } from './src/render/post.js?v=r14-202608291403';
-import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r14-202608291403';
-import { World } from './src/world/collision.js?v=r14-202608291403';
-import { buildLevel } from './src/level/build.js?v=r14-202608291403';
-import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r14-202608291403';
-import { Player } from './src/player/controller.js?v=r14-202608291403';
-import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r14-202608291403';
-import { Viewmodel } from './src/player/viewmodel.js?v=r14-202608291403';
-import { FX } from './src/player/fx.js?v=r14-202608291403';
-import { NavGrid } from './src/ai/navgrid.js?v=r14-202608291403';
-import { Bot } from './src/ai/bot.js?v=r14-202608291403';
-import { SquadManager } from './src/ai/squad.js?v=r14-202608291403';
-import { Input, RAD_PER_PX } from './src/ui/input.js?v=r14-202608291403';
-import { TouchControls } from './src/ui/touch.js?v=r14-202608291403';
-import { HUD } from './src/ui/hud.js?v=r14-202608291403';
-import { Screens } from './src/ui/screens.js?v=r14-202608291403';
-import { Events } from './src/game/events.js?v=r14-202608291403';
-import { TDM } from './src/game/mode.js?v=r14-202608291403';
-import { createTelemetry } from './src/game/telemetry.js?v=r14-202608291403';
-import { Audio } from './src/game/audio.js?v=r14-202608291403';
-import { ASSET } from './assetlib.js?v=r14-202608291403';
-import { vertexiseMaterials } from './src/game/bake.js?v=r14-202608291403';
-import { preloadMaterials, applyTerrainMaterial } from './src/render/materials.js?v=r14-202608291403';   // materials r3
+import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r15-202608291450';
+import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r15-202608291450';
+import { createSky } from './src/render/sky.js?v=r15-202608291450';
+import { createPost } from './src/render/post.js?v=r15-202608291450';
+import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r15-202608291450';
+import { World } from './src/world/collision.js?v=r15-202608291450';
+import { buildLevel } from './src/level/build.js?v=r15-202608291450';
+import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r15-202608291450';
+import { Player } from './src/player/controller.js?v=r15-202608291450';
+import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r15-202608291450';
+import { Viewmodel } from './src/player/viewmodel.js?v=r15-202608291450';
+import { FX } from './src/player/fx.js?v=r15-202608291450';
+import { NavGrid } from './src/ai/navgrid.js?v=r15-202608291450';
+import { Bot } from './src/ai/bot.js?v=r15-202608291450';
+import { SquadManager } from './src/ai/squad.js?v=r15-202608291450';
+import { Input, RAD_PER_PX } from './src/ui/input.js?v=r15-202608291450';
+import { TouchControls } from './src/ui/touch.js?v=r15-202608291450';
+import { HUD } from './src/ui/hud.js?v=r15-202608291450';
+import { Screens } from './src/ui/screens.js?v=r15-202608291450';
+import { Events } from './src/game/events.js?v=r15-202608291450';
+import { TDM } from './src/game/mode.js?v=r15-202608291450';
+import { createTelemetry } from './src/game/telemetry.js?v=r15-202608291450';
+import { Audio } from './src/game/audio.js?v=r15-202608291450';
+import { ASSET } from './assetlib.js?v=r15-202608291450';
+import { vertexiseMaterials } from './src/game/bake.js?v=r15-202608291450';
+import { preloadMaterials, applyTerrainMaterial } from './src/render/materials.js?v=r15-202608291450';   // materials r3
 
 const ROUND = 'r6';
 const DEG = Math.PI / 180;
@@ -67,6 +67,25 @@ camera.rotation.order = 'YXZ';
 scene.add(camera);                                   // the viewmodel is a child of the camera
 
 const sky = createSky(THREE, { scene, tier });
+// round 15 (Ben: "generate nice sky with atlas"): an Atlas equirect panorama (textures/sky_equirect.jpg, Seedream 5
+// Pro 2:1 4K, horizon remapped to the middle row, seam blended) as the scene background; the analytic dome is
+// hidden, the hills ring and the motes stay, the rig keeps its own environment map and fill. '?sky=dome' = before.
+// The panorama's sun sits at u 0.254 of the width; backgroundRotation turns it onto the rig's azimuth.
+if (params.get('sky') !== 'dome') {
+  new THREE.TextureLoader().load('./textures/sky_equirect.jpg', (tex) => {
+    tex.mapping = THREE.EquirectangularReflectionMapping; tex.colorSpace = THREE.SRGBColorSpace;
+    tex.minFilter = THREE.LinearMipmapLinearFilter; tex.generateMipmaps = true; tex.anisotropy = 4;
+    scene.background = tex;
+    const sunU = 0.263;   // measured on the shipped texture (work/sky, brightest blob in the sky half); the sky half is warped so its sun sits at the rig's 22 degrees
+    // equirect u runs with atan2(dir.z, dir.x) in three; the sun direction in world is sunDirection(); solve the yaw so u(sun) lands on sunU
+    const sd = sunDirection(THREE); const sunYaw = Math.atan2(sd.z, sd.x);                 // world yaw of the sun
+    const texYaw = (sunU - 0.5) * Math.PI * 2;                                            // yaw the panorama places its sun at (u 0.5 = +x axis, three's equirect convention)
+    // checked with tools/shot.mjs '?skyrot=' sweeps: three samples the rotated direction, so the sun lands at sunYaw - texYaw - PI
+    scene.backgroundRotation = new THREE.Euler(0, +(params.get('skyrot') || (sunYaw - texYaw - Math.PI)), 0);
+    if (sky.mesh) sky.mesh.visible = false;
+    console.info(`[sky] atlas panorama on, rotation ${(scene.backgroundRotation.y * 180 / Math.PI).toFixed(0)} deg (sun yaw ${(sunYaw * 180 / Math.PI).toFixed(0)}, tex sun yaw ${(texYaw * 180 / Math.PI).toFixed(0)}); '?sky=dome' for the analytic dome, '?skyrot=' to override`);
+  });
+}
 const rig = createLightingRig(THREE, { scene, renderer, camera, tier });
 const post = createPost(THREE, { renderer, scene, camera, tier });
 // integrator r1: the environment map lives in the lighting rig now (its own analytic dome

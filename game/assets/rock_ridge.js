@@ -1,4 +1,4 @@
-// rock_outcrop_large r13 rebuild: coded sandstone, not slabs. A stratified body built as a hand made ring lattice (quarter
+// rock_ridge r13 rebuild: coded sandstone, not slabs. A stratified body built as a hand made ring lattice (quarter
 // superellipse profile, rounded wind eroded shoulder, bedding planes as hard edges between bands, each band
 // its own shifted, scaled ring set with a recessed underside), displaced by inline layered value noise, with
 // displaced icosahedron rubble clipped to the ground plane and a sand skirt feathering to y = 0. No boxes.
@@ -6,7 +6,7 @@
 export default function (THREE) {
   const g = new THREE.Group();
   const PI = Math.PI;
-  let s = 11; const rnd = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+  let s = 37; const rnd = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
   const rr = (a, b) => a + (b - a) * rnd();
   const V3 = THREE.Vector3;
   const P = { sand: 0xcdb88e, packed: 0xa89372, rock: 0xc4b393, rockPale: 0xd2c2a0, rockDark: 0x9e8a6f, rockBand: 0xb09b7c, rockBase: 0xb7a283 };
@@ -14,7 +14,7 @@ export default function (THREE) {
   const add = (geo, m, x = 0, y = 0, z = 0, parent = g) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); parent.add(o); return o; };
 
   // ---- layered value noise (inline, seeded). fbm(p, oct) in [-1, 1]
-  const hash3 = (x, y, z) => { const t = Math.sin(x * 127.1 + y * 311.7 + z * 74.7 + 11 * 0.917) * 43758.5453; return t - Math.floor(t); };
+  const hash3 = (x, y, z) => { const t = Math.sin(x * 127.1 + y * 311.7 + z * 74.7 + 37 * 0.917) * 43758.5453; return t - Math.floor(t); };
   const sm = (t) => t * t * (3 - 2 * t);
   const vnoise = (x, y, z) => {
     const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z), fx = sm(x - ix), fy = sm(y - iy), fz = sm(z - iz);
@@ -168,23 +168,19 @@ export default function (THREE) {
   };
 
 
-  // plan (metres, before centring): a tall main mass, a lower east lobe, a low front lobe, six fallen blocks
-  // along the south and east feet, a sand skirt feathering to the toe.
-  const B5 = (h, tones, over) => {
-    const cuts = [0, 0.19, 0.39, 0.6, 0.8, 1].map((f) => f * h);
-    return tones.map((t, i) => ({ y0: cuts[i], y1: cuts[i + 1], tone: t, shift: [rr(-0.07, 0.07), rr(-0.07, 0.07)], scale: over === i ? 0.93 : rr(0.98, 1.02), recess: over === i ? 0.45 : rr(0.1, 0.22) }));
-  };
-  body({ cx: -0.4, cz: 0.1, rx: 2.7, rz: 1.65, h: 3.0, S: 56, seed: 1, flat: true, ringsPerBand: 4, lobe: 0.15, lobeK: 1.4, noise: 0.06, joint: 0.08, jointK: 6, yaw: 0.2,
-    bands: B5(3.0, [P.rockBase, P.rockBand, P.rock, P.rockBand, P.rockPale], 2) });
-  body({ cx: 2.35, cz: 0.35, rx: 1.65, rz: 1.5, h: 2.05, S: 40, seed: 2, flat: true, ringsPerBand: 3, lobe: 0.14, lobeK: 1.6, noise: 0.06, yaw: 1.1, q: 6,
-    bands: [0, 0.3, 0.55, 0.78, 1].slice(0, 4).map((f, i, a) => ({ y0: f * 2.05, y1: (i === 3 ? 1 : a[i + 1]) * 2.05, tone: [P.rockBase, P.rock, P.rockBand, P.rockPale][i], shift: [rr(-0.1, 0.1), rr(-0.1, 0.1)], scale: rr(0.98, 1.02), recess: rr(0.08, 0.18) })) });
-  body({ cx: -2.2, cz: 1.35, rx: 1.3, rz: 1.0, h: 1.3, S: 32, seed: 3, flat: true, ringsPerBand: 3, lobe: 0.12, noise: 0.07, yaw: 2.2, q: 5,
-    bands: [{ y0: 0, y1: 0.5, tone: P.rockBase, shift: [0, 0], scale: 1, recess: 0.08 }, { y0: 0.5, y1: 0.95, tone: P.rockBand, shift: [0.08, -0.06], scale: 0.98, recess: 0.14 }, { y0: 0.95, y1: 1.3, tone: P.rockPale, shift: [-0.05, 0.04], scale: 0.96, recess: 0.1 }] });
-  [[-1.2, 2.25, 0.4], [0.3, 2.3, 0.32], [1.6, 2.15, 0.26], [3.6, 1.5, 0.3], [3.9, -0.6, 0.22], [2.4, -1.6, 0.34]].forEach(([x, z, r], i) => rubble(x, z, r, i * 3.1, rr(0, PI), 0.35));
+  // plan: one long stratified mass 20 m along x with a stepped lower shelf at the east end, eight fallen blocks
+  // along the south foot, a sand skirt. The level sinks the ridge 2.5 m, so the strata are cut all the way down.
+  const cutsR = [0, 0.11, 0.23, 0.36, 0.5, 0.63, 0.76, 0.88, 1];
+  const tonesR = [P.rockBase, P.rockBand, P.rock, P.rockBand, P.rock, P.rockDark, P.rock, P.rockPale];
+  body({ cx: -0.6, cz: 0, rx: 8.3, rz: 2.95, h: 5.0, S: 96, seed: 1, flat: true, ringsPerBand: 4, lobe: 0.13, lobeK: 1.5, noise: 0.05, joint: 0.09, jointK: 11, yaw: 0.08, q: 8, dome: 0.02,
+    bands: tonesR.map((t, i) => ({ y0: cutsR[i] * 5, y1: cutsR[i + 1] * 5, tone: t, shift: [rr(-0.15, 0.15), rr(-0.12, 0.12)], scale: i === 5 ? 0.95 : rr(0.985, 1.015), recess: i === 5 ? 0.6 : rr(0.15, 0.35) })) });
+  body({ cx: 6.4, cz: 0.9, rx: 3.0, rz: 2.3, h: 3.1, S: 56, seed: 2, flat: true, ringsPerBand: 3, lobe: 0.14, lobeK: 1.6, noise: 0.06, joint: 0.09, jointK: 6, yaw: 0.7, q: 6, dome: 0.03,
+    bands: [0, 0.2, 0.4, 0.62, 0.82, 1].slice(0, 5).map((f, i, a) => ({ y0: f * 3.1, y1: (i === 4 ? 1 : a[i + 1]) * 3.1, tone: [P.rockBase, P.rockBand, P.rock, P.rockBand, P.rockPale][i], shift: [rr(-0.15, 0.15), rr(-0.15, 0.15)], scale: rr(0.98, 1.02), recess: rr(0.1, 0.25) })) });
+  [[-7.5, 3.6, 0.5], [-5.2, 3.9, 0.42], [-2.4, 3.7, 0.6], [0.4, 3.9, 0.36], [2.8, 3.8, 0.5], [5.6, 3.9, 0.44], [9.1, 2.4, 0.55], [-8.9, -2.6, 0.4]].forEach(([x, z, r], i) => rubble(x, z, r, i * 2.7, rr(0, PI), 0.35));
   {
-    const S = 64, pts = [];
-    for (let i = 0; i < S; i++) { const th = (i / S) * PI * 2; const f = 1 + 0.12 * ring(th, 1.2, 4); pts.push([0.2 + Math.cos(th) * 3.3 * f, 0.35 + Math.sin(th) * 1.95 * f]); }
-    skirt(pts, 0.2, 0.35, 0.55, 0.14);
+    const S = 96, pts = [];
+    for (let i = 0; i < S; i++) { const th = (i / S) * PI * 2; const f = 1 + 0.1 * ring(th, 1.2, 4); pts.push([0.4 + Math.cos(th) * 9.2 * f, 0.3 + Math.sin(th) * 3.45 * f]); }
+    skirt(pts, 0.4, 0.3, 0.6, 0.16);
   }
 
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw

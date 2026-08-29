@@ -52,9 +52,9 @@
  * frond throws a leaflet shaped shadow, not a rectangle.
  */
 import * as THREE from 'three';
-import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r14-202608291403';
-import { classify, RECIPES } from '../../surfaces.js?v=r14-202608291403';
-import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r14-202608291403';   // round 5: the cards' backlight reads the rig's sun
+import { VertexPBRMaterial, vertexiseMaterials } from '../game/bake.js?v=r15-202608291450';
+import { classify, RECIPES } from '../../surfaces.js?v=r15-202608291450';
+import { sunDirection, SUN_COLOR, SUN_INTENSITY } from './lighting.js?v=r15-202608291450';   // round 5: the cards' backlight reads the rig's sun
 
 /**
  * The sets. `scale` is metres per tile. `normal` is the normal map strength, `albedo` and
@@ -113,7 +113,7 @@ const HERO_1024 = new Set(['sand_sunlit', 'red_oxide_steel']);
 /** Assets whose grey metal is galvanised sheet, mesh or grating rather than painted plant. */
 const GALVANISED_ASSETS = /corrugated|shipping_container|barbed_wire|caged_ladder|catwalk|ibc_tote|mud_pump_shed|pump_house|bunkhouse|watchtower|floodlight_mast|steel_shelving|locker_bank/;
 /** Assets whose 'stone' is rock, not concrete. */
-const ROCK_ASSETS = /rock_outcrop|culvert|debris_scatter/;
+const ROCK_ASSETS = /rock_outcrop|rock_ridge|culvert|debris_scatter/;   // round 15: the coded ridge joins the rock set
 /**
  * Per asset tint on a recipe (round 4, owner): the palm trunk read paler than lit sand. Its vertex
  * colours run grey 0x8f8a7e to tan and, being a vertical cylinder, it takes the low sun at 2.5x the

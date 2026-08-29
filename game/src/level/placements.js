@@ -152,7 +152,7 @@ P('shipping_container_open', 30, -6, 0, { tag: 'container_open_road' });
 P('culvert_crossing', 14, 6, 0, { y: null, tag: 'culvert', wadiBed: true });
 many('jersey_barrier', [[-50, 2], [-46, 2], [-42, 2], [-38, 2]]);
 many('jersey_barrier', [[38, 10], [42, 10], [46, 10], [50, 10]]);
-many('jersey_barrier', [[11, 2], [17, 2], [11, 10], [17, 10]]);
+many('jersey_barrier', [[7, 2], [21, 2], [7, 10], [21, 10]]);   // round 15: were at x 11 and 17, floating 2.6 m over the wadi cut beside the culvert
 many('jersey_barrier', [[-55, 2], [-55, 10], [55, 2], [55, 10]]);
 P('pickup_wreck', 42, 12, 200);
 P('pump_jack', 34, -12, 0, { moving: true, tag: 'pump_jack_east' });
@@ -349,9 +349,9 @@ many('rock_outcrop_large', [[-64, -46, 0], [-60, -40, 30], [60, -48, 0], [64, -4
 // Each is the large outcrop at 1.6 to 2.4 times its size (12 to 19 m wide, 5 to 7 m high), 50 m
 // or more from any route, half of each body past the terrain edge where nothing can see it.
 // The pair behind each spawn sits outside z -14..14 so no spawn point is inside one.
-many('rock_ridge', [[-52, -55, 20], [-24, -58, 340], [34, -58, 15], [48, -57, 200]], 0, { dy: -2.5 });   // sunk 2.5 m: the generated ridge has no underside and the edge dunes fall away   // round 11: real size ridge meshes, no scaling (Ben: "we shouldn't be stretching any modules")
-P('rock_ridge', -38, -57, 0, { tag: 'ridge_n_big', dy: -2.5 });
-P('rock_ridge', -25, 58.5, 10, { tag: 'ridge_s', dy: -2.5 });
+many('rock_ridge', [[-52, -55, 20], [-24, -58, 340], [34, -58, 15], [48, -57, 200]], 0, { dy: -0.6 });   // round 15: coded ridge with a base, sunk 0.6 m into the edge dunes (was -2.5 for the Titan one)   // round 11: real size ridge meshes, no scaling (Ben: "we shouldn't be stretching any modules")
+P('rock_ridge', -38, -57, 0, { tag: 'ridge_n_big', dy: -0.6 });
+P('rock_ridge', -25, 58.5, 10, { tag: 'ridge_s', dy: -0.6 });
 many('rock_outcrop_large', [[66, -22, 90], [66, 22, 90], [-66, -22, 90], [-66, 22, 90]], 0);
 for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', 69, -12.5 + i * 3, 90);
 for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', 69, 3.5 + i * 3, 90);

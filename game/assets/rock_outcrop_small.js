@@ -1,58 +1,182 @@
-// rock_outcrop_small c0: primitives. Three boulders as hash jittered boxes with flat bedding tops,
-// the middle one leaning on the big one, cracks as dark inset strips, sand dust slabs on the tops,
-// buried to a third of their height in a sand fillet mound.
+// rock_outcrop_small r13 rebuild (rev 2): three squat sandstone blocks, not barrels. Each boulder is a ring lattice
+// on a rounded rectangle plan (plan superellipse), wider and deeper than it is tall, near vertical sides that tuck
+// in at the foot, a flat bedding top with a small eroded shoulder, one or two bedding lines as recessed band
+// joints down the sides, small chips knocked out of the top edges, displaced by inline layered value noise. The
+// upper block rests across the two lower ones with real contact, a rubble chock under its tail; sand skirt feathers
+// the foot to y = 0. Material recipe 'stone' with pale/dark colour variants ('ground' for the skirt).
 export default function (THREE) {
   const g = new THREE.Group();
   const PI = Math.PI;
-  let s = 5; const rnd = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+  let s = 23; const rnd = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
   const rr = (a, b) => a + (b - a) * rnd();
-  const P = { sand: 0xcdb88e, packed: 0xa89372, rock: 0xc4b393, concS: 0x857c6c, rust: 0x6b4426 };
-  const shade = (hex, f) => new THREE.Color(hex).multiplyScalar(f).getHex();
-  const mat = (hex, name, r = 0.92, mt = 0.0, ds = false, flat = true) => { const m = new THREE.MeshStandardMaterial({ color: hex, roughness: r, metalness: mt, side: ds ? THREE.DoubleSide : THREE.FrontSide, flatShading: flat }); m.name = name; return m; };
+  const V3 = THREE.Vector3;
+  const P = { sand: 0xcdb88e, packed: 0xa89372, rock: 0xc4b393, rockPale: 0xd2c2a0, rockDark: 0x9e8a6f, rockBand: 0xb09b7c, rockBase: 0xb7a283 };
+  const mat = (hex, name, r = 0.92, mt = 0.0, flat = false) => { const m = new THREE.MeshStandardMaterial({ color: hex, roughness: r, metalness: mt, flatShading: flat }); m.name = name; return m; };
   const add = (geo, m, x = 0, y = 0, z = 0, parent = g) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); parent.add(o); return o; };
-  const hsh = (x, y, z, k) => { const t = Math.sin(Math.round(x * 1e3) * 0.1271 + Math.round(y * 1e3) * 0.3117 + Math.round(z * 1e3) * 0.0747 + k * 19.3) * 43758.5453; return t - Math.floor(t); };
-  const jbox = (w, h, d, jit, seed) => {
-    const geo = new THREE.BoxGeometry(w, h, d, 4, 2, 4);
+
+  // ---- layered value noise (inline, seeded). fbm(p, oct) in [-1, 1]
+  const hash3 = (x, y, z) => { const t = Math.sin(x * 127.1 + y * 311.7 + z * 74.7 + 23 * 0.917) * 43758.5453; return t - Math.floor(t); };
+  const sm = (t) => t * t * (3 - 2 * t);
+  const vnoise = (x, y, z) => {
+    const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z), fx = sm(x - ix), fy = sm(y - iy), fz = sm(z - iz);
+    let v = 0;
+    for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) for (let c = 0; c < 2; c++) v += hash3(ix + a, iy + b, iz + c) * (a ? fx : 1 - fx) * (b ? fy : 1 - fy) * (c ? fz : 1 - fz);
+    return v * 2 - 1;
+  };
+  const fbm = (x, y, z, oct = 3, lac = 2.1, gain = 0.5) => { let a = 1, f = 1, v = 0, n = 0; for (let i = 0; i < oct; i++) { v += a * vnoise(x * f + i * 3.7, y * f + i * 1.3, z * f + i * 9.1); n += a; a *= gain; f *= lac; } return v / n; };
+  // periodic 1D noise round the outline: sampled on a circle so theta = 0 and 2 pi agree
+  const ring = (th, k, ph) => fbm(Math.cos(th) * k + ph, Math.sin(th) * k + ph * 0.3, ph * 1.7, 2);
+
+  // ---- a squat block. Ring lattice: plan radius follows a superellipse (rounded rectangle, exponent planQ), the
+  // side profile is near vertical with a foot tuck and a small rounded shoulder under the flat top, the top is a
+  // set of cap rings walking inward. Bedding lines: the block is cut into bands, each band its own vertex set
+  // (hard edge at the joint, flat shaded), the bottom of a band tucked in so the bed above overhangs it. Chips:
+  // a few top edge vertices are dropped and pushed in. Every vertex gets layered value noise. Then the whole
+  // block is tilted about its centre and lifted, anything under the ground clamped to y = 0.
+  const block = (o) => {
+    const { cx, cz, hx, hz, h, S } = o;                // half extents in plan, height
+    const seedB = o.seed || 0;
+    const bands = o.bands;                             // [{y0, y1, tone}] ascending, y1 of last = h
+    const planQ = o.planQ || 4.2;
+    const nAmp = o.noise === undefined ? 0.03 : o.noise; // metres
+    const lobeAmp = o.lobe === undefined ? 0.05 : o.lobe;
+    const shoulder = o.shoulder === undefined ? 0.06 : o.shoulder;   // metres of rounded top edge
+    const foot = o.foot === undefined ? 0.05 : o.foot;               // metres of tuck at the foot
+    const yaw = o.yaw || 0;
+    const plan = (th) => Math.pow(Math.pow(Math.abs(Math.cos(th)), planQ) + Math.pow(Math.abs(Math.sin(th)), planQ), -1 / planQ);
+    const outline = (th) => 1 + lobeAmp * ring(th, 1.4, seedB * 2.1) + lobeAmp * 0.5 * ring(th, 3.1, seedB * 5.3);
+    const chips = []; for (let i = 0; i < (o.chips || 2); i++) chips.push({ i: Math.floor(rr(0, S)), d: rr(0.025, 0.05) });
+    const toneMats = {};
+    const matFor = (tone) => toneMats[tone] || (toneMats[tone] = mat(tone, 'stone', 0.93, 0, true));
+    const meshes = [];
+    bands.forEach((b, bi) => {
+      const isTop = bi === bands.length - 1;
+      const rings = [];                                // {y, t (0..1 in band), cap (0 side, >0 = inset fraction), tuck (metres)}
+      const rec = b.recess === undefined ? 0.03 : b.recess;
+      const yTop = isTop ? b.y1 - shoulder : b.y1;
+      const nr = o.ringsPerBand || 3;
+      for (let i = 0; i < nr; i++) { const t = i / (nr - 1); rings.push({ y: b.y0 + (yTop - b.y0) * t, t, cap: 0, tuck: (bi === 0 ? foot * Math.pow(1 - t, 2) : rec * Math.pow(1 - t, 1.5)) }); }
+      if (isTop) { rings.push({ y: b.y1 - shoulder * 0.35, t: 1, cap: 0, tuck: shoulder * 0.45 }); [0.12, 0.34, 0.6, 0.85, 1].forEach((c) => rings.push({ y: b.y1, t: 1, cap: c, tuck: 0 })); }
+      const nR = rings.length, pos = [], col = [], idx = [];
+      const cbase = new THREE.Color(b.tone);
+      for (let r = 0; r < nR; r++) {
+        const R = rings[r];
+        const edge = isTop && R.cap === 0.12;          // the top edge ring: chips live here
+        for (let i = 0; i < S; i++) {
+          const th = (i / S) * PI * 2;
+          const pf = plan(th) * outline(th) * b.scale;
+          let rad = pf * (R.cap > 0 ? 1 - R.cap * 0.92 : 1);
+          let dx = Math.cos(th) * hx * rad, dz = Math.sin(th) * hz * rad;
+          const L = Math.hypot(dx, dz) || 1;
+          let tuck = R.tuck;
+          const chip = chips.find((c) => c.i === i || (c.i + 1) % S === i);
+          if (edge && chip) tuck += chip.d;
+          dx -= (dx / L) * tuck; dz -= (dz / L) * tuck;
+          let n = fbm((cx + dx) * 2.2 + seedB, R.y * 2.2, (cz + dz) * 2.2, 3) * nAmp + fbm((cx + dx) * 7, R.y * 7, (cz + dz) * 7 + seedB, 2) * nAmp * 0.4;
+          if (R.cap > 0) n *= 0.5;
+          let px = cx + dx + (dx / L) * n, pz = cz + dz + (dz / L) * n, py = R.y;
+          if (R.cap > 0) py += fbm(px * 3, 11 + seedB, pz * 3, 2) * h * 0.03 + (o.dome || 0) * Math.sin(R.cap * PI * 0.5);
+          else if (R.t > 0 && R.t < 1) py += fbm(px * 3, R.y, pz * 3, 2) * (b.y1 - b.y0) * 0.1;
+          else if (R.t === 0 && bi > 0) py += fbm(px * 2.5, 7 + bi + seedB, pz * 2.5, 2) * 0.02;   // wavy bedding plane
+          else if (R.t === 1 && !isTop) py += fbm(px * 2.5, 8 + bi + seedB, pz * 2.5, 2) * 0.02;
+          if (edge && chip) py -= chip.d * 0.8;
+          if (R.cap === 1) { px = cx + fbm(1, bi + seedB, 2) * hx * 0.1; pz = cz + fbm(3, bi + seedB, 5) * hz * 0.1; }
+          pos.push(px, py, pz);
+          const k = 0.88 + 0.14 * R.t + (R.cap > 0 ? 0.08 : 0) + 0.06 * fbm(px * 2, py * 2, pz * 2, 2) - (R.t === 0 && bi > 0 ? 0.1 : 0) - (R.t === 1 && !isTop ? 0.12 : 0);
+          col.push(cbase.r * k, cbase.g * k, cbase.b * k);
+        }
+      }
+      for (let r = 0; r < nR - 1; r++) {
+        const capPole = rings[r + 1].cap === 1;
+        for (let i = 0; i < S; i++) {
+          const a = r * S + i, b2 = r * S + (i + 1) % S, c = (r + 1) * S + i, d = (r + 1) * S + (i + 1) % S;
+          if (capPole) idx.push(a, c, b2); else idx.push(a, c, b2, b2, c, d);
+        }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      geo.setIndex(idx);
+      meshes.push({ geo: geo.toNonIndexed(), tone: b.tone });
+    });
+    // tilt about the block centre (mid height), yaw, lift, clamp to ground
+    const e = new THREE.Euler(o.tilt ? o.tilt[0] : 0, yaw, o.tilt ? o.tilt[1] : 0, 'YXZ'), w = new V3(), lift = o.lift || 0;
+    meshes.forEach(({ geo, tone }) => {
+      const pv = geo.attributes.position;
+      for (let i = 0; i < pv.count; i++) { w.set(pv.getX(i) - cx, pv.getY(i) - h * 0.5, pv.getZ(i) - cz).applyEuler(e); pv.setXYZ(i, w.x + cx, Math.max(0, w.y + h * 0.5 + lift), w.z + cz); }
+      geo.computeVertexNormals();
+      add(geo, matFor(tone));
+    });
+  };
+
+  // ---- rubble: a displaced icosahedron, squashed, flattened where it meets the ground so it sits half buried
+  const rubble = (x, z, r, seed, yaw = 0, sink = 0.35) => {
+    const geo = new THREE.IcosahedronGeometry(r, 1);
     const p = geo.attributes.position;
+    const sy = rr(0.55, 0.8), sx = rr(0.85, 1.2);
+    const nv = new V3();
     for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-      const top = y >= h / 2 - 1e-4;
-      p.setXYZ(i, x + (hsh(x, y, z, seed) - 0.5) * jit * w, y + (top ? (hsh(x, y, z, seed + 13) - 0.5) * 0.04 : (hsh(x, y, z, seed + 13) - 0.5) * jit * h), z + (hsh(x, y, z, seed + 7) - 0.5) * jit * d);
+      nv.set(p.getX(i), p.getY(i), p.getZ(i)).normalize();
+      const n = 1 + 0.28 * fbm(nv.x * 1.7 + seed, nv.y * 1.7, nv.z * 1.7 + seed, 2) + 0.1 * fbm(nv.x * 5 + seed, nv.y * 5, nv.z * 5, 2);
+      let px = nv.x * r * n * sx, py = nv.y * r * n * sy, pz = nv.z * r * n;
+      // a bedding step across the middle: the upper half sits a touch out
+      if (py > r * 0.05) { px *= 1.05; pz *= 1.05; }
+      p.setXYZ(i, px, py, pz);
     }
     geo.computeVertexNormals();
-    return geo;
+    const geo2 = geo.toNonIndexed(); geo2.computeVertexNormals();
+    const o = add(geo2, mat(rnd() < 0.5 ? P.rock : P.rockBand, 'stone', 0.93, 0, true), x, r * sy * (1 - sink), z);
+    o.rotation.y = yaw;
+    // clip the buried part to the ground plane: nothing below y = 0 after placement
+    o.updateMatrix();
+    const pp = geo2.attributes.position, w = new V3();
+    for (let i = 0; i < pp.count; i++) { w.set(pp.getX(i), pp.getY(i), pp.getZ(i)).applyMatrix4(o.matrix); if (w.y < 0) { w.y = 0; w.applyMatrix4(o.matrix.clone().invert()); pp.setXYZ(i, w.x, w.y, w.z); } }
+    return o;
   };
-  const mN = mat(P.rock, 'stone'), mS = mat(shade(P.rock, 1.04), 'stone'), mW = mat(shade(P.rock, 0.95), 'stone');
-  const mCrack = mat(P.concS, 'stone', 0.95), mBed = mat(shade(P.rock, 0.8), 'stone', 0.95), mStreak = mat(P.rust, 'stone', 0.95);
-  const mDust = mat(P.sand, 'ground', 0.95), mSand = mat(P.sand, 'ground', 0.95, 0, false, false);
 
-  // boulders: [x, z, w, h, d, ry, rz, material]
-  const B = [
-    [-0.4, 0.22, 1.05, 0.72, 0.82, 0.15, 0.0, mS],
-    [0.5, 0.0, 0.72, 0.55, 0.68, -0.3, 0.0, mN],
-    [0.05, -0.4, 0.55, 0.45, 0.46, 0.5, -0.4, mW],   // the leaner, tipped onto the big one
-  ];
-  for (let i = 0; i < B.length; i++) {
-    const [x, z, w, h, d, ry, rz, m] = B[i];
-    const o = add(jbox(w, h, d, 0.12, i + 1), m, x, h * 0.36 + (i === 2 ? 0.12 : 0), z);
-    o.rotation.y = ry; o.rotation.z = rz;
-    // bedding step: a second, slightly smaller course on top
-    const cap = add(jbox(w * 0.9, h * 0.35, d * 0.9, 0.12, i + 11), i === 0 ? mN : mS, 0, h * 0.62, 0, o);
-    add(new THREE.BoxGeometry(w * 0.86, 0.04, d * 0.86), mBed, 0, h * 0.45, 0, o);
-    add(new THREE.BoxGeometry(w * 0.6, 0.012, d * 0.6), mDust, 0, h * 0.35 / 2 + 0.01, 0, cap);
-    add(new THREE.BoxGeometry(w * 0.35, 0.01, 0.08), mDust, 0, h * 0.46, d * 0.44, o);
-    // cracks: dark inset strips on the +z and +x faces
-    add(new THREE.BoxGeometry(0.025, h * 0.6, 0.04), mCrack, rr(-w * 0.3, w * 0.3), 0, d / 2 + 0.005, o);
-    add(new THREE.BoxGeometry(0.04, h * 0.5, 0.025), mCrack, w / 2 + 0.005, 0.05, rr(-d * 0.3, d * 0.3), o);
-    add(new THREE.BoxGeometry(0.05, h * 0.3, 0.02), mStreak, rr(-w * 0.3, w * 0.3), -h * 0.15, d / 2 + 0.012, o);
+  // ---- sand skirt: a low ring lattice from the foot outline out to a feathered toe at y = 0
+  const skirt = (pts, cx, cz, out, hIn) => {
+    const S = pts.length, pos = [], idx = [];
+    const rows = [[0.0, hIn, -0.06], [0.42, hIn * 0.55, 0], [0.75, hIn * 0.18, 0], [1.0, 0, 0]];
+    rows.forEach(([f, y, inset]) => {
+      for (let i = 0; i < S; i++) {
+        const [px, pz] = pts[i];
+        const dx = px - cx, dz = pz - cz, L = Math.hypot(dx, dz) || 1;
+        const th = Math.atan2(dz, dx);
+        const reach = out * (1 + 0.35 * ring(th, 1.1, 9));
+        const ex = (dx / L) * (reach * f + inset), ez = (dz / L) * (reach * f + inset);
+        const yy = y + (y > 0 ? fbm((px + ex) * 2, 3, (pz + ez) * 2, 2) * y * 0.3 : 0);
+        pos.push(px + ex, Math.max(0, yy), pz + ez);
+      }
+    });
+    for (let r = 0; r < rows.length - 1; r++) for (let i = 0; i < S; i++) {
+      const a = r * S + i, b = r * S + (i + 1) % S, c = (r + 1) * S + i, d = (r + 1) * S + (i + 1) % S;
+      idx.push(a, c, b, b, c, d);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    add(geo, mat(P.sand, 'ground', 0.97));
+  };
+
+
+  // plan: block A (the big one, 0.9 x 0.7 x 0.55) front left, block C (small) front right, block B resting across the
+  // back halves of both, tilted so its tail drops onto a rubble chock: real contact, the upper block reads as
+  // fallen onto the lower two. Each block: rounded rectangle plan, flat top, one or two bedding lines, chips.
+  block({ cx: -0.45, cz: 0.12, hx: 0.45, hz: 0.35, h: 0.55, S: 16, seed: 1, yaw: 0.12, tilt: [0.02, -0.03], chips: 3, noise: 0.03,
+    bands: [{ y0: 0, y1: 0.2, tone: P.rockBand, scale: 0.985, recess: 0 }, { y0: 0.2, y1: 0.38, tone: P.rock, scale: 1, recess: 0.015 }, { y0: 0.38, y1: 0.55, tone: P.rockPale, scale: 0.99, recess: 0.015 }] });
+  block({ cx: 0.5, cz: 0.32, hx: 0.3, hz: 0.24, h: 0.36, S: 14, seed: 2, yaw: -0.35, tilt: [-0.04, 0.05], chips: 2, noise: 0.025, shoulder: 0.045,
+    bands: [{ y0: 0, y1: 0.16, tone: P.rockBand, scale: 0.98, recess: 0 }, { y0: 0.16, y1: 0.36, tone: P.rock, scale: 1, recess: 0.015 }] });
+  block({ cx: -0.15, cz: -0.2, hx: 0.42, hz: 0.3, h: 0.44, S: 16, seed: 3, yaw: 0.25, tilt: [-0.3, 0.1], lift: 0.42, chips: 3, noise: 0.03,
+    bands: [{ y0: 0, y1: 0.2, tone: P.rock, scale: 0.99, recess: 0 }, { y0: 0.2, y1: 0.44, tone: P.rockPale, scale: 1, recess: 0.015 }] });
+  rubble(-0.3, -0.62, 0.27, 4, 0.7, 0.25);      // chock under the tail of B
+  rubble(0.75, -0.15, 0.13, 5, 1.9, 0.45);    // loose chip by C
+  {
+    const S = 40, pts = [];
+    for (let i = 0; i < S; i++) { const th = (i / S) * PI * 2; const f = 1 + 0.08 * ring(th, 1.2, 4); pts.push([0.0 + Math.cos(th) * 0.85 * f, 0.0 + Math.sin(th) * 0.62 * f]); }
+    skirt(pts, 0.0, 0.0, 0.14, 0.09);
   }
-  // sand fillet mound, boulders sit a third buried
-  const fillet = new THREE.CylinderGeometry(0.75, 0.9, 0.2, 14, 1);
-  const fp = fillet.attributes.position;
-  for (let i = 0; i < fp.count; i++) { const x = fp.getX(i), z = fp.getZ(i); fp.setXYZ(i, x * (1 + 0.07 * Math.sin(z * 4 + x)), fp.getY(i), z * 0.7 * (1 + 0.08 * Math.cos(x * 3.5))); }
-  fillet.computeVertexNormals();
-  add(fillet, mSand, 0.05, 0.1, 0.0);
-  add(new THREE.BoxGeometry(0.5, 0.015, 0.25), mat(P.packed, 'ground', 0.95, 0, false, false), -0.3, 0.2, 0.55);
+
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by

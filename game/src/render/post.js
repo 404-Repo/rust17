@@ -25,8 +25,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { getTier } from './quality.js?v=r14-202608291403';
-import { sunDirection, SUN_COLOR } from './lighting.js?v=r14-202608291403';
+import { getTier } from './quality.js?v=r15-202608291450';
+import { sunDirection, SUN_COLOR } from './lighting.js?v=r15-202608291450';
 
 const GRADE_VS = /* glsl */`varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 
@@ -196,7 +196,7 @@ export function createPost(THREE, { renderer, scene, camera, tier }) {
         tDiffuse: { value: null }, tDepth: { value: rt.depthTexture },
         uSunUv: { value: new THREE.Vector2(0.5, 0.5) }, uSunFront: { value: 0 },
         uNear: { value: camera.near }, uFar: { value: camera.far },
-        uAmount: { value: 0.35 * qHaze }, uAspect: { value: size.x / size.y },
+        uAmount: { value: 0.28 * qHaze }, uAspect: { value: size.x / size.y },
         uSunCol: { value: new THREE.Color(SUN_COLOR).multiplyScalar(1.0) },
       },
       vertexShader: GRADE_VS, fragmentShader: HAZE_FS,
@@ -220,7 +220,7 @@ export function createPost(THREE, { renderer, scene, camera, tier }) {
     // facing bleached wall at 1.2 to 1.6, shade under 0.2, so only the sun
     // side of things blooms, and it blooms in its own warm colour. Strength
     // 0.12, radius 0.45: a soft key side halo, not a browser game glow.
-    const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.18, 0.55, 0.85)   // round 7: 0.12/0.45/0.85 -> 0.22/0.55/0.80, the haze pass feeds a warm core at the sun;
+    const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.15, 0.55, 0.88)   // round 15: 0.18/0.85 -> 0.15/0.88, the panorama's own sun glow now carries the halo; round 7: 0.12/0.45/0.85 -> 0.22/0.55/0.80, the haze pass feeds a warm core at the sun;
     composer.addPass(bloom);
 
     composer.addPass(new OutputPass());
@@ -230,7 +230,7 @@ export function createPost(THREE, { renderer, scene, camera, tier }) {
         tDiffuse: { value: null },
         uHurt: { value: 0 },
         uBlack: { value: 0.012 },   // round 2: 0.02 -> 0.012 and contrast 1.06 -> 1.04: the critic wants no object shade side under 0.15 luma, and the old curve took a 0.15 shade to 0.116
-        uContrast: { value: 1.04 },
+        uContrast: { value: 1.07 },   // round 15: 1.04 -> 1.07, shadows deeper toward the reference without cutting the fill
         uPivot: { value: 0.42 },
       },
       vertexShader: GRADE_VS, fragmentShader: GRADE_FS,
