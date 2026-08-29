@@ -19,7 +19,7 @@
  * current fov and is what game/telemetry.js multiplies by to publish aimDrag. Set
  * `fovScale` (current fov / hip fov) when ADS narrows the view; sensitivity rises with it.
  */
-import { RAD_PER_PX } from './input.js?v=r13-202608291158';
+import { RAD_PER_PX } from './input.js?v=r14-202608291403';
 
 const STICK_R = 40;              // px of deflection for a full 1.0 input
 const BASE_PX_PER_RAD = 150;     // hip fire: 150 drag px turn one radian

@@ -16,12 +16,12 @@
  * before the bake because the bake leaves no individual objects behind.
  */
 import * as THREE from 'three';
-import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r13-202608291158';
-import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r13-202608291158';
-import { GLB_STATIC, loadGlbStatic } from './glbstatic.js?v=r13-202608291158';   // round 11: Atlas rocks
-import { applyMaterials } from '../render/materials.js?v=r13-202608291158';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
-import { collapsePerJoint } from '../ai/animation.js?v=r13-202608291158';
-import { buildDecals } from '../render/decals.js?v=r13-202608291158';   // decals r6: near field decals, built after the bake
+import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r14-202608291403';
+import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r14-202608291403';
+import { GLB_STATIC, loadGlbStatic } from './glbstatic.js?v=r14-202608291403';   // round 11: Atlas rocks
+import { applyMaterials } from '../render/materials.js?v=r14-202608291403';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
+import { collapsePerJoint } from '../ai/animation.js?v=r14-202608291403';
+import { buildDecals } from '../render/decals.js?v=r14-202608291403';   // decals r6: near field decals, built after the bake
 
 const EYE = 1.65;
 const DEG = Math.PI / 180;

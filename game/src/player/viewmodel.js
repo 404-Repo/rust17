@@ -33,15 +33,25 @@
  * left elbow pulled under the weapon in ADS so the sleeve leaves the frame.
  */
 import * as THREE from 'three';
-import { ASSET } from '../../assetlib.js?v=r13-202608291158';
-import { loadGlbWeapon } from './glbweapon.js?v=r13-202608291158';   // round 8: generated hero rifle (Atlas image_to_3d)
-import { applyMaterials } from '../render/materials.js?v=r13-202608291158';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
-import { collapsePerJoint } from '../ai/animation.js?v=r13-202608291158';
+import { ASSET } from '../../assetlib.js?v=r14-202608291403';
+import { loadGlbWeapon } from './glbweapon.js?v=r14-202608291403';   // round 8: generated hero rifle (Atlas image_to_3d)
+import { loadGlbArm } from './glbarms.js?v=r14-202608291403';   // round 14: generated rigid arms (Ben: "I don't like the hand in the foreground")
+import { applyMaterials } from '../render/materials.js?v=r14-202608291403';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
+import { collapsePerJoint } from '../ai/animation.js?v=r14-202608291403';
 
 const WEAPON_ASSET = { ar: 'assault_rifle', smg: 'smg', dmr: 'marksman_rifle' };
 const SIGHT = { ar: 0.075, smg: 0.060, dmr: 0.090 };   // fallback sight height over the muzzle when an asset has no `sight` socket
 const ADS_EYE = { ar: 0.14, smg: 0.13, dmr: 0.10 };   // the DMR ocular sits close so the eyepiece fills, the zoom is the ADS fov     // eye relief in ADS, camera units, sight socket to lens
 const HIP_SCALE = 0.70, ADS_SCALE = 0.62;
+// round 14: Titan arm placement in holder space (+Z forward, +X right BEFORE the holder's z mirror; y up). pos is
+// where the fingertips sit; rot is Euler XYZ; roll turns the mesh about its own axis; flip swaps elbow and hand.
+const TITAN_ARMS = {
+  right: { length: 0.42, pos: [0.15, -0.19, 0.31], rot: [0.30, -0.20, 0.0], roll: 0, flip: false },
+  left: { length: 0.42, pos: [-0.05, -0.21, 0.56], rot: [0.05, 0.50, -0.6], roll: 0, flip: false },
+  socket: [0.12, -0.19, 0.28],
+};
+// gun only: the grip sits low and right so the empty hand area is below the frame edge
+const NO_ARMS_SOCKET = [0.16, -0.27, 0.30];
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -155,6 +165,11 @@ export class Viewmodel {
 
   async load() {
     const base = this.assetBase;
+    // round 14: '?arms=titan' = two rigid Titan arm meshes around the coded rifle (player/glbarms.js); the
+    // ARMS table is the hand pose in holder space (+Z forward before the holder's mirror), tuned with tools/shot.mjs
+    let armsSrc = 'none';   // Ben 2026-08-29 12:47: gun only ("1"); '?arms=js' = coded arms, '?arms=titan' = the Titan pair
+    try { const q = new URLSearchParams(location.search).get('arms'); if (q) armsSrc = q; } catch (e) { /* no location */ }
+    if (armsSrc === 'titan' || armsSrc === 'none') return this._loadTitanArms(base, armsSrc === 'none');
     const arms = await ASSET(base + 'viewmodel_arms.js', { keepHierarchy: true, surfaces: true });
     if (!arms || !arms.children.length) console.warn('[viewmodel] viewmodel_arms.js missing or empty');
     // undo the loader's base-at-y0 normalisation: the arms are authored about the camera origin
@@ -217,6 +232,40 @@ export class Viewmodel {
     return this;
   }
 
+  async _loadTitanArms(base, noArms = false) {
+    const P = JSON.parse(JSON.stringify(TITAN_ARMS));
+    // tuning: '?armpose=right:x,y,z,rx,ry,rz,roll;left:...;socket:x,y,z' overrides the table (tools/shot.mjs runs)
+    try {
+      const q = new URLSearchParams(location.search).get('armpose');
+      if (q) for (const part of q.split(';')) { const [k, v] = part.split(':'); const a = v.split(',').map(Number); if (k === 'socket') P.socket = a; else if (P[k]) { P[k].pos = a.slice(0, 3); if (a.length >= 6) P[k].rot = a.slice(3, 6); if (a.length >= 7) P[k].roll = a[6]; } }
+    } catch (e) { /* no location */ }
+    const arms = new THREE.Group(); arms.name = 'titan_arms';
+    if (!noArms) {   // '?arms=none' (Ben 2026-08-29 12:38: "place the gun in a way that we don't need to show the arm"): rifle only, held low and right
+      const right = await loadGlbArm(base + 'vm_arm_right.glb', { length: P.right.length, name: 'arm_right', flip: P.right.flip, roll: P.right.roll });
+      const left = await loadGlbArm(base + 'vm_arm_left.glb', { length: P.left.length, name: 'arm_left', flip: P.left.flip, roll: P.left.roll });
+      right.position.fromArray(P.right.pos); right.rotation.set(...P.right.rot);
+      left.position.fromArray(P.left.pos); left.rotation.set(...P.left.rot);
+      arms.add(right); arms.add(left);
+    } else P.socket = NO_ARMS_SOCKET;
+    const ws = new THREE.Object3D(); ws.name = 'weaponSocket'; ws.position.fromArray(P.socket); arms.add(ws);
+    arms.userData.joints = { weaponSocket: ws }; arms.userData.sockets = {};
+    this.arms = arms; this.joints = arms.userData.joints;
+    this.holder.add(arms);
+    this.holder.scale.set(1, 1, -1); this.holder.rotation.set(0, 0, 0); this.mirrored = true;   // same frame as the coded arms
+    this._prepMeshes(arms);
+    // weapons as in load(); the coded rifle by default
+    const loads = Object.entries(WEAPON_ASSET).map(async ([key, name]) => {
+      const w = await ASSET(base + name + '.js', { keepHierarchy: true, surfaces: true });
+      applyMaterials(w, { asset: name, local: true, detail: 0.15 });
+      collapsePerJoint(w, Object.values(w.userData.sockets || {}).filter((n) => n && n.isObject3D), { bakeColors: false });
+      this._prepMeshes(w); w.visible = false; this.weapons[key] = w;
+    });
+    await Promise.all(loads);
+    this.loaded = true; this._mats = null;
+    if (!this.current) this.setWeapon('ar');
+    return this;
+  }
+
   _prepMeshes(obj) {
     // integrator: the viewmodel gets its own copies of the shared surface materials, FrontSide,
     // so a sleeve passing the near plane shows nothing instead of its unlit inside (a black slab
@@ -229,7 +278,7 @@ export class Viewmodel {
           if (!mm) { mm = o.material.clone(); mm.side = THREE.FrontSide; mm.name = o.material.name; this._ownMats.set(o.material, mm); }
           o.material = mm;
         }
-        o.castShadow = false; o.receiveShadow = true; o.frustumCulled = false;
+        o.castShadow = false; o.receiveShadow = !o.userData.noShadow; o.frustumCulled = false;
         // the arms and gun sit between the near plane and everything else; draw them last
         o.renderOrder = 10;
       }
