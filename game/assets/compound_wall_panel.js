@@ -23,6 +23,13 @@ export default function (THREE) {
   const stainD = M(0x78705f, 'stone', 0.92, 0.0);
   const groove = M(0x6a6356, 'stone', 0.95, 0.0);
   const holeM = M(0x5a5348, 'stone', 0.95, 0.0);
+  // round 21 crater materials. All three are DOUBLE SIDED: a crater is a cone and a fan, and a single sided
+  // one loses half its triangles to backface culling and stops reading as a hole.
+  const coreM = M(0x2e2a24, 'stone', 0.96, 0.0, true);   // the floor, dark enough to still read at 15 m
+  const rimM = M(0xa39a87, 'stone', 0.92, 0.0, true);    // broken aggregate on the rough raised rim
+  const bowlM = M(0xd2c9b4, 'stone', 0.90, 0.0, true);   // fresh concrete inside the cone, lighter than the face
+  const washM = M(0x968c78, 'stone', 0.93, 0.0);
+  const washD = M(0x827964, 'stone', 0.93, 0.0);
   const rust = M(0x6b4426, 'metal', 0.85, 0.2);
   const rustD = M(0x5a381f, 'metal', 0.85, 0.2);
   const eye = M(0x4f5257, 'metal', 0.70, 0.5);
@@ -84,9 +91,11 @@ export default function (THREE) {
   const sq = (x, y, s) => [[x - s, y - s], [x + s, y - s], [x + s, y + s], [x - s, y + s]];
   // spall pocket, south face low right, irregular rim; bullet cluster chest height on the south face only
   const spall = [[1.30, 0.74], [1.40, 0.68], [1.56, 0.70], [1.66, 0.78], [1.64, 0.92], [1.52, 0.98], [1.38, 0.96], [1.30, 0.86]];
-  const holesS = [[0.42, 1.42], [0.55, 1.30], [0.66, 1.50], [0.78, 1.36], [0.50, 1.16], [0.90, 1.24], [0.70, 1.08], [0.84, 1.55]];
+  // round 21: the cluster is nine real impact craters, not plates on the face. Each mouth is CUT through the
+  //      south skin so the crater has somewhere to sink to; HR is the crater mouth radius the cut must clear.
+  const holesS = [[0.42, 1.42, 0.025], [0.54, 1.29, 0.022], [0.66, 1.51, 0.026], [0.79, 1.36, 0.023], [0.49, 1.14, 0.024], [0.92, 1.23, 0.021], [0.70, 1.06, 0.025], [0.85, 1.56, 0.022], [0.33, 1.25, 0.023]];
   slab(outline(true), [], 2 * (T - SK), -(T - SK), conc);                                        // core with the eye pockets
-  slab(outline(false), [spall, ...holesS.map(([x, y]) => sq(x, y, 0.016))], SK, T - SK, concS);  // south skin, cut
+  slab(outline(false), [spall, ...holesS.map(([x, y, r]) => circ(x, y, r * 1.30, 10))], SK, T - SK, concS);  // south skin, cut
   slab(outline(false), [], SK, -T, concN);                                                        // north skin
 
   // chip faces: a rough strip along every cut edge, set 4 mm into the concrete so the silhouette is the cut
@@ -143,11 +152,73 @@ export default function (THREE) {
     box(0.24, 0.18, 0.006, stain, 0.35, 0.72, T + 0.003);
     box(0.20, 0.14, 0.008, concL, -1.05, 1.75, -T - 0.003);
   }
-  // ---- bullet cluster: dark back set into the core behind each square hole, a light chipped rim on the face ----
-  for (const [x, y] of holesS) {
-    box(0.034, 0.034, 0.003, holeM, x, y, T - SK + 0.001);
-    box(0.06, 0.06, 0.003, concL, x, y, T + 0.0015);
-    box(0.02, 0.02, 0.004, holeM, x, y, T + 0.002);
+  // ---- the impact craters: an outer ring lying on the face, a rough rim of pushed vertices standing 6 mm
+  //      proud in broken aggregate, a shallow cone falling 2.6 cm into the cut mouth in fresh light concrete,
+  //      and a dark floor at the bottom. Three meshes for the whole cluster. Two of them have short radial
+  //      cracks cut in as V grooves, and the wash off the cluster is a darker strip on the face below. ----
+  const rawAdd = (Pp, Ii, m) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(Pp, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Array((Pp.length / 3) * 2).fill(0), 2));
+    geo.setIndex(Ii); geo.computeVertexNormals();
+    const mm = new THREE.Mesh(geo, m); g.add(mm); return mm;
+  };
+  {
+    const N = 12, PA = [], IA = [], PB = [], IB = [], PC = [], IC = [];
+    const face = (u, v, off) => [u, v, T + off];
+    for (const [x0, y0, r] of holesS) {
+      const bA = PA.length / 3, bB = PB.length / 3, bC = PC.length / 3;
+      const ph = Math.abs(x0 * 7.31 + y0 * 3.17) % 6.2832;
+      const rough = (k, sd) => 1 + 0.10 * Math.sin(k * 2.39 + ph + sd) + 0.06 * Math.sin(k * 4.71 + ph * 2 + sd) + 0.04 * Math.sin(k * 7.1 + sd);
+      const smooth = (k) => 1 + 0.04 * Math.sin(k * 3.1 + ph);
+      for (let k = 0; k < N; k++) {
+        const t = (k / N) * Math.PI * 2 + ph * 0.11, ca = Math.cos(t), sa = Math.sin(t);
+        const rO = r * 2.50 * rough(k, 0), rL = r * 1.75 * rough(k, 1.7), rM = r * 1.15 * smooth(k);
+        PA.push(...face(x0 + ca * rO, y0 + sa * rO, -0.002), ...face(x0 + ca * rL, y0 + sa * rL, 0.006));
+        PB.push(...face(x0 + ca * rL, y0 + sa * rL, 0.006), ...face(x0 + ca * rM, y0 + sa * rM, -0.022));
+        PC.push(...face(x0 + ca * rM, y0 + sa * rM, -0.022));
+      }
+      PC.push(...face(x0, y0, -0.029));
+      for (let k = 0; k < N; k++) {
+        const k1 = (k + 1) % N, a = bA + k * 2, b = bA + k1 * 2, c = bB + k * 2, d = bB + k1 * 2;
+        IA.push(a, a + 1, b + 1, a, b + 1, b);
+        IB.push(c, c + 1, d + 1, c, d + 1, d);
+        IC.push(bC + k, bC + N, bC + k1);
+      }
+    }
+    rawAdd(PA, IA, rimM); rawAdd(PB, IB, bowlM); rawAdd(PC, IC, coreM);
+  }
+  // short radial cracks off two of the hits: a V groove cut into the face, tapering to nothing
+  {
+    const PA = [], IA = [];
+    const crack = (x0, y0, a, len, w) => {
+      const b = PA.length / 3, nx = -Math.sin(a), ny = Math.cos(a), SEGC = 3;
+      for (let i = 0; i <= SEGC; i++) {
+        const t = i / SEGC, d = len * t, ww = w * (1 - t) + 0.001, dz = -0.007 * (1 - t);
+        const cx = x0 + Math.cos(a) * d + 0.012 * Math.sin(t * 5.0) * nx, cy = y0 + Math.sin(a) * d + 0.012 * Math.sin(t * 5.0) * ny;
+        PA.push(cx - nx * ww, cy - ny * ww, T, cx, cy, T + dz, cx + nx * ww, cy + ny * ww, T);
+      }
+      for (let i = 0; i < SEGC; i++) {
+        const p = b + i * 3, q = p + 3;
+        IA.push(p, p + 1, q + 1, p, q + 1, q, p + 1, p + 2, q + 2, p + 1, q + 2, q + 1);
+      }
+    };
+    crack(0.66, 1.51, 1.15, 0.22, 0.008); crack(0.66, 1.51, -1.95, 0.15, 0.006);
+    crack(0.70, 1.06, -0.55, 0.19, 0.008); crack(0.70, 1.06, 2.45, 0.12, 0.005);
+    rawAdd(PA, IA, M(0x4a443a, 'stone', 0.95, 0.0, true));
+  }
+  // the wash off the cluster: dust and concrete flour carried down the face, as tapering runs 2 mm proud,
+  // not one grey rectangle
+  {
+    const run = (x, yTop, len, w, m) => {
+      const sh = new THREE.Shape();
+      sh.moveTo(-w / 2, 0); sh.lineTo(w / 2, 0); sh.lineTo(w * 0.16, -len); sh.lineTo(-w * 0.20, -len); sh.closePath();
+      const mm = new THREE.Mesh(new THREE.ShapeGeometry(sh), m); mm.position.set(x, yTop, T + 0.002); g.add(mm);
+    };
+    for (const [x, yT, len, w, m] of [
+      [0.40, 1.10, 0.44, 0.16, washM], [0.52, 1.00, 0.60, 0.22, washD], [0.64, 0.94, 0.50, 0.19, washM],
+      [0.76, 0.96, 0.66, 0.24, washD], [0.88, 1.06, 0.40, 0.15, washM], [0.58, 1.12, 0.26, 0.34, washM],
+      [0.82, 1.16, 0.22, 0.26, washM]]) run(x, yT, len, w, m);
   }
   // ---- stencil number plate: a pale painted rectangle with a dark stencilled "17" and a drip ----
   {

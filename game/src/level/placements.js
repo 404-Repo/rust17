@@ -262,7 +262,7 @@ P('sandbag_wall', 26, -45, 0);
 for (let i = 0; i < 7; i++) P('compound_wall_panel', -46 + i * 4, -50, 0, { tag: `bund_wall_${i + 1}` });
 for (let i = 0; i < 4; i++) P('corrugated_wall_panel', -18.5 + i * 3, -16, 0);         // shed wind break
 // round 19 item 6: rubble where the yard pads bank down to the sand
-many('rock_outcrop_small', [[24.5, 27, 40], [24.6, 45.5, 300], [-31, 39.2, 120], [6.2, -3.2, 200], [-38.6, 30.5, 20], [28, 52.2, 260]]);
+// round 22 (Ben 2026-08-30: "remove the previously missing rocks - i liked it without them"): many('rock_outcrop_small', [[24.5, 27, 40], [24.6, 45.5, 300], [-31, 39.2, 120], [6.2, -3.2, 200], [-38.6, 30.5, 20], [28, 52.2, 260]]);
 // round 19 item 2: litter as geometry beside cover, a spill under every machine (the decal pass reads these positions)
 for (const [x, z, r] of [[-47.5, 0.5, 30], [-24.5, -1.2, 110], [-4.5, 21, 200], [19, 43, 70], [-15.5, 6.5, 300], [33, 30.5, 150], [-55, -8, 40], [46, 30, 220], [-27, -34, 10], [22, 14.5, 90], [-19, -39.5, 250], [14, 30, 170]]) P('debris_scatter', x, z, r, { density: true });
 // round 18d (Ben: "run the fence all the way along the edge of the map to enclose the area just to see how that looks"):
@@ -355,16 +355,16 @@ cluster('oil_drum', 60, 0, 4, 11);
 P('sandbag_wall', 58, -10, 270);
 P('sandbag_wall', 58, 10, 270);
 P('wooden_pallet_stack', 64, -12, 60);
-many('rock_outcrop_large', [[-64, -46, 0], [-60, -40, 30], [60, -48, 0], [64, -42, 300], [64, 40, 0], [50, 52, 0], [-64, 40, 0]]);
+// round 22 (Ben 2026-08-30: "remove the previously missing rocks - i liked it without them"): many('rock_outcrop_large', [[-64, -46, 0], [-60, -40, 30], [60, -48, 0], [64, -42, 300], [64, 40, 0], [50, 52, 0], [-64, 40, 0]]);
 // Round 2 (level): a rock ridge along the map's north and south edges and behind both spawn
 // plateaus, so the horizon of every frame ends on broken rock instead of a straight sand line.
 // Each is the large outcrop at 1.6 to 2.4 times its size (12 to 19 m wide, 5 to 7 m high), 50 m
 // or more from any route, half of each body past the terrain edge where nothing can see it.
 // The pair behind each spawn sits outside z -14..14 so no spawn point is inside one.
-many('rock_ridge', [[-52, -55, 20], [-24, -58, 340], [34, -58, 15], [48, -57, 200]], 0, { dy: -0.6 });   // round 15: coded ridge with a base, sunk 0.6 m into the edge dunes (was -2.5 for the Titan one)   // round 11: real size ridge meshes, no scaling (Ben: "we shouldn't be stretching any modules")
-P('rock_ridge', -38, -57, 0, { tag: 'ridge_n_big', dy: -0.6 });
-P('rock_ridge', -25, 58.5, 10, { tag: 'ridge_s', dy: -0.6 });
-many('rock_outcrop_large', [[66, -22, 90], [66, 22, 90], [-66, -22, 90], [-66, 22, 90]], 0);
+// round 22 (Ben 2026-08-30: "remove the previously missing rocks - i liked it without them"): many('rock_ridge', [[-52, -55, 20], [-24, -58, 340], [34, -58, 15], [48, -57, 200]], 0, { dy: -0.6 });   // round 15: coded ridge with a base, sunk 0.6 m into the edge dunes (was -2.5 for the Titan one)   // round 11: real size ridge meshes, no scaling (Ben: "we shouldn't be stretching any modules")
+// round 22 (Ben 2026-08-30: "remove the previously missing rocks - i liked it without them"): P('rock_ridge', -38, -57, 0, { tag: 'ridge_n_big', dy: -0.6 });
+// round 22 (Ben 2026-08-30: "remove the previously missing rocks - i liked it without them"): P('rock_ridge', -25, 58.5, 10, { tag: 'ridge_s', dy: -0.6 });
+// round 22 (Ben 2026-08-30: "remove the previously missing rocks - i liked it without them"): many('rock_outcrop_large', [[66, -22, 90], [66, 22, 90], [-66, -22, 90], [-66, 22, 90]], 0);
 for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', 69, -12.5 + i * 3, 90);
 for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', 69, 3.5 + i * 3, 90);
 for (let i = 0; i < 6; i++) P('barbed_wire_fence_section', -44.5 + i * 3, 54, 0);
@@ -374,9 +374,9 @@ for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', -69, -4.5 + i * 3, 90
   const zs = [-48, -38, -28, -20, -12, -6, 4, 14, 26, 38, 44, 50];
   zs.forEach((z, i) => {
     const w = wadiAt(z), side = i % 2 === 0 ? 1 : -1, out = WADI_HALF_TOP + 0.9;
-    P('rock_outcrop_small', +(w.x + w.nx * out * side).toFixed(2), +(z + w.nz * out * side).toFixed(2), (i * 53) % 360);
+// round 22 (Ben 2026-08-30: "remove the previously missing rocks - i liked it without them"): P('rock_outcrop_small', +(w.x + w.nx * out * side).toFixed(2), +(z + w.nz * out * side).toFixed(2), (i * 53) % 360);
   });
-  many('rock_outcrop_small', [[-59, -18, 20], [-59, 18, 200], [59, -18, 110], [59, 18, 290]]);
+// round 22 (Ben 2026-08-30: "remove the previously missing rocks - i liked it without them"): many('rock_outcrop_small', [[-59, -18, 20], [-59, 18, 200], [59, -18, 110], [59, 18, 290]]);
 }
 
 // 4.6 Foliage and detail --------------------------------------------------------------------
@@ -534,7 +534,7 @@ for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', -69, -4.5 + i * 3, 90
   P('debris_scatter', -24.5, -0.5, 95, { density: true });     // foot of the shed verge heap
   P('oil_drum', -31.0, -10.2, 30); P('oil_drum', -30.4, -9.7, 140);   // lee of the west road heap
   P('tyre_stack', -45.5, 0.2, 0);                              // east of the tower verge heap (asked at z -1.5)
-  P('rock_outcrop_small', -19.5, 0.7, 340);                    // rubble at the shed verge heap's toe (asked at -20,-0.5 rot 250)
+// round 22 (Ben 2026-08-30: "remove the previously missing rocks - i liked it without them"): P('rock_outcrop_small', -19.5, 0.7, 340);                    // rubble at the shed verge heap's toe (asked at -20,-0.5 rot 250)
   P('wooden_pallet_stack', 41.5, -6.5, 20); P('oil_drum', 42.5, -1.0, 75);   // east mirror
 }
 
@@ -1214,10 +1214,16 @@ export const DECALS = (() => {
   const sideToward = (e, tx, tz) => e.asset === 'shipping_container_open' ? faces(e).filter((f) => f.len > 5).sort((a, b) => (b.nx * (tx - e.x) + b.nz * (tz - e.z)) - (a.nx * (tx - e.x) + a.nz * (tz - e.z)))[0] : faceToward(e, tx, tz);   // an open container's ends are doors, not walls
   CONTAINERS.forEach((e, i) => { const f = sideToward(e, 0, 6); wallOn(i % 2 ? 'stencil_07' : 'stencil_02', e, f, rr(-0.55, 0.55) * (f.len > 5 ? 1 : 0.4), 1.55, 0.6, 0.6 / 1.28, 'need', 1); });
   const TANKS = list.filter((e) => /oil_storage_tank/.test(e.asset)).sort((a, b) => a.x - b.x);
-  TANKS.forEach((e, i) => { const a = Math.atan2(6 - e.z, 0 - e.x); wallRound(i % 2 ? 'stencil_02' : 'stencil_07', e, a + rr(-0.25, 0.25), 4 * (e.scale || 1), 2.6, 1.0, 1.0 / 1.28, 1); });
+  // round 22b (Ben: "decals on cylindars still are messed up ... check from an angle"): a flat quad on a
+  // curved shell creases and floats when seen obliquely, whatever the snap does. No decals on round things.
+  // TANKS.forEach((e, i) => { const a = Math.atan2(6 - e.z, 0 - e.x); wallRound(i % 2 ? 'stencil_02' : 'stencil_07', e, a + rr(-0.25, 0.25), 4 * (e.scale || 1), 2.6, 1.0, 1.0 / 1.28, 1); });
   // DANGER FLAMMABLE on the bullet tanks and the fuel truck, NO SMOKING at the pump house and bunkhouse doors
-  for (const e of by('bullet_tank_horizontal')) { const f = faceToward(e, 0, 6); wallOn('stencil_danger', e, f, rr(-0.3, 0.3), 1.45, 0.8, 0.8 / 1.378, 'need', 1); }
-  for (const e of by('fuel_truck_wreck')) for (const f of faces(e).filter((f) => f.len > 5)) wallOn('stencil_danger', e, f, 0.35, 1.9, 0.8, 0.8 / 1.378, 'need', 1);   // both long sides of the tank, rear half
+  // round 22b (Ben: "decals on cylindars still are messed up ... check from an angle"): a flat quad on a
+  // curved shell creases and floats when seen obliquely, whatever the snap does. No decals on round things.
+  // for (const e of by('bullet_tank_horizontal')) { const f = faceToward(e, 0, 6); wallOn('stencil_danger', e, f, rr(-0.3, 0.3), 1.45, 0.8, 0.8 / 1.378, 'need', 1); }
+  // round 22b (Ben: "decals on cylindars still are messed up ... check from an angle"): a flat quad on a
+  // curved shell creases and floats when seen obliquely, whatever the snap does. No decals on round things.
+  // for (const e of by('fuel_truck_wreck')) for (const f of faces(e).filter((f) => f.len > 5)) wallOn('stencil_danger', e, f, 0.35, 1.9, 0.8, 0.8 / 1.378, 'need', 1);   // both long sides of the tank, rear half
   Wd('stencil_no_smoking', -24, 35.3, -30, 32, 1.75, 1, 0, 0.62, 0.62 / 1.54, 'need', 'pump_house', 1);
   Wd('stencil_no_smoking', -27.6, 28, -30, 32, 2.25, 0, -1, 0.62, 0.62 / 1.54, 'need', 'pump_house', 1);
   Wd('stencil_no_smoking', 31, 32.7, 38, 36, 1.75, -1, 0, 0.62, 0.62 / 1.54, 'need', 'bunkhouse', 1);
@@ -1227,14 +1233,22 @@ export const DECALS = (() => {
 
   // ---- rust runs under fixings on containers and tanks, several small ones each
   for (const e of CONTAINERS) for (const f of faces(e).filter((f) => f.len > 5)) for (let i = 0; i < 2; i++) wallOn('rust_run', e, f, rr(-0.85, 0.85), 1.95, 0.12, 0.9, 'need');
-  for (const e of TANKS) for (let i = 0; i < 4; i++) wallRound('rust_run', e, rr(0, 6.28), 4 * (e.scale || 1), 3.6, 0.13, 1.0);
-  for (const e of by('bullet_tank_horizontal')) for (const f of faces(e).filter((f) => f.len > 5)) wallOn('rust_run', e, f, rr(-0.7, 0.7), 2.3, 0.12, 0.8, 'need');
+  // round 22b (Ben: "decals on cylindars still are messed up ... check from an angle"): a flat quad on a
+  // curved shell creases and floats when seen obliquely, whatever the snap does. No decals on round things.
+  // for (const e of TANKS) for (let i = 0; i < 4; i++) wallRound('rust_run', e, rr(0, 6.28), 4 * (e.scale || 1), 3.6, 0.13, 1.0);
+  // round 22b (Ben: "decals on cylindars still are messed up ... check from an angle"): a flat quad on a
+  // curved shell creases and floats when seen obliquely, whatever the snap does. No decals on round things.
+  // for (const e of by('bullet_tank_horizontal')) for (const f of faces(e).filter((f) => f.len > 5)) wallOn('rust_run', e, f, rr(-0.7, 0.7), 2.3, 0.12, 0.8, 'need');
 
   // ---- scuffs and grease on drums, the generators, the containers and the wrecks
-  for (const e of by('oil_drum')) { if (rnd() < 0.5) wallRound('scuff_marks', e, rr(0, 6.28), 0.29, rr(0.3, 0.55), 0.34, 0.3); if (rnd() < 0.3) wallRound('grease_smear', e, rr(0, 6.28), 0.29, rr(0.35, 0.6), 0.3, 0.26); }
+  // round 22b (Ben: "decals on cylindars still are messed up ... check from an angle"): a flat quad on a
+  // curved shell creases and floats when seen obliquely, whatever the snap does. No decals on round things.
+  // for (const e of by('oil_drum')) { if (rnd() < 0.5) wallRound('scuff_marks', e, rr(0, 6.28), 0.29, rr(0.3, 0.55), 0.34, 0.3); if (rnd() < 0.3) wallRound('grease_smear', e, rr(0, 6.28), 0.29, rr(0.35, 0.6), 0.3, 0.26); }
   for (const e of by('generator_set')) for (const f of faces(e).filter((f) => f.len > 2)) { wallOn('grease_smear', e, f, rr(-0.6, 0.6), 0.95, 0.5, 0.43, 'need'); if (rnd() < 0.7) wallOn('scuff_marks', e, f, rr(-0.7, 0.7), 0.6, 0.6, 0.52, 'need'); }
   for (const e of CONTAINERS) { const f = sideToward(e, 0, 6); for (let i = 0; i < 2; i++) wallOn('scuff_marks', e, f, rr(-0.85, 0.85), rr(0.3, 0.5), 0.7, 0.6, 'need'); }
-  for (const e of [...by('fuel_truck_wreck'), ...by('pickup_wreck')]) { const lo = e.asset === 'fuel_truck_wreck' ? 1.3 : 0.5; for (const f of faces(e).filter((f) => f.len > 3)) { wallOn('scuff_marks', e, f, rr(-0.6, 0.6), rr(lo, lo + 0.4), 0.8, 0.7, 'need'); if (rnd() < 0.7) wallOn('grease_smear', e, f, rr(-0.7, 0.7), rr(lo + 0.3, lo + 0.7), 0.5, 0.43, 'need'); } }
+  // round 22b (Ben: "decals on cylindars still are messed up ... check from an angle"): a flat quad on a
+  // curved shell creases and floats when seen obliquely, whatever the snap does. No decals on round things.
+  // for (const e of [...by('fuel_truck_wreck'), ...by('pickup_wreck')]) { const lo = e.asset === 'fuel_truck_wreck' ? 1.3 : 0.5; for (const f of faces(e).filter((f) => f.len > 3)) { wallOn('scuff_marks', e, f, rr(-0.6, 0.6), rr(lo, lo + 0.4), 0.8, 0.7, 'need'); if (rnd() < 0.7) wallOn('grease_smear', e, f, rr(-0.7, 0.7), rr(lo + 0.3, lo + 0.7), 0.5, 0.43, 'need'); } }
   for (const e of by('control_cabinet')) wallOn('grease_smear', e, faces(e)[0], rr(-0.3, 0.3), 1.1, 0.4, 0.35, 'try');
 
   out.__counts = { ground: out.filter((d) => d.k === 'g').length, wall: out.filter((d) => d.k === 'w').length, coverFootprints: coverN };

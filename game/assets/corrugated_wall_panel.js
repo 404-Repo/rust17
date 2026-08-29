@@ -93,9 +93,18 @@ export default function (THREE) {
   // the middle sheet laps in front of the two outer ones. The top edge wanders +-3 cm on top of the step.
   const SH = [[-1.0, 1.08, 2.40, galv, -0.020], [0.0, 1.08, 2.32, galvB, -0.014], [1.0, 1.08, 2.37, galvC, -0.020]];
   const CUT_W = 0.30, CUT_H = 0.30;   // bent corner: left sheet, bottom left
+  // round 21: the right sheet has torn along the screw line over the 1.9 m rail. The sheet above it is
+  // genuinely GONE from the outline (top(x) drops to the tear), and the freed piece is folded back over
+  // the rail as its own mesh, so you see through the wall where it came from.
+  const TEAR = { x0: 0.58, x1: 0.98, y: 1.95 };
   const sheetMeshes = [];
   SH.forEach(([cx, len, h, mat, z], si) => {
-    const top = (x) => h + 0.03 * Math.sin((x + cx) * 5.3 + si) + 0.015 * Math.sin((x + cx) * 17.1);
+    const top = (x) => {
+      const t0 = h + 0.03 * Math.sin((x + cx) * 5.3 + si) + 0.015 * Math.sin((x + cx) * 17.1);
+      const wx = x + cx;
+      if (si !== 2 || wx <= TEAR.x0 || wx >= TEAR.x1) return t0;
+      return TEAR.y + 0.03 + 0.022 * Math.sin(wx * 39.0) + 0.016 * Math.sin(wx * 91.0);
+    };
     const bot = si === 0 ? (x) => (x < -len / 2 + CUT_W ? CUT_H : 0) : () => 0;
     const mm = corrSheet(len, top, bot, mat, 3, 1);
     mm.position.set(cx, 0, z); g.add(mm); sheetMeshes.push(mm);
@@ -198,6 +207,69 @@ export default function (THREE) {
   // dirt and rust on the sheet back: at the two laps, and splash above the drift
   for (const lx of [-0.5, 0.5]) { box(0.03, 2.2, 0.004, rustD, lx, 1.2, -0.034); box(0.06, 0.4, 0.004, rust, lx + 0.03, 0.6, -0.035); }
   for (let sx = -1.3; sx < 1.4; sx += 0.35) box(0.12, 0.08 + 0.05 * Math.abs(Math.sin(sx * 3)), 0.004, sandL, sx, 0.34, -0.034);
+  // ---- round 21 battle damage: the rounds went THROUGH the sheet. Each hole is an outer ring lying on the
+  //      real corrugated surface, a torn collar proud of it in bare bright steel, then a wall falling to a
+  //      near black floor; on the back the same builder makes the exit: a cone of petals blown outward with
+  //      a dark mouth. Nothing here is a flat plate on the face. ----
+  const torn = M(0xc6cac7, 'metal', 0.62, 0.55, true);   // double sided: a torn rim is seen from both sides of the hole
+  const holeM = M(0x0e0c0a, 'metal', 0.95, 0.10, true);
+  const tearM = M(0x9aa09d, 'metal', 0.70, 0.50);
+  // the sheet surface at a world x: which sheet, its mid plane, and the sine-free trapezoid rib on it
+  const surfZ = (xw) => {
+    const sh = xw < -0.5 ? SH[0] : xw > 0.5 ? SH[2] : SH[1];
+    const t = (((((xw - sh[0]) + sh[1] / 2) / PITCH) % 1) + 1) % 1;
+    const f = t < 0.28 ? -1 : t < 0.50 ? -1 + 2 * (t - 0.28) / 0.22 : t < 0.78 ? 1 : 1 - 2 * (t - 0.78) / 0.22;
+    return sh[4] + f * AMP;
+  };
+  const faceF = (u, v, off) => [u, v, surfZ(u) + TH / 2 + off];
+  const faceB = (u, v, off) => [u, v, surfZ(u) - TH / 2 - off];
+  const rawAdd = (Pp, Ii, m) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(Pp, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Array((Pp.length / 3) * 2).fill(0), 2));
+    geo.setIndex(Ii); geo.computeVertexNormals();
+    const mm = new THREE.Mesh(geo, m); g.add(mm); return mm;
+  };
+  function craters(list, place, o) {
+    const fO = o.fO, fL = o.fL, fM = o.fM, oL = o.oL, oM = o.oM, oC = o.oC, N = o.seg;
+    const PA = [], IA = [], PB = [], IB = [];
+    for (const [u0, v0, r] of list) {
+      const bA = PA.length / 3, bB = PB.length / 3, ph = Math.abs(u0 * 7.31 + v0 * 3.17) % 6.2832;
+      const wob = (k, sd) => 1 + 0.12 * Math.sin(k * 2.39 + ph + sd) + 0.06 * Math.sin(k * 4.71 + ph * 2 + sd);
+      for (let k = 0; k < N; k++) {
+        const t = (k / N) * Math.PI * 2 + ph * 0.13, ca = Math.cos(t), sa = Math.sin(t);
+        const rO = r * fO * wob(k, 0), rL = r * fL * wob(k, 1.7), rM = r * fM * wob(k, 3.4);
+        PA.push(...place(u0 + ca * rO, v0 + sa * rO, 0), ...place(u0 + ca * rL, v0 + sa * rL, oL));
+        PB.push(...place(u0 + ca * rL, v0 + sa * rL, oL), ...place(u0 + ca * rM, v0 + sa * rM, oM));
+      }
+      PB.push(...place(u0, v0, oC));
+      for (let k = 0; k < N; k++) {
+        const k1 = (k + 1) % N, a = bA + k * 2, b = bA + k1 * 2, c = bB + k * 2, d = bB + k1 * 2;
+        IA.push(a, a + 1, b + 1, a, b + 1, b);
+        IB.push(c, c + 1, d + 1, c, d + 1, d, c + 1, bB + 2 * N, d + 1);
+      }
+    }
+    rawAdd(PA, IA, o.rim); rawAdd(PB, IB, holeM);
+  }
+  // snapped to a rib CREST: in a trough the crater sinks below the ribs either side and disappears
+  const HITS = [[-0.78, 1.55, 0.024], [-1.15, 0.46, 0.021], [-0.20, 1.68, 0.026], [0.25, 1.02, 0.022], [0.92, 1.36, 0.025]]
+    .map(([x, y, r]) => [ribAt(x).crest, y, r]);
+  craters(HITS, faceF, { fO: 1.85, fL: 1.28, fM: 0.95, oL: 0.010, oM: 0.004, oC: 0.003, seg: 10, rim: torn });
+  craters(HITS, faceB, { fO: 1.40, fL: 0.62, fM: 0.42, oL: 0.026, oM: 0.022, oC: 0.019, seg: 8, rim: torn });
+  for (const [x, y, r] of HITS) rustRun(x, y - r * 2.6, 0.10 + 0.18 * rnd(), rnd() < 0.5 ? rust : rustD, true);
+  // ---- the piece that tore off the top of the right sheet, folded back over the rail, torn edges rusted ----
+  {
+    const hx = (TEAR.x0 + TEAR.x1) / 2, w = TEAR.x1 - TEAR.x0;
+    const piece = corrSheet(w, (x) => 0.34 + 0.02 * Math.sin(x * 33 + 1.2), () => 0, tearM, 1, 1);
+    const hinge = new THREE.Group(); hinge.position.set(hx, TEAR.y + 0.015, SH[2][4]); g.add(hinge);
+    hinge.rotation.x = -0.24; hinge.rotation.z = -0.38;   // folded back over the rail and twisted; the 0.15 m depth envelope caps the fold
+    hinge.add(piece);
+    box(w - 0.02, 0.014, 0.004, rustD, 0, 0.006, AMP + 0.004, hinge);                 // the tear line on the piece
+    box(0.010, 0.34, 0.004, rust, -w / 2 + 0.005, 0.17, AMP + 0.003, hinge);          // and its two torn ends
+    box(0.010, 0.34, 0.004, rust, w / 2 - 0.005, 0.17, AMP + 0.003, hinge);
+    box(w, 0.018, 0.004, rustD, hx, TEAR.y + 0.022, SH[2][4] + AMP + 0.004);          // rust along the cut on the sheet
+    for (let sx = TEAR.x0 + 0.06; sx < TEAR.x1; sx += 0.11) rustRun(sx, TEAR.y - 0.30, 0.28, rust, true);
+  }
   // ---- dust line along the foot of the front, sand drift front berm and back skin ----
   for (const [dx, dw, dy] of [[-0.75, 0.5, 0.31], [-0.1, 0.7, 0.295], [0.55, 0.45, 0.32], [1.15, 0.4, 0.30]]) box(dw, 0.012, 0.002, dust, dx, dy, -0.0095);   // dust line where the drift met the sheet, broken, in the troughs
   box(W - 0.2, 0.05, 0.05, sand, 0.05, 0.025, 0.015);
