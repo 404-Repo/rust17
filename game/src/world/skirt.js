@@ -8,11 +8,17 @@
  */
 import * as THREE from 'three';
 
-export function createSkirt(terrain, { far = 400, rings = 6, around = 200 } = {}) {
+export function createSkirt(terrain, { far = 400, rings = 6, around = 0 } = {}) {
+  // round 22f (Ben's photos of pale wedges at the boundary): the skirt walked the edge in 200 straight segments
+  // while the terrain edge has a vertex every cell (0.5 m). Between two skirt vertices the straight chord cut
+  // across the terrain's wiggle, leaving thin slivers of skirt above the ground and gaps below it. One skirt
+  // vertex per terrain vertex removes the mismatch by construction.
   const B = terrain.bounds;
   const cx = (B.minX + B.maxX) / 2, cz = (B.minZ + B.maxZ) / 2;
   const hw = (B.maxX - B.minX) / 2, hd = (B.maxZ - B.minZ) / 2;
   const hash = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
+  const cell = (terrain.grid && terrain.grid.cell) || 0.5;
+  if (!around) around = Math.max(64, Math.round((4 * hw + 4 * hd) / cell));
   const pos = [], idx = [];
   // the boundary rectangle walked by ARC LENGTH with the four corners as vertices (round 18c: walking it by angle
   // put a segment across each corner, and that triangle folded into a grey flat sheet at the map corner, Ben's

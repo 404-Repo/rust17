@@ -192,7 +192,7 @@ P('debris_scatter', -30, -28.2, 60, { density: true });
 P('tank_catwalk_bridge', -33.5, -40, 0, { dy: 4.4, tag: 'bridge_t1_t2' });      // plan: rot 90
 P('tank_catwalk_bridge', -28.3, -34, 76, { dy: 4.4, tag: 'bridge_t2_t3' });     // plan: rot 13
 P('external_steel_stair', -42, -34.6, 270, { tag: 't1_stair_1' });
-P('catwalk_section', -45.2, -36.2, 0, { dy: 2.15, tag: 't1_landing' });
+P('catwalk_section', -44.2, -35.4, 90, { dy: 2.3, tag: 't1_landing' });   // round 22f (Ben's second photo): the landing sat at 2.15 m, 0.75 m BELOW the top of the lower flight and 0.15 m below the base of the upper one, and 1 m west of both, so it hung in the air like a diving board. Now it is the turn between the two flights: same height as the lower flight's top, spanning both.
 P('external_steel_stair', -44.2, -38.4, 180, { dy: 2.3, tag: 't1_stair_2' });   // round 22c (Ben's photo): was x -45.2, so its top landed 0.7 m OUTSIDE the tank's walkway ring (outer radius 4.5 from -40,-40) and the flight climbed to nothing
 P('caged_ladder', -25.8, -28, 90, { tag: 't3_east_ladder' });
 P('bullet_tank_horizontal', -14, -44, 0);
