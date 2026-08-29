@@ -22,8 +22,8 @@
  * Colours are mixed in linear space and pushed through the renderer's ACES
  * curve and output colour space in the fragment shader.
  */
-import { sunDirection, SUN_COLOR, ATMOS_UNIFORMS_GLSL, ATMOS_GLSL, atmosUniforms } from './lighting.js?v=r22-202608292206';
-import { getTier } from './quality.js?v=r22-202608292206';
+import { sunDirection, SUN_COLOR, ATMOS_UNIFORMS_GLSL, ATMOS_GLSL, atmosUniforms } from './lighting.js?v=r22-202608292220';
+import { getTier } from './quality.js?v=r22-202608292220';
 
 export const ZENITH_COLOR = 0x6987b9;    // documentary: the linear values live in lighting.js ATMOS
 export const HORIZON_COLOR = 0xeee0c8;

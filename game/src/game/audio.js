@@ -24,7 +24,7 @@ const FILES = {
   ui_deploy: ['ui_deploy'], ui_end: ['ui_round_end'],
   music_title: ['music_title'], music_ingame: ['music_ingame'], music_end: ['music_end'],
 };
-const VOL = { music: 0.32, ambience: 0.35, loops: 0.5, sfx: 1.0 };
+const VOL = { music: 0.42, ambience: 0.45, loops: 0.62, sfx: 1.0 };   // round 22h: raised to hold their level against the lower master
 
 export class Audio {
   constructor({ events, player, base = './audio/' }) {
@@ -44,7 +44,7 @@ export class Audio {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       this.ctx = new AC();
-      this.master = this.ctx.createGain(); this.master.gain.value = 0.7;
+      this.master = this.ctx.createGain(); this.master.gain.value = 0.55;
       this.master.connect(this.ctx.destination);
       const len = this.ctx.sampleRate * 1.5;
       const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
@@ -119,8 +119,10 @@ export class Audio {
   shot(pos, weapon = 'ar', own = false) {
     const { d } = this._pan(own ? null : pos);
     // round 22d (Ben: "all 3 gunshot sounds 50% louder"): 0.45/0.55/0.5 -> 0.68/0.83/0.75
-    if (!own && d > 70 && this._play('shot_far', pos, 0.68, { jitter: 80 })) return;
-    if (this._play('shot_' + (FILES['shot_' + weapon] ? weapon : 'ar'), own ? null : pos, own ? 0.83 : 0.75, { jitter: 50 })) return;
+    // round 22h (Ben: "make the 3 guns twice as loud when firing"): 0.68/0.83/0.75 -> 1.36/1.66/1.5, and the master
+    // drops so the doubled shots do not clip the sum (0.7 -> 0.55; music and ambience keep their own gains)
+    if (!own && d > 70 && this._play('shot_far', pos, 1.36, { jitter: 80 })) return;
+    if (this._play('shot_' + (FILES['shot_' + weapon] ? weapon : 'ar'), own ? null : pos, own ? 1.66 : 1.5, { jitter: 50 })) return;
     this._shotProcedural(pos, weapon, own);
   }
   footstep(pos, surface, strength) {
