@@ -89,31 +89,45 @@ export const STILT_ASSETS = new Set(['pipe_run_straight', 'pipe_run_elbow', 'lar
   'valve_manifold', 'bullet_tank_horizontal', 'wellhead_christmas_tree', 'generator_set', 'mess_table', 'office_desk',
   'steel_shelving', 'locker_bank', 'tank_catwalk_bridge', 'catwalk_section', 'external_steel_stair', 'watchtower_gantry']);
 
-export function makeStilts(p, size, heightAt, baseY, THREE_ = THREE, height = 1.5) {
-  // Round 22j, to Ben's drawing: a column directly UNDER each of the prop's own feet, the width of its base plate,
-  // running from just under the plate straight down into the sand. Not a thin post beside the object (22i) and not
-  // a pale block stopping at the surface (the first cut): a pier the pipe visibly stands on.
-  const a = (p.rot || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
-  const k = p.scale || 1;
-  const hw = (size[0] * k) / 2, hd = (size[1] * k) / 2;
-  if (hw <= 0.2 || hd <= 0.1) return null;
-  // where the asset's own feet are: a long run carries saddles near its ends and at the middle, a compact prop
-  // stands on four corner feet, both inset from the outline the way a base plate is
-  const inset = 0.45;
-  const feet = hw > hd * 2
-    ? [[-(hw - inset), 0], [0, 0], [hw - inset, 0]]
-    : [[-(hw - inset), -(hd - 0.3)], [hw - inset, -(hd - 0.3)], [hw - inset, hd - 0.3], [-(hw - inset), hd - 0.3]];
+/**
+ * Piers under a prop's OWN base plates (round 22j, second correction: Ben's drawing showed the column must match the
+ * plate exactly, not sit near it). The plates are found in the loaded geometry rather than guessed: every vertex
+ * within 35 cm of the prop's base is clustered on a 0.7 m grid, and each cluster becomes a column of exactly that
+ * cluster's footprint, running from the plate down half a metre into the sand. Nothing is placed where the ground
+ * is already close under that plate.
+ */
+export function makeStiltsFromObject(obj, heightAt, baseY, THREE_ = THREE, tag = '') {
+  obj.updateMatrixWorld(true);
+  const cells = new Map();
+  const v = new THREE_.Vector3();
+  const CELL = 0.7, TOP = baseY + 0.35;
+  obj.traverse((m) => {
+    if (!m.isMesh || !m.geometry || !m.geometry.attributes.position) return;
+    const pos = m.geometry.attributes.position;
+    const step = pos.count > 4000 ? 3 : 1;
+    for (let i = 0; i < pos.count; i += step) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+      if (v.y > TOP) continue;
+      const key = `${Math.floor(v.x / CELL)}_${Math.floor(v.z / CELL)}`;
+      let c = cells.get(key);
+      if (!c) { c = { x0: v.x, x1: v.x, z0: v.z, z1: v.z, n: 0 }; cells.set(key, c); }
+      c.x0 = Math.min(c.x0, v.x); c.x1 = Math.max(c.x1, v.x);
+      c.z0 = Math.min(c.z0, v.z); c.z1 = Math.max(c.z1, v.z); c.n++;
+    }
+  });
   const geos = [];
-  for (const [lx, lz] of feet) {
-    const x = p.x + lx * c + lz * s, z = p.z - lx * s + lz * c;
-    const g = heightAt(x, z);
-    const top = baseY + 0.12;             // just under the foot plate
+  for (const c of cells.values()) {
+    if (c.n < 6) continue;                                  // a stray vertex, not a plate
+    const cx = (c.x0 + c.x1) / 2, cz = (c.z0 + c.z1) / 2;
+    const w = Math.max(0.16, c.x1 - c.x0), d = Math.max(0.16, c.z1 - c.z0);
+    if (w > 3 || d > 3) continue;                           // a deck or a body, not a foot
+    const g = heightAt(cx, cz);
+    const top = baseY + 0.10;
     const bottom = Math.min(g, baseY) - 0.5;
     const h = top - bottom;
-    if (h < 0.75) continue;               // the ground is close enough under this foot: the fillet covers it
-    const w = Math.min(0.45, Math.max(0.28, (hd * 2) * 0.45));
-    const box = new THREE_.BoxGeometry(w, h, w);
-    box.translate(x, bottom + h / 2, z);
+    if (h < 0.85) continue;                                 // the ground is close enough under this plate
+    const box = new THREE_.BoxGeometry(w, h, d);
+    box.translate(cx, bottom + h / 2, cz);
     geos.push(box);
   }
   if (!geos.length) return null;
@@ -123,8 +137,7 @@ export function makeStilts(p, size, heightAt, baseY, THREE_ = THREE, height = 1.
     const gp = g.attributes.position, gi = g.index;
     for (let i = 0; i < gp.count; i++) pos.push(gp.getX(i), gp.getY(i), gp.getZ(i));
     for (let i = 0; i < gi.count; i++) idx.push(base + gi.getX(i));
-    base += gp.count;
-    g.dispose();
+    base += gp.count; g.dispose();
   }
   merged.setAttribute('position', new THREE_.Float32BufferAttribute(pos, 3));
   merged.setIndex(idx);
@@ -132,7 +145,7 @@ export function makeStilts(p, size, heightAt, baseY, THREE_ = THREE, height = 1.
   const mat = new THREE_.MeshStandardMaterial({ color: 0x6b6f74, roughness: 0.85, metalness: 0.25 });
   mat.name = 'metal';
   const mesh = new THREE_.Mesh(merged, mat);
-  mesh.name = 'stilts_' + (p.tag || p.asset);
+  mesh.name = 'stilts_' + tag;
   mesh.castShadow = true; mesh.receiveShadow = true;
   return mesh;
 }

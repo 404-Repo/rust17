@@ -21,10 +21,14 @@ const FILES = {
   step_sand: ['step_sand_1', 'step_sand_2', 'step_sand_3', 'step_sand_4'], step_metal: ['step_metal_1', 'step_metal_2'], step_concrete: ['step_concrete_1', 'step_concrete_2'],
   hit: ['hit_marker'], headshot: ['headshot'], damage: ['damage_taken'], death: ['death'], kill: ['kill_confirm'],
   ambience: ['ambience_desert'], pumpjack: ['pumpjack_loop'], generator: ['generator_loop'], gust: ['wind_gust'],
+  // round 22l: the one shot scene bed, played at random from anywhere on the map
+  radio: ['radio_1', 'radio_2', 'radio_3'], distant_fight: ['distant_fight_1', 'distant_fight_2'],
+  vehicle: ['vehicle_pass'], creak: ['metal_creak'], birds: ['crow'], wind_metal: ['wind_metal'],
   ui_deploy: ['ui_deploy'], ui_end: ['ui_round_end'],
   music_title: ['music_title'], music_ingame: ['music_ingame'], music_end: ['music_end'],
 };
-const VOL = { music: 0.42, ambience: 0.45, loops: 0.62, sfx: 1.0 };   // round 22h: raised to hold their level against the lower master
+// round 22l (Ben: "make the music 50% quieter, i want there to be more sounds of the scene throughout")
+const VOL = { music: 0.21, ambience: 0.5, loops: 0.68, sfx: 1.0 };
 
 export class Audio {
   constructor({ events, player, base = './audio/' }) {
@@ -164,8 +168,39 @@ export class Audio {
     const src = this._play(key, null, 1, { jitter: 30, out: g, loop: true });
     if (src) this.loops.push({ key, src, gain: g, pos, base });
   }
-  update() {
+  /**
+   * round 22l: the scene keeps talking. Every few seconds one of a set of one shots plays from a point on the map
+   * (radio chatter near the buildings, a distant firefight beyond the fence, a truck on the road, metal creaking in
+   * the heat, birds, wind in the fence), each with its own spacing so nothing repeats in a pattern. This is what
+   * makes an empty map sound inhabited; the music sits under it at half the volume it had.
+   */
+  _scene(dt) {
+    if (!this.loaded || !this.enabled) return;
+    const t = this.ctx.currentTime;
+    if (!this._sceneNext) {
+      this._sceneNext = {};
+      for (const k of ['radio', 'distant_fight', 'vehicle', 'creak', 'birds', 'wind_metal']) this._sceneNext[k] = t + 3 + Math.random() * 20;
+    }
+    const P = this.player;
+    const near = (r) => { const a = Math.random() * Math.PI * 2, d = r * (0.4 + Math.random() * 0.6); return P ? { x: P.pos.x + Math.cos(a) * d, z: P.pos.z + Math.sin(a) * d } : null; };
+    const SPEC = {
+      radio: { every: [14, 34], vol: 0.32, at: () => near(22) },
+      distant_fight: { every: [22, 55], vol: 0.5, at: () => near(140) },
+      vehicle: { every: [45, 110], vol: 0.4, at: () => near(90) },
+      creak: { every: [16, 40], vol: 0.35, at: () => near(16) },
+      birds: { every: [35, 90], vol: 0.3, at: () => near(70) },
+      wind_metal: { every: [25, 60], vol: 0.35, at: () => near(30) },
+    };
+    for (const [k, sp] of Object.entries(SPEC)) {
+      if (t < this._sceneNext[k]) continue;
+      this._sceneNext[k] = t + sp.every[0] + Math.random() * (sp.every[1] - sp.every[0]);
+      this._play(k, sp.at(), sp.vol, { jitter: 90 });
+    }
+  }
+
+  update(dt = 0) {
     if (!this.ctx) return;
+    this._scene(dt);
     if (this.loaded && this._pendingLoops) { const L = this._pendingLoops; this._pendingLoops = null; for (const [k, p, b] of L) this.addLoop(k, p, b); }
     for (const l of this.loops) { if (!l.pos) continue; const { gain } = this._pan(l.pos); l.gain.gain.value = l.base * Math.min(1, gain * 3); }
   }

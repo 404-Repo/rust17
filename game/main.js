@@ -13,33 +13,33 @@
  * Everything loads relative to this folder: ./assets, ./assetlib.js, ./src/...
  */
 import * as THREE from 'three';
-import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r22-202608292241';
-import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r22-202608292241';
-import { createSky } from './src/render/sky.js?v=r22-202608292241';
-import { createPost } from './src/render/post.js?v=r22-202608292241';
-import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r22-202608292241';
-import { createSkirt } from './src/world/skirt.js?v=r22-202608292241';   // round 17 item 5: ground beyond the map edge
-import { World } from './src/world/collision.js?v=r22-202608292241';
-import { buildLevel } from './src/level/build.js?v=r22-202608292241';
-import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r22-202608292241';
-import { Player } from './src/player/controller.js?v=r22-202608292241';
-import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r22-202608292241';
-import { Viewmodel } from './src/player/viewmodel.js?v=r22-202608292241';
-import { FX } from './src/player/fx.js?v=r22-202608292241';
-import { NavGrid } from './src/ai/navgrid.js?v=r22-202608292241';
-import { Bot } from './src/ai/bot.js?v=r22-202608292241';
-import { SquadManager } from './src/ai/squad.js?v=r22-202608292241';
-import { Input, RAD_PER_PX } from './src/ui/input.js?v=r22-202608292241';
-import { TouchControls } from './src/ui/touch.js?v=r22-202608292241';
-import { HUD } from './src/ui/hud.js?v=r22-202608292241';
-import { Screens } from './src/ui/screens.js?v=r22-202608292241';
-import { Events } from './src/game/events.js?v=r22-202608292241';
-import { TDM } from './src/game/mode.js?v=r22-202608292241';
-import { createTelemetry } from './src/game/telemetry.js?v=r22-202608292241';
-import { Audio } from './src/game/audio.js?v=r22-202608292241';
-import { ASSET } from './assetlib.js?v=r22-202608292241';
-import { vertexiseMaterials } from './src/game/bake.js?v=r22-202608292241';
-import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r22-202608292241';   // materials r3
+import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r22-202608292253';
+import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r22-202608292253';
+import { createSky } from './src/render/sky.js?v=r22-202608292253';
+import { createPost } from './src/render/post.js?v=r22-202608292253';
+import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r22-202608292253';
+import { createSkirt } from './src/world/skirt.js?v=r22-202608292253';   // round 17 item 5: ground beyond the map edge
+import { World } from './src/world/collision.js?v=r22-202608292253';
+import { buildLevel } from './src/level/build.js?v=r22-202608292253';
+import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r22-202608292253';
+import { Player } from './src/player/controller.js?v=r22-202608292253';
+import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r22-202608292253';
+import { Viewmodel } from './src/player/viewmodel.js?v=r22-202608292253';
+import { FX } from './src/player/fx.js?v=r22-202608292253';
+import { NavGrid } from './src/ai/navgrid.js?v=r22-202608292253';
+import { Bot } from './src/ai/bot.js?v=r22-202608292253';
+import { SquadManager } from './src/ai/squad.js?v=r22-202608292253';
+import { Input, RAD_PER_PX } from './src/ui/input.js?v=r22-202608292253';
+import { TouchControls } from './src/ui/touch.js?v=r22-202608292253';
+import { HUD } from './src/ui/hud.js?v=r22-202608292253';
+import { Screens } from './src/ui/screens.js?v=r22-202608292253';
+import { Events } from './src/game/events.js?v=r22-202608292253';
+import { TDM } from './src/game/mode.js?v=r22-202608292253';
+import { createTelemetry } from './src/game/telemetry.js?v=r22-202608292253';
+import { Audio } from './src/game/audio.js?v=r22-202608292253';
+import { ASSET } from './assetlib.js?v=r22-202608292253';
+import { vertexiseMaterials } from './src/game/bake.js?v=r22-202608292253';
+import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r22-202608292253';   // materials r3
 
 const ROUND = (globalThis.__BUILD_STAMP__ || 'r19-dev').split('-')[0];   // the round label on the HUD and screens comes from the publish stamp (was a hardcoded 'r6' for thirteen rounds)
 const DEG = Math.PI / 180;
@@ -530,7 +530,7 @@ function frame() {
   fx.update(dt);
   sky.update(camera, dt);
   rig.update(camera, dt);
-  audio.update();   // round 21: positioned loops follow the listener
+  audio.update(dt);   // round 21: positioned loops follow the listener; round 22l: the scene one shots
 
   if (window.__GOD__) { player.hp = 100; hurt = 0; }
   hurt = Math.max(0, hurt - dt * 1.4);
