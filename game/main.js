@@ -13,32 +13,32 @@
  * Everything loads relative to this folder: ./assets, ./assetlib.js, ./src/...
  */
 import * as THREE from 'three';
-import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r12-202608291139';
-import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY } from './src/render/lighting.js?v=r12-202608291139';
-import { createSky } from './src/render/sky.js?v=r12-202608291139';
-import { createPost } from './src/render/post.js?v=r12-202608291139';
-import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r12-202608291139';
-import { World } from './src/world/collision.js?v=r12-202608291139';
-import { buildLevel } from './src/level/build.js?v=r12-202608291139';
-import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r12-202608291139';
-import { Player } from './src/player/controller.js?v=r12-202608291139';
-import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r12-202608291139';
-import { Viewmodel } from './src/player/viewmodel.js?v=r12-202608291139';
-import { FX } from './src/player/fx.js?v=r12-202608291139';
-import { NavGrid } from './src/ai/navgrid.js?v=r12-202608291139';
-import { Bot } from './src/ai/bot.js?v=r12-202608291139';
-import { SquadManager } from './src/ai/squad.js?v=r12-202608291139';
-import { Input, RAD_PER_PX } from './src/ui/input.js?v=r12-202608291139';
-import { TouchControls } from './src/ui/touch.js?v=r12-202608291139';
-import { HUD } from './src/ui/hud.js?v=r12-202608291139';
-import { Screens } from './src/ui/screens.js?v=r12-202608291139';
-import { Events } from './src/game/events.js?v=r12-202608291139';
-import { TDM } from './src/game/mode.js?v=r12-202608291139';
-import { createTelemetry } from './src/game/telemetry.js?v=r12-202608291139';
-import { Audio } from './src/game/audio.js?v=r12-202608291139';
-import { ASSET } from './assetlib.js?v=r12-202608291139';
-import { vertexiseMaterials } from './src/game/bake.js?v=r12-202608291139';
-import { preloadMaterials, applyTerrainMaterial } from './src/render/materials.js?v=r12-202608291139';   // materials r3
+import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r13-202608291158';
+import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY } from './src/render/lighting.js?v=r13-202608291158';
+import { createSky } from './src/render/sky.js?v=r13-202608291158';
+import { createPost } from './src/render/post.js?v=r13-202608291158';
+import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r13-202608291158';
+import { World } from './src/world/collision.js?v=r13-202608291158';
+import { buildLevel } from './src/level/build.js?v=r13-202608291158';
+import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r13-202608291158';
+import { Player } from './src/player/controller.js?v=r13-202608291158';
+import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r13-202608291158';
+import { Viewmodel } from './src/player/viewmodel.js?v=r13-202608291158';
+import { FX } from './src/player/fx.js?v=r13-202608291158';
+import { NavGrid } from './src/ai/navgrid.js?v=r13-202608291158';
+import { Bot } from './src/ai/bot.js?v=r13-202608291158';
+import { SquadManager } from './src/ai/squad.js?v=r13-202608291158';
+import { Input, RAD_PER_PX } from './src/ui/input.js?v=r13-202608291158';
+import { TouchControls } from './src/ui/touch.js?v=r13-202608291158';
+import { HUD } from './src/ui/hud.js?v=r13-202608291158';
+import { Screens } from './src/ui/screens.js?v=r13-202608291158';
+import { Events } from './src/game/events.js?v=r13-202608291158';
+import { TDM } from './src/game/mode.js?v=r13-202608291158';
+import { createTelemetry } from './src/game/telemetry.js?v=r13-202608291158';
+import { Audio } from './src/game/audio.js?v=r13-202608291158';
+import { ASSET } from './assetlib.js?v=r13-202608291158';
+import { vertexiseMaterials } from './src/game/bake.js?v=r13-202608291158';
+import { preloadMaterials, applyTerrainMaterial } from './src/render/materials.js?v=r13-202608291158';   // materials r3
 
 const ROUND = 'r6';
 const DEG = Math.PI / 180;
@@ -329,7 +329,7 @@ const CAST_DIST = +(params.get('cast') || (tier.name === 'phone' ? 26 : 26));   
 // derrick) throw 10 to 50 m shadows the critic wants to see at 40 m; clutter (drums, crates,
 // sandbags, pallets) throws 1 to 3 m and its shadow is a few pixels at 20 m.
 const CAST_L = +(params.get('castl') || CAST_DIST);
-const CAST_C = +(params.get('castc') || Math.min(CAST_DIST, tier.name === 'phone' ? 18 : 14));   // integrator r4: high 20 -> 14
+const CAST_C = +(params.get('castc') || Math.min(CAST_DIST, tier.name === 'phone' ? 18 : 12));   // round 13: 14 -> 12 (see FINE_CULL)   // integrator r4: high 20 -> 14
 // Clutter (and the no shadow scatter) in blocks whose nearest edge is beyond FAR_CULL is not
 // drawn: at 90 m the haze has taken a third of it and a drum is four pixels; landmarks stay.
 const FAR_CULL = +(params.get('far') || (tier.name === 'phone' ? 60 : 50));   // integrator r1: high 70 -> 55 (round 1 props put the peak view at 1.95 M); r4: 55 -> 50
@@ -343,7 +343,7 @@ const FAR_CULL_N = +(params.get('farn') || (tier.name === 'phone' ? 40 : 28));  
 // castc 12) still left 1.97 M, so the fine split was added: 0.44 M out of the spawn main pass and 0.2 M out
 // of the cascade with nothing removed inside its reading distance. With it, cast 26 / castc 14 / far 50 /
 // farn 28 / finecull 22 put the six probe views at 1.61 to 1.65 M (work/game/tp_r4_*.txt).
-const FINE_CULL = +(params.get('finecull') || (tier.name === 'phone' ? 20 : 22));
+const FINE_CULL = +(params.get('finecull') || (tier.name === 'phone' ? 15 : 15));   // round 13: 22 -> 15, the rebuilt tanks and buildings carry rivet rows; measured 1.77M -> 1.70M with castc 12
 // Budget note (round 1): the six probe views in work/game/triprobe.mjs peaked at 1.95 M with
 // cast 30 / far 70 / farn 50 after the round 1 level, asset and sky additions. Measured there:
 // clutter casting at 20 m instead of 30 saves about 100 k in the cascade, landmarks at 28 m

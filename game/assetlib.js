@@ -28,7 +28,7 @@
  */
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
-import { applySurfaces } from './surfaces.js?v=r12-202608291139';
+import { applySurfaces } from './surfaces.js?v=r13-202608291158';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // DERRICK round 12 (audit, "hard CG edges everywhere"): every box an asset builds with a smallest side of
@@ -43,9 +43,24 @@ class ChamferBox extends RoundedBoxGeometry {
     super(w, h, d, 1, Math.min(0.015, m * 0.12));
   }
 }
+// round 12 item 4 (audit, "pipes read as octagons at 2 m"): cylinders get a segment floor by radius, whatever the
+// asset asked for: 16 from 6 cm, 24 from 15 cm, 32 from 40 cm. Bolts and rods keep their own counts.
+function CylinderWithFloor(rt = 1, rb = 1, h = 1, seg = 32, hs = 1, open = false, ts, tl) {
+  const r = Math.max(rt, rb);
+  // the floor is for a FULL turn; a partial arc (thetaLength) gets its share, so a 6 segment stain band on a
+  // tank does not become 32 (that tax was 7k triangles on one asset before the open tank agent caught it)
+  const full = r >= 0.4 ? 32 : r >= 0.15 ? 24 : r >= 0.06 ? 16 : 0;
+  const frac = tl === undefined ? 1 : Math.min(1, Math.max(0, tl) / (Math.PI * 2));
+  const floor = Math.ceil(full * frac);
+  return new THREE.CylinderGeometry(rt, rb, h, Math.max(seg, floor), hs, open, ts, tl);
+}
+CylinderWithFloor.prototype = THREE.CylinderGeometry.prototype;
+// weapons chamfer their own small parts through THREE.ChamferBox(w, h, d, radius) (viewmodel parts are 1 to 10 cm)
 const ASSET_THREE = new Proxy(THREE, {
   get(t, k) {
     if (k === 'BoxGeometry') return ChamferBoxOrPlain;
+    if (k === 'CylinderGeometry') return CylinderWithFloor;
+    if (k === 'ChamferBox') return function (w, h, d, r = 0.004) { return new RoundedBoxGeometry(w, h, d, 1, Math.min(r, Math.min(w, h, d) * 0.2)); };
     return t[k];
   },
 });

@@ -29,7 +29,9 @@ export default function (THREE) {
   const dark = M(0x34373a, 'metal', 0.65, 0.25, true);
 
   const box = (w, h, d, mat, x, y, z, parent) => {
-    const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    // round 12 item 4: parts over 2.5 cm on every side get a 3 mm chamfer through the loader's ChamferBox (a viewmodel is seen at 30 cm; box edges are the loudest tell there)
+    const geo = THREE.ChamferBox && Math.min(w, h, d) >= 0.025 ? new THREE.ChamferBox(w, h, d, 0.003) : new THREE.BoxGeometry(w, h, d);
+    const mm = new THREE.Mesh(geo, mat);
     mm.position.set(x, y, z); (parent || g).add(mm); return mm;
   };
   const cyl = (r, len, mat, x, y, z, axis, seg, parent, r2, open) => {

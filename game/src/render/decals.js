@@ -31,36 +31,39 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { DECALS } from '../level/placements.js?v=r12-202608291139';
+import { DECALS } from '../level/placements.js?v=r13-202608291158';
 
 // UV rects in the atlas, three.js convention (v = 0 at the bottom): [u0, v0, u1, v1, w / h]
 export const ATLAS_RECTS = {
-  tyre_track_straight: [0.00366, 0.6814, 0.24341, 0.99634, 0.7623],
-  tyre_track_curve: [0.2478, 0.71313, 0.52808, 0.99634, 0.9897],
-  oil_stain_large: [0.53247, 0.78296, 0.7522, 0.99634, 1.0295],
-  footprints: [0.75659, 0.80005, 0.95239, 0.99634, 0.9975],
-  gravel_patch: [0.00366, 0.48853, 0.19995, 0.677, 1.0411],
-  sand_drift: [0.20435, 0.49976, 0.39233, 0.677, 1.0601],
-  litter_patch: [0.39673, 0.50464, 0.56763, 0.677, 0.9916],
-  bullet_holes_concrete: [0.57202, 0.50464, 0.74438, 0.677, 1],
-  rust_run: [0.74878, 0.50464, 0.80151, 0.677, 0.3118],
-  cable_on_ground: [0.80591, 0.50659, 0.97827, 0.677, 1.0114],
-  bullet_holes: [0.00366, 0.31714, 0.17603, 0.48413, 1.0319],
-  oil_stain_small: [0.18042, 0.33032, 0.33716, 0.48413, 1.0189],
-  scuff_marks: [0.34155, 0.35425, 0.48999, 0.48413, 1.1413],
-  stencil_arrow: [0.49438, 0.35522, 0.58521, 0.48413, 0.7079],
-  grease_smear: [0.5896, 0.35571, 0.73804, 0.48413, 1.1541],
-  stencil_danger: [0.74243, 0.36206, 0.91089, 0.48413, 1.3755],
-  stencil_no_smoking: [0.00366, 0.20923, 0.16431, 0.31274, 1.5442],
-  stencil_02: [0.1687, 0.21216, 0.29761, 0.31274, 1.2775],
-  stencil_07: [0.302, 0.21313, 0.43091, 0.31274, 1.2899],
-  hazard_stripe: [0.4353, 0.23462, 0.68677, 0.31274, 3.1779],
+  seepage_streak: [0.00366, 0.77661, 0.0686, 0.99634, 0.3002],
+  oil_stain_large: [0.073, 0.78296, 0.29272, 0.99634, 1.0295],
+  footprints: [0.29712, 0.80005, 0.49292, 0.99634, 0.9975],
+  gravel_patch: [0.49731, 0.80786, 0.6936, 0.99634, 1.0411],
+  drain_stain: [0.698, 0.81616, 0.86743, 0.99634, 0.9409],
+  sand_drift: [0.00366, 0.59497, 0.19165, 0.77222, 1.0601],
+  litter_patch: [0.19604, 0.59985, 0.36694, 0.77222, 0.9916],
+  bullet_holes_concrete: [0.37134, 0.59985, 0.5437, 0.77222, 1.0],
+  rust_run: [0.87183, 0.82397, 0.92456, 0.99634, 0.3118],
+  bullet_holes: [0.5481, 0.60522, 0.72046, 0.77222, 1.0319],
+  spill_wall: [0.72485, 0.61548, 0.84204, 0.77222, 0.75],
+  oil_stain_small: [0.00366, 0.43677, 0.1604, 0.59058, 1.0189],
+  notice_poster: [0.84644, 0.6394, 0.94116, 0.77222, 0.7164],
+  scuff_marks: [0.16479, 0.46069, 0.31323, 0.59058, 1.1413],
+  stencil_arrow: [0.31763, 0.46167, 0.40845, 0.59058, 0.7079],
+  grease_smear: [0.41284, 0.46216, 0.56128, 0.59058, 1.1541],
+  stencil_danger: [0.56567, 0.46851, 0.73413, 0.59058, 1.3755],
+  rust_bloom: [0.73853, 0.47339, 0.82446, 0.59058, 0.7366],
+  stencil_no_smoking: [0.82886, 0.48706, 0.9895, 0.59058, 1.5442],
+  stencil_02: [0.00366, 0.33179, 0.13257, 0.43237, 1.2775],
+  stencil_07: [0.13696, 0.33276, 0.26587, 0.43237, 1.2899],
+  hazard_stripe: [0.27026, 0.35425, 0.52173, 0.43237, 3.1779],
+  concrete_crack: [0.52612, 0.36597, 0.73022, 0.43237, 3.0288],
 };
 // blended, feathered edges; everything else is an alpha cut
 const REMOVED = new Set(['tyre_track_straight', 'tyre_track_curve', 'cable_on_ground']);
-const SOFT = new Set(['tyre_track_straight', 'tyre_track_curve', 'oil_stain_large', 'oil_stain_small', 'sand_drift', 'footprints', 'litter_patch', 'gravel_patch', 'rust_run', 'scuff_marks', 'grease_smear']);
+const SOFT = new Set(['seepage_streak', 'drain_stain', 'rust_bloom', 'spill_wall', 'tyre_track_straight', 'tyre_track_curve', 'oil_stain_large', 'oil_stain_small', 'sand_drift', 'footprints', 'litter_patch', 'gravel_patch', 'rust_run', 'scuff_marks', 'grease_smear']);
 // text and the arrow never mirror; a rust run hangs from its bolt, so it never mirrors vertically either
-const NO_FLIP = new Set(['stencil_02', 'stencil_07', 'stencil_danger', 'stencil_no_smoking', 'stencil_arrow', 'hazard_stripe']);
+const NO_FLIP = new Set(['notice_poster', 'seepage_streak', 'drain_stain', 'rust_bloom', 'spill_wall', 'stencil_02', 'stencil_07', 'stencil_danger', 'stencil_no_smoking', 'stencil_arrow', 'hazard_stripe']);
 const LIFT = 0.025;                 // metres above the drawn terrain triangles
 const WALL_OFF_FLAT = 0.01;         // metres off a flat face (concrete, painted housings, barriers)
 const WALL_OFF_RIBBED = 0.03;       // off a corrugated or curved face (containers, tanks, drums, wrecks)

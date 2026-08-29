@@ -1,8 +1,10 @@
-// oil_storage_tank_open candidate 2: read from the concept. The shell is six curved
-// plates per course with alternating lap radius and rivet rows on every seam, the
-// south cut is a doorway and the north east cut a narrower doorway, the walkway
-// ring is torn away over the south cut with a bent post and hanging rail stubs, and
-// the roof is eight panels with the rafters showing from inside. Plate gussets.
+// oil_storage_tank_open, rebuild round 13: the same riveted five course tank as the closed one
+// (lap seam rings with a stain band under each, vertical rivet lines every 60 degrees, cone roof
+// with seams over the rafters, full walkway ring with grating, brackets, handrail, caged ladder
+// on the west side) but hollow and enterable. Two rough cuts, south 2.4 x 2.0 m and north east
+// 1.2 x 2.0 m at 45 degrees (the `cuts` table is the level's collider contract, do not move it),
+// with torn bent flanges around the cut edges, double sided shell so the inside shows the same
+// courses, interior stiffening ribs, and a sludge floor with a darker ring at the wall foot.
 export default function (THREE) {
   const g = new THREE.Group();
   const M = (hex, name, r, m, ds) => {
@@ -17,22 +19,28 @@ export default function (THREE) {
     const b = Math.min(255, Math.round((hex & 255) * f));
     return (r << 16) | (gg << 8) | b;
   };
-  const TANK = 0x9c988c, RUST = 0x6b4426, GALV = 0x9ea3a1, STEEL = 0x4f5257, SAND = 0xcdb88e;
+  const TANK = 0xcac2ae, RUST = 0x6b4426, GALV = 0x9ea3a1, STEEL = 0x4f5257, SAND = 0xcdb88e;
   const YEL = 0xc9a227, CONC = 0x857c6c;
   const rust = M(RUST, 'metal', 0.9, 0.1, true);
+  const rustD = M(0x4e2d19, 'metal', 0.92, 0.1, true);
   const galv = M(GALV, 'metal', 0.75, 0.55, true);
   const galvD = M(tint(GALV, 0.86), 'metal', 0.8, 0.5, true);
   const steel = M(STEEL, 'metal', 0.8, 0.3, true);
   const steelL = M(tint(STEEL, 1.1), 'metal', 0.78, 0.3);
-  const strip = M(tint(TANK, 0.8), 'metal', 0.85, 0.2, true);
-  const inner = M(tint(TANK, 0.68), 'metal', 0.88, 0.15, true);
-  const stain = M(0x585248, 'metal', 0.92, 0.1, true);
+  const rivetM = M(0x5c5852, 'metal', 0.72, 0.4);                 // darker than the plate so the heads read at 15 m
+  const strip = M(tint(TANK, 0.78), 'metal', 0.85, 0.2, true);     // lap seam ring, a shade under the plates
+  const seamShadow = M(tint(TANK, 0.6), 'metal', 0.9, 0.15, true); // the dark line under every lap
+  const inner = M(tint(TANK, 0.66), 'metal', 0.88, 0.15, true);
+  const innerD = M(tint(TANK, 0.5), 'metal', 0.9, 0.12, true);
+  const stain = M(0x4a453c, 'metal', 0.92, 0.1, true);
   const yel = M(YEL, 'metal', 0.7, 0.15);
   const yelD = M(tint(YEL, 0.92), 'metal', 0.72, 0.15);
   const sand = M(SAND, 'ground', 0.95, 0.0);
   const sandP = M(0xa89372, 'ground', 0.95, 0.0);
   const conc = M(CONC, 'stone', 0.92, 0.0);
   const gun = M(0x3a3d40, 'metal', 0.75, 0.5);
+  const sludge = M(0x2a2721, 'metal', 0.55, 0.05);                 // lum < 0.06: the weathering pass leaves it alone
+  const sludgeD = M(0x17150f, 'metal', 0.5, 0.05);
 
   const R = 3.2, RW = 4.0, H = 4.6, C = 0.92;
   const bx = (w, h, d, mat, x, y, z, parent) => {
@@ -40,13 +48,20 @@ export default function (THREE) {
     mm.position.set(x, y, z); (parent || g).add(mm); return mm;
   };
   const swing = (theta, parent) => { const s = new THREE.Group(); s.rotation.y = theta; (parent || g).add(s); return s; };
-  const arc = (rr, y0, y1, th0, thLen, mat) => {
-    const seg = Math.max(2, Math.round(thLen * 30 / (2 * Math.PI)));
-    const mm = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr, y1 - y0, seg, 1, true, th0, thLen), mat);
-    mm.position.y = (y0 + y1) / 2; g.add(mm); return mm;
+  // partial bands are lathes, not cylinders: the loader floors every cylinder over 0.4 m radius to 32
+  // segments whatever the arc length, which would render a 20 degree plate at the cost of a full ring
+  const band = (r0, r1, y0, y1, th0, thLen, mat, seg) => {
+    const mm = new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(r0, y0), new THREE.Vector2(r1, y1)], seg, th0, thLen), mat);
+    g.add(mm); return mm;
   };
-  const rivet = (th, y, rr, parent) => { const s = swing(th, parent); bx(0.045, 0.045, 0.028, steelL, 0, y, rr + 0.012, s); };
-  // cuts: [centre, half angle, bottom, top]
+  const arc = (rr, y0, y1, th0, thLen, mat, segPer) => {
+    const seg = Math.max(2, Math.round(thLen * (segPer || 32) / (2 * Math.PI)));
+    if (thLen > Math.PI * 2 - 1e-3) { const mm = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr, y1 - y0, 32, 1, true), mat); mm.position.y = (y0 + y1) / 2; g.add(mm); return mm; }
+    return band(rr, rr, y0, y1, th0, thLen, mat, seg);
+  };
+  const rivet = (th, y, rr, parent, big) => { const s = swing(th, parent); bx(big ? 0.07 : 0.06, big ? 0.07 : 0.06, 0.04, rivetM, 0, y, rr + 0.016, s); };
+  // cuts: [centre, half angle, bottom, top]. South 2.4 m wide, north east 1.2 m wide, both 2.0 m tall.
+  // These are the level's collider gaps (build.js tankSpec): keep them exactly.
   const cuts = [[0, 1.2 / R, 0, 2.0], [3 * Math.PI / 4, 0.6 / R, 0, 2.0]];
   const minus = (a, b, y0, y1) => {
     let list = [[a, b]];
@@ -63,8 +78,8 @@ export default function (THREE) {
     }
     return list;
   };
-  const inCut = (th, y) => cuts.some(([c, ha, bot, top]) => y < top && y > bot && Math.abs(((th - c + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI) < ha + 0.03);
-  // split y range at every cut edge that crosses it
+  const angDist = (a, b) => Math.abs(((a - b + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI);
+  const inCut = (th, y, pad) => cuts.some(([c, ha, bot, top]) => y < top + (pad || 0) && y > bot && angDist(th, c) < ha + (pad === undefined ? 0.03 : pad));
   const ySplits = (y0, y1) => {
     const ys = [y0, y1];
     for (const [, , bot, top] of cuts) for (const yy of [bot, top]) if (yy > y0 && yy < y1) ys.push(yy);
@@ -72,103 +87,149 @@ export default function (THREE) {
     const out = []; for (let i = 0; i + 1 < ys.length; i++) out.push([ys[i], ys[i + 1]]); return out;
   };
 
-  // ---- five courses of six plates, alternating lap radius, liner inside ----------
-  const courseTint = [0.8, 0.9, 1.0, 1.07, 1.14];
+  // ---- five courses of six plates each, alternating lap radius, double sided liner inside ----------
+  const courseTint = [0.86, 0.93, 1.0, 1.05, 1.1];
   const A = Math.PI / 3;
   for (let i = 0; i < 5; i++) {
     const base = tint(TANK, courseTint[i]);
     for (let k = 0; k < 6; k++) {
       const th0 = k * A - Math.PI / 6 - A / 2 + 0.01, mid = th0 + A / 2;
-      const sun = Math.cos(mid) > 0.2 ? 1.07 : Math.cos(mid) < -0.2 ? 1.0 : 1.035;
-      const rr = R + ((i + k) % 2 ? 0.025 : 0);
-      const mat = M(tint(base, sun * (1 + 0.01 * (k % 3))), 'metal', 0.85, 0.2, true);
+      const sun = Math.cos(mid) > 0.2 ? 1.06 : Math.cos(mid) < -0.2 ? 0.98 : 1.02;
+      const rr = R + ((i + k) % 2 ? 0.03 : 0);
+      const mat = M(tint(base, sun * (1 + 0.012 * ((k + i) % 3))), 'metal', 0.85, 0.2, true);
+      const matIn = (i + k) % 2 ? inner : innerD;
       for (const [y0, y1] of ySplits(i * C, (i + 1) * C)) for (const [p, q] of minus(th0, th0 + A - 0.02, y0, y1)) {
         arc(rr, y0, y1, p, q - p, mat);
-        arc(rr - 0.05, y0, y1, p, q - p, inner);
+        arc(rr - 0.05, y0, y1, p, q - p, matIn);
       }
     }
+    // lap seam: the raised strip, the shadow line under it, a stain band running down from the lap, rivet row
     if (i < 4) {
-      for (const [p, q] of minus(0, Math.PI * 2, (i + 1) * C - 0.05, (i + 1) * C + 0.05)) {
-        arc(R + 0.04, (i + 1) * C - 0.05, (i + 1) * C + 0.05, p, q - p, strip);
-        arc(R - 0.08, (i + 1) * C - 0.04, (i + 1) * C + 0.04, p, q - p, strip);
+      const ys = (i + 1) * C;
+      for (const [p, q] of minus(0, Math.PI * 2, ys - 0.06, ys + 0.06)) {
+        arc(R + 0.045, ys - 0.06, ys + 0.06, p, q - p, strip);
+        arc(R + 0.038, ys - 0.1, ys - 0.06, p, q - p, seamShadow);
+        arc(R - 0.085, ys - 0.05, ys + 0.05, p, q - p, strip);
       }
-      for (let k = 0; k < 28; k++) { const th = k * Math.PI / 14 + i * 0.04; if (!inCut(th, (i + 1) * C)) { rivet(th, (i + 1) * C, R + 0.04); } }
-      for (let k = 0; k < 24; k++) { const th = k * Math.PI / 12 + i * 0.06; if (!inCut(th, (i + 1) * C)) { const s = swing(th); bx(0.04, 0.04, 0.025, steelL, 0, (i + 1) * C, R - 0.095, s); } }
-      for (let k = 0; k < 10; k++) {
-        const th = k * Math.PI / 5 + i * 0.3;
-        if (inCut(th, (i + 1) * C - 0.2)) continue;
+      // stain band: a darker wash 0.18 m under the lap on every plate, broken up per plate so it reads as run marks
+      for (let k = 0; k < 6; k++) {
+        const th0 = k * A - Math.PI / 6 - A / 2 + 0.02;
+        const rr = R + ((i + k) % 2 ? 0.03 : 0) + 0.006;
+        const bandMat = M(tint(TANK, courseTint[i] * (0.74 + 0.04 * (k % 2))), 'metal', 0.9, 0.15, true);
+        for (const [p, q] of minus(th0, th0 + A - 0.04, ys - 0.28, ys - 0.1)) arc(rr, ys - 0.28, ys - 0.1, p, q - p, bandMat);
+      }
+      for (let k = 0; k < 36; k++) { const th = k * Math.PI / 18 + (i % 2) * Math.PI / 36; if (!inCut(th, ys)) rivet(th, ys, R + 0.045); }
+      // rust weeps under a third of the seam rivets
+      for (let k = 0; k < 12; k++) {
+        const th = k * Math.PI / 6 + i * 0.09 + 0.05;
+        if (inCut(th, ys)) continue;
         const s = swing(th);
-        bx(0.05, 0.14 + 0.06 * (k % 3), 0.006, rust, 0, (i + 1) * C - 0.14, R + ((i + k) % 2 ? 0.025 : 0) + 0.006, s);
+        bx(0.05, 0.16 + 0.08 * (k % 3), 0.006, k % 5 ? rust : rustD, 0, ys - 0.2 - 0.04 * (k % 3), R + ((i + k) % 2 ? 0.03 : 0) + 0.008, s);
       }
     }
   }
+  // vertical rivet lines every 60 degrees: a butt strap on the outside, two staggered rivet rows, a rust wash
   for (let k = 0; k < 6; k++) {
     const th = k * A - Math.PI / 6 - A / 2;
     const s = swing(th);
     for (let i = 0; i < 5; i++) {
-      if (inCut(th, i * C + 0.46)) continue;
-      bx(0.16, C - 0.12, 0.03, strip, 0, i * C + C / 2, R + 0.02, s);
-      bx(0.07, 0.25, 0.006, rust, 0.02, i * C + 0.28, R + 0.04, s);
-      bx(0.06, 0.22, 0.006, rust, -0.02, i * C + 0.3, R - 0.058, s);
+      for (const [y0, y1] of ySplits(i * C + 0.06, (i + 1) * C - 0.06)) {
+        if (inCut(th, (y0 + y1) / 2, 0.02)) continue;
+        bx(0.18, y1 - y0, 0.03, strip, 0, (y0 + y1) / 2, R + 0.025, s);
+        bx(0.08, Math.min(0.3, y1 - y0), 0.006, rust, 0.03, y0 + Math.min(0.3, y1 - y0) / 2 + 0.02, R + 0.045, s);
+      }
     }
-    for (let i = 0; i < 16; i++) { const y = 0.12 + i * 0.29; if (!inCut(th, y)) { rivet(th + 0.014, y, R + 0.03); rivet(th - 0.014, y, R + 0.03); } }
+    for (let i = 0; i < 16; i++) { const y = 0.3 + i * 0.27; if (!inCut(th, y, 0.05)) { rivet(th + 0.016, y, R + 0.04); rivet(th - 0.016, y - 0.13, R + 0.04); } }
   }
-  for (const [p, q] of minus(0, Math.PI * 2, 0.02, 0.42)) arc(R - 0.06, 0.02, 0.42, p, q - p, stain);
-  const fl = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.04, R - 0.04, 0.08, 30), M(0x6a655a, 'metal', 0.9, 0.15)); fl.position.y = 0.06; g.add(fl);
-
-  // ---- torn edges, both cuts ------------------------------------------------------
-  for (const [cth, ha, bot, top] of cuts) {
-    const lip = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.12, R - 0.02, 0.14, 6, 1, true, cth - ha - 0.02, 2 * ha + 0.04), rust);
-    lip.position.y = top + 0.02; g.add(lip);
-    if (bot > 0) {
-      const sill = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.02, R + 0.1, 0.12, 6, 1, true, cth - ha - 0.02, 2 * ha + 0.04), rust);
-      sill.position.y = bot - 0.02; g.add(sill);
-    }
-    for (const sgn of [-1, 1]) {
-      const s = swing(cth + sgn * (ha + 0.015));
-      const jamb = bx(0.09, top - bot - 0.06, 0.16, rust, 0, (top + bot) / 2, R - 0.02, s);
-      jamb.rotation.y = sgn * 0.35;
-      const t1 = bx(0.3, 0.55, 0.025, strip, sgn * 0.13, top - 0.5, R + 0.1, s);
-      t1.rotation.y = sgn * 0.85; t1.rotation.z = sgn * 0.3;
-      const t2 = bx(0.22, 0.4, 0.025, M(tint(TANK, 0.95), 'metal', 0.85, 0.2, true), sgn * 0.1, bot + 0.5, R + 0.08, s);
-      t2.rotation.y = sgn * 0.55; t2.rotation.z = -sgn * 0.2;
-      for (let j = 0; j < 5; j++) bx(0.04, 0.04, 0.03, steelL, sgn * 0.02, bot + 0.25 + j * (top - bot - 0.5) / 4, R + 0.06, s);
-      bx(0.08, 0.6, 0.008, rust, sgn * 0.08, top - 0.95, R + 0.02, s);
-    }
-    if (bot === 0) {
-      const drift = new THREE.Mesh(new THREE.SphereGeometry(1.0, 12, 7, 0, Math.PI * 2, 0, Math.PI / 2), sand);
-      drift.scale.set(ha * R * 1.3, 0.21, 1.7); drift.position.set(R * 0.62 * Math.sin(cth), 0.02, R * 0.62 * Math.cos(cth)); drift.rotation.y = cth; g.add(drift);
-      const drift2 = new THREE.Mesh(new THREE.SphereGeometry(1.0, 12, 7, 0, Math.PI * 2, 0, Math.PI / 2), sandP);
-      drift2.scale.set(ha * R * 1.2, 0.16, 0.9); drift2.position.set((R + 0.15) * Math.sin(cth), 0.02, (R + 0.15) * Math.cos(cth)); drift2.rotation.y = cth; g.add(drift2);
-    } else {
-      const spill = new THREE.Mesh(new THREE.SphereGeometry(1.0, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), sand);
-      spill.scale.set(0.7, 0.2, 1.2); spill.position.set(R * 0.6 * Math.sin(cth), 0.02, R * 0.6 * Math.cos(cth)); spill.rotation.y = cth; g.add(spill);
-    }
-  }
-
-  // ---- plinth and fillet ----------------------------------------------------------
+  // bottom chime: an angle ring with a rivet row, and the concrete plinth under it
+  for (const [p, q] of minus(0, Math.PI * 2, 0.12, 0.24)) arc(R + 0.05, 0.12, 0.24, p, q - p, strip);
+  for (let k = 0; k < 36; k++) { const th = k * Math.PI / 18 + Math.PI / 36; if (!inCut(th, 0.19)) rivet(th, 0.19, R + 0.05); }
   for (const [p, q] of minus(0, Math.PI * 2, 0, 0.12)) arc(R + 0.06, 0, 0.12, p, q - p, conc);
-  const fil = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.3, R + 0.55, 0.24, 30), sand);
-  fil.position.y = 0.12; fil.scale.set(1.04, 1, 0.96); g.add(fil);
-  // ---- contact ring: a collar of packed sand over the fillet (0.2 m, the depth the drift comes through the cuts) and a stained band ----
-  const collar = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.05, R + 0.4, 0.2, 30), M(0xa89372, 'ground', 0.96, 0.0));
-  collar.position.y = 0.1; collar.scale.set(1.04, 1, 0.96); g.add(collar);
-  const stainB = M(tint(TANK, 0.7), 'metal', 0.92, 0.12, true);
-  for (const [p, q] of minus(0, Math.PI * 2, 0.12, 0.5)) arc(R + 0.004, 0.12, 0.5, p, q - p, stainB);
 
-  // ---- roof: eight panels, rafters under, dust on top, vent with rain cap ----------
+  // ---- inside: floor plate, sludge with a darker ring at the wall, 0.4 m tide band, six stiffening ribs ----
+  const fl = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.04, R - 0.04, 0.08, 32), M(0x6a655a, 'metal', 0.9, 0.15)); fl.position.y = 0.06; g.add(fl);
+  const sl = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.07, R - 0.07, 0.03, 32), sludge); sl.position.y = 0.115; g.add(sl);
+  const slRing = new THREE.Mesh(new THREE.RingGeometry(R - 0.85, R - 0.06, 32, 1), sludgeD); slRing.rotation.x = -Math.PI / 2; slRing.position.y = 0.134; g.add(slRing);
+  const slPool = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.006, 20), sludgeD); slPool.position.set(-0.9, 0.134, 0.6); slPool.scale.set(1, 1, 0.6); g.add(slPool);
+  for (const [p, q] of minus(0, Math.PI * 2, 0.13, 0.53)) arc(R - 0.06, 0.13, 0.53, p, q - p, stain);
+  for (const [p, q] of minus(0, Math.PI * 2, 0.53, 0.62)) arc(R - 0.058, 0.53, 0.62, p, q - p, M(0x6c655a, 'metal', 0.9, 0.12, true));
+  for (let k = 0; k < 6; k++) {
+    const th = k * A;
+    if (inCut(th, 1.0, 0.12)) continue;
+    const s = swing(th);
+    bx(0.12, H - 0.5, 0.07, steel, 0, 0.3 + (H - 0.5) / 2, R - 0.115, s);
+    bx(0.04, H - 0.5, 0.05, steelL, 0.04, 0.3 + (H - 0.5) / 2, R - 0.135, s);
+        bx(0.14, 0.5, 0.006, rust, 0, 0.5, R - 0.152, s);
+  }
+
+  // ---- the two cuts: torn bent flanges around the edges, sills, sand drifts through them ----------
+  for (const [cth, ha, bot, top] of cuts) {
+    const plateM = M(tint(TANK, 0.96), 'metal', 0.85, 0.2, true);
+    const edgeW = 2 * ha * R;
+    // top edge: flaps bent outward and inward alternately, hanging from a torn lip
+    band(R - 0.02, R + 0.1, top - 0.02, top + 0.08, cth - ha - 0.02, 2 * ha + 0.04, rust, 8);
+    const nTop = Math.max(3, Math.round(edgeW / 0.32));
+    for (let j = 0; j < nTop; j++) {
+      const th = cth - ha + (j + 0.5) * 2 * ha / nTop;
+      const s = swing(th);
+      const out = j % 4 === 2 ? -1 : 1;
+      const fh = 0.14 + 0.12 * ((j * 7) % 3) / 2;
+      const flap = bx(edgeW / nTop + 0.01, fh, 0.014, j % 3 ? plateM : rust, 0, top + 0.02, R + 0.04, s);
+      flap.geometry.translate(0, -fh / 2, 0);
+      flap.rotation.x = out * (0.7 + 0.45 * ((j * 5) % 3) / 2);
+      bx(edgeW / nTop - 0.05, 0.03, 0.02, rustD, 0, -fh / 2, 0, flap);
+    }
+    // side edges: jambs of bent plate, flaps folded back around the vertical axis, a row of empty rivet holes
+    for (const sgn of [-1, 1]) {
+      const s = swing(cth + sgn * (ha + 0.012));
+      const jamb = bx(0.08, top - bot - 0.04, 0.14, rust, 0, (top + bot) / 2, R - 0.02, s);
+      jamb.rotation.y = sgn * 0.3;
+      const nSide = Math.round((top - bot) / 0.36);
+      for (let j = 0; j < nSide; j++) {
+        const y = bot + (j + 0.5) * (top - bot) / nSide;
+        const fw = 0.18 + 0.12 * ((j * 3) % 3) / 2;
+        const out = j % 2 ? 1 : -1;
+        const flap = bx(fw, (top - bot) / nSide - 0.04, 0.014, j % 3 === 1 ? rust : plateM, sgn * fw / 2 * 0.9, y, R + (out > 0 ? 0.06 : -0.05), s);
+        flap.rotation.y = sgn * out * (0.6 + 0.5 * ((j * 5) % 3) / 2);
+        flap.rotation.z = sgn * 0.12 * ((j % 3) - 1);
+        bx(0.03, (top - bot) / nSide - 0.06, 0.02, rustD, sgn * fw / 2, 0, 0, flap);
+      }
+      bx(0.1, 0.8, 0.008, rust, sgn * 0.12, top - 0.8, R + 0.035, s);
+      bx(0.06, 0.5, 0.008, rustD, -sgn * 0.02, top - 0.4, R - 0.058, s);
+    }
+    // sand drifted 0.2 m deep through the cut and fanning over the sludge inside
+    const drift = new THREE.Mesh(new THREE.SphereGeometry(1.0, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), sand);
+    drift.scale.set(ha * R * 1.35, 0.26, 1.9); drift.position.set(R * 0.6 * Math.sin(cth), 0.03, R * 0.6 * Math.cos(cth)); drift.rotation.y = cth; g.add(drift);
+    const drift2 = new THREE.Mesh(new THREE.SphereGeometry(1.0, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), sandP);
+    drift2.scale.set(ha * R * 1.25, 0.17, 1.1); drift2.position.set((R + 0.15) * Math.sin(cth), 0.0, (R + 0.15) * Math.cos(cth)); drift2.rotation.y = cth; g.add(drift2);
+    const tongue = new THREE.Mesh(new THREE.SphereGeometry(1.0, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), sandP);
+    tongue.scale.set(ha * R * 0.7, 0.12, 1.3); tongue.position.set(R * 0.25 * Math.sin(cth), 0.05, R * 0.25 * Math.cos(cth)); tongue.rotation.y = cth; g.add(tongue);
+  }
+
+  // ---- fillet and sand collar at the foot ------------------------------------------------------
+  const fil = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.02, R + 0.55, 0.2, 32, 1, true), sand);
+  fil.position.y = 0.1; fil.scale.set(1.04, 1, 0.96); g.add(fil);
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.03, R + 0.4, 0.16, 32, 1, true), sandP);
+  collar.position.y = 0.08; collar.scale.set(1.04, 1, 0.96); g.add(collar);
+  const stainB = M(tint(TANK, 0.68), 'metal', 0.92, 0.12, true);
+  for (const [p, q] of minus(0, Math.PI * 2, 0.24, 0.5)) arc(R + 0.006, 0.24, 0.5, p, q - p, stainB);
+
+  // ---- roof: eight panels, seam strips with rivets on top, rafters under, dust, vent with rain cap -----
+  const slope = 0.6 / (R + 0.1);
   for (let k = 0; k < 8; k++) {
-    const pan = new THREE.Mesh(new THREE.ConeGeometry(R + 0.1, 0.6, 4, 1, true, k * Math.PI / 4, Math.PI / 4), M(tint(TANK, k % 2 ? 1.14 : 1.18), 'metal', 0.85, 0.2, true));
+    const pan = new THREE.Mesh(new THREE.ConeGeometry(R + 0.1, 0.6, 4, 1, true, k * Math.PI / 4, Math.PI / 4), M(tint(TANK, k % 2 ? 1.1 : 1.15), 'metal', 0.85, 0.2, true));
     pan.position.y = H + 0.3; g.add(pan);
   }
-  arc(R + 0.12, H - 0.02, H + 0.05, 0, Math.PI * 2, strip);
-  const slope = 0.6 / (R + 0.1);
+  arc(R + 0.13, H - 0.04, H + 0.06, 0, Math.PI * 2, strip);
+  arc(R + 0.12, H - 0.1, H - 0.04, 0, Math.PI * 2, seamShadow);
+  for (let k = 0; k < 24; k++) rivet(k * Math.PI / 12, H + 0.01, R + 0.13);
   const ribLen = Math.hypot(R - 0.1, 0.56), ribAng = Math.atan2(0.56, R - 0.1);
   for (let k = 0; k < 8; k++) {
     const s = swing(k * Math.PI / 4);
-    const rib = bx(0.07, 0.045, ribLen, strip, 0, H + 0.31, (R - 0.1) / 2 + 0.1, s);
+    const rib = bx(0.08, 0.045, ribLen, strip, 0, H + 0.31, (R - 0.1) / 2 + 0.1, s);
     rib.rotation.x = ribAng;
-    bx(0.06, 0.1, 0.006, rust, 0, H - 0.07, R + 0.006, s);
+    for (let j = 0; j < 5; j++) { const rr = 0.7 + j * 0.55; bx(0.05, 0.05, 0.04, rivetM, 0, H + 0.6 * (1 - rr / (R + 0.1)) + 0.05, rr, s); }
+    bx(0.06, 0.14, 0.006, rust, 0, H - 0.09, R + 0.135, s);
   }
   const rafLen = Math.hypot(R - 0.25, slope * (R - 0.25));
   for (let k = 0; k < 6; k++) {
@@ -180,70 +241,96 @@ export default function (THREE) {
     bx(0.06, 0.4, 0.008, rust, 0, H - 0.38, R - 0.062, s);
   }
   const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.25, 12), steel); hub.position.y = H + 0.42; g.add(hub);
-  const dust = new THREE.Mesh(new THREE.ConeGeometry(R - 0.2, 0.52, 30, 1, true), sand);
+  const dust = new THREE.Mesh(new THREE.ConeGeometry(R - 0.2, 0.52, 32, 1, true), sand);
   dust.position.y = H + 0.03 + 0.26; g.add(dust);
   const vent = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.24, 14), strip); vent.position.y = H + 0.72; g.add(vent);
   const cap = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.1, 14), gun); cap.position.y = H + 0.9; g.add(cap);
 
-  // ---- walkway torn away over the south cut: deck arcs, slats, toe, brackets, rail --
-  const gapA = 0.55;                                     // half angle of the torn section
-  const deckArcs = [[gapA, 2 * Math.PI - gapA]];
-  for (const [p, q] of deckArcs) {
-    const dk = new THREE.Mesh(new THREE.RingGeometry(R + 0.05, RW, 28, 1, p - Math.PI / 2, q - p), galv);
-    dk.rotation.x = -Math.PI / 2; dk.position.y = H; g.add(dk);
-    // ring geometry theta runs in the xy plane from +x; after rotation.x the start angle shifts, so the
-    // slats below are what set the gap visibly
-  }
-  const slatW = 2 * Math.PI * (R + 0.4) / 30 - 0.03;
-  for (let k = 0; k < 30; k++) {
-    const th = k * 2 * Math.PI / 30;
-    const d = Math.abs(((th + Math.PI) % (2 * Math.PI)) - Math.PI);
-    if (d < gapA) continue;
+  // ---- walkway ring: full deck (the level's walkable ring is unbroken), grating slats, toe kerb, brackets -----
+  const LAD = 3 * Math.PI / 2;                                   // ladder on the west side, clear of both cuts
+  const hatchA = 0.14;
+  const dk = new THREE.Mesh(new THREE.RingGeometry(R + 0.05, RW, 32, 1), galv);
+  dk.rotation.x = -Math.PI / 2; dk.position.y = H; g.add(dk);
+  const slatW = 2 * Math.PI * (R + 0.4) / 32 - 0.03;
+  for (let k = 0; k < 32; k++) {
+    const th = k * 2 * Math.PI / 32;
+    if (angDist(th, LAD) < hatchA) continue;                     // hatch for the ladder
     const s = swing(th);
-    const sl = bx(slatW, 0.035, RW - R - 0.1, k % 2 ? galv : galvD, 0, H - 0.017, (R + RW) / 2 + 0.02, s);
-    for (let j = 0; j < 4; j++) bx(0.02, 0.045, RW - R - 0.12, galvD, -slatW / 2 + 0.06 + j * (slatW - 0.12) / 3, H - 0.017, (R + RW) / 2 + 0.02, s);
+    bx(slatW, 0.035, RW - R - 0.1, k % 2 ? galv : galvD, 0, H - 0.017, (R + RW) / 2 + 0.02, s);
+    for (let j = 0; j < 2; j++) bx(0.02, 0.05, RW - R - 0.12, galvD, -slatW / 2 + 0.12 + j * (slatW - 0.24), H - 0.017, (R + RW) / 2 + 0.02, s);
   }
   for (const rr of [R + 0.15, RW - 0.15]) {
-    const t = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.03, 4, 28, 2 * Math.PI - 2 * gapA), steel);
-    t.rotation.x = Math.PI / 2; t.rotation.z = gapA + Math.PI / 2; t.position.y = H - 0.06; g.add(t);
+    const t = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.03, 4, 32), steel);
+    t.rotation.x = Math.PI / 2; t.position.y = H - 0.06; g.add(t);
   }
-  arc(RW + 0.01, H - 0.02, H + 0.13, gapA, 2 * Math.PI - 2 * gapA, steel);
-  const drift = new THREE.Mesh(new THREE.RingGeometry(R + 0.03, R + 0.34, 28, 1), sand);
-  drift.rotation.x = -Math.PI / 2; drift.position.y = H + 0.02; g.add(drift);
+  arc(RW + 0.01, H - 0.02, H + 0.13, 0, Math.PI * 2, steel);
+  const dustRing = new THREE.Mesh(new THREE.RingGeometry(R + 0.03, R + 0.34, 32, 1), sand);
+  dustRing.rotation.x = -Math.PI / 2; dustRing.position.y = H + 0.02; g.add(dustRing);
   const gusShape = new THREE.Shape(); gusShape.moveTo(0, 0); gusShape.lineTo(0.76, 0); gusShape.lineTo(0.76, -0.12); gusShape.lineTo(0, -0.95); gusShape.lineTo(0, 0);
   const gusGeo = new THREE.ExtrudeGeometry(gusShape, { depth: 0.05, bevelEnabled: false });
   for (let k = 0; k < 12; k++) {
     const th = k * Math.PI / 6 + Math.PI / 12;
-    const d = Math.abs(((th + Math.PI) % (2 * Math.PI)) - Math.PI);
     const s = swing(th);
     bx(0.2, 1.05, 0.035, steelL, 0, H - 0.6, R + 0.03, s);
     bx(0.09, 0.4, 0.006, rust, 0.07, H - 1.35, R + 0.03, s);
-    if (d < gapA) { const stub = bx(0.1, 0.08, 0.3, rust, 0, H - 0.12, R + 0.15, s); stub.rotation.x = 0.6; continue; }
     const gus = new THREE.Mesh(gusGeo, steel);
     gus.rotation.y = -Math.PI / 2; gus.position.set(0.025, H - 0.09, R + 0.03); s.add(gus);
   }
+  // handrail: posts every 12 degrees, two rails, gaps where the level declares them (east, and the T2 bridge side)
   const RR = RW - 0.07;
-  const railArc = 2 * Math.PI - 2 * gapA - 0.1;
+  const railGaps = [[Math.PI / 2, 0.19], [Math.PI * 166 / 180, 0.19]];
+  const inGap = (th) => railGaps.some(([c, ha]) => angDist(th, c) < ha);
   for (let k = 0; k < 30; k++) {
     const th = k * Math.PI / 15;
-    const d = Math.abs(((th + Math.PI) % (2 * Math.PI)) - Math.PI);
     const s = swing(th);
-    if (d < gapA - 0.1) continue;
+    if (inGap(th)) continue;
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 1.05, 6), k % 4 ? yel : yelD);
     post.position.set(0, H + 0.525, RR); s.add(post);
-    if (d < gapA + 0.05) { post.rotation.x = 0.7; post.position.y = H + 0.35; post.position.z = RR + 0.25; }
     bx(0.08, 0.02, 0.08, steel, 0, H + 0.02, RR, s);
     bx(0.035, 0.06, 0.006, rust, 0, H + 0.07, RR + 0.03, s);
-    bx(0.05, 0.18, 0.006, rust, 0.01, H + 0.02, RW + 0.016, s);   // drip from the post foot down the kerb face
+    bx(0.05, 0.18, 0.006, rust, 0.01, H + 0.02, RW + 0.016, s);
   }
-  for (const [y, mat] of [[H + 1.05, yel], [H + 0.56, yelD]]) {
-    const t = new THREE.Mesh(new THREE.TorusGeometry(RR, 0.026, 6, 28, railArc), mat);
-    t.rotation.x = Math.PI / 2; t.rotation.z = gapA + 0.05 + Math.PI / 2; t.position.y = y; g.add(t);
+  const railArcs = [];
+  { const edges = railGaps.map(([c, ha]) => [c - ha, c + ha]).sort((a, b) => a[0] - b[0]);
+    let p = edges[edges.length - 1][1] - 2 * Math.PI;
+    for (const [lo, hi] of edges) { railArcs.push([p, lo]); p = hi; } }
+  for (const [y, mat] of [[H + 1.05, yel], [H + 0.56, yelD]]) for (const [p, q] of railArcs) {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(RR, 0.026, 4, Math.max(4, Math.round((q - p) * 32 / (2 * Math.PI))), q - p), mat);
+    t.rotation.x = Math.PI / 2; t.rotation.z = -p + Math.PI / 2 - (q - p); t.position.y = y; g.add(t);
   }
-  // hanging rail stubs at the torn ends
-  for (const sgn of [-1, 1]) {
-    const s = swing(sgn * (gapA + 0.05));
-    const stub = bx(0.05, 0.05, 0.6, yelD, 0, H + 0.75, RR, s); stub.rotation.x = sgn * 0.9;
+  // end posts at each gap so the rails terminate on something
+  for (const [c, ha] of railGaps) for (const sgn of [-1, 1]) {
+    const s = swing(c + sgn * (ha + 0.01));
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 1.05, 6), yel); post.position.set(0, H + 0.525, RR); s.add(post);
+    bx(0.08, 0.02, 0.08, steel, 0, H + 0.02, RR, s);
+  }
+
+  // ---- caged ladder on the west side, from the sand to the walkway hatch, hoops from 2.2 m ------------
+  {
+    const s = swing(LAD);
+    const LR = R + 0.32;
+    for (const sx of [-0.2, 0.2]) bx(0.04, H + 1.05 - 0.3, 0.06, galvD, sx, 0.3 + (H + 1.05 - 0.3) / 2, LR, s);
+    for (let i = 0; i < 17; i++) {
+      const rung = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.4, 6), galv);
+      rung.rotation.z = Math.PI / 2; rung.position.set(0, 0.45 + i * 0.28, LR); s.add(rung);
+    }
+    for (let i = 0; i < 6; i++) {
+      const y = 0.9 + i * 0.75;
+      const st = bx(0.5, 0.05, 0.06, steel, 0, y, LR - 0.15, s);
+      bx(0.06, 0.06, 0.06, rustD, 0, y - 0.05, R + 0.04, s);
+      st.rotation.y = 0;
+    }
+    for (let i = 0; i < 5; i++) {
+      const y = 2.2 + i * 0.62;
+      const hoop = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.018, 4, 14, Math.PI), i % 2 ? galv : galvD);
+      hoop.rotation.x = Math.PI / 2; hoop.rotation.z = 0; hoop.position.set(0, y, LR); s.add(hoop);
+    }
+    for (let j = 0; j < 5; j++) {
+      const a = -Math.PI / 2 + j * Math.PI / 4;
+      const bar = bx(0.025, H + 1.05 - 2.2, 0.025, galvD, 0.36 * Math.cos(a), 2.2 + (H + 1.05 - 2.2) / 2, LR + 0.36 * Math.sin(a), s);
+      bar.rotation.y = 0;
+    }
+    bx(0.3, 0.03, 0.03, rust, 0, H + 0.02, LR + 0.36, s);
   }
   // a contrast plate on a shade side plate in place of a stencil
   const pl = bx(0.6, 0.28, 0.02, M(0x2f4d66, 'metal', 0.8, 0.2), 0, 2.4, 0);

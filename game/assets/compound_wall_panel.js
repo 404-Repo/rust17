@@ -1,9 +1,10 @@
-// compound_wall_panel, r4 pass 2. The body is three extrusions of ONE chipped (x, y) outline along z
-// (south skin 45 mm, core 230 mm, north skin 45 mm) so the two chipped top corners are real cuts in the
-// silhouette, the lifting eye recesses are pockets cut into the core's top edge (open at the top, closed by
-// the skins), and the spall and the bullet holes are pockets cut through the south skin into the core with
-// the rebar sitting INSIDE the spall recess. The foot is a spread foot 60 mm proud of each face with two
-// forklift slots, swept along x as a (z, y) profile. Concrete stays orthogonal: no chamfers, no bevels.
+// compound_wall_panel, round 13 rebuild. Big forms first: a wide spread foot with a real batter and a real
+// plinth STEP swept along x as a (z, y) profile, then the body as three extrusions of ONE chipped (x, y) outline
+// along z (south skin, core, north skin) so the chipped top corner is a wedge missing from the silhouette with a
+// rough inner face, the two lifting eye recesses are 0.15 m pockets cut down into the core with a dark liner, and
+// the bullet cluster and the spall are pockets cut through the south skin. The face is left CLEAN except for the
+// end joint grooves, the two long rust runs from the eyes, the stencil plate and the spall plates, so at 15 m it
+// reads as one heavy precast unit and not a tiled slab.
 export default function (THREE) {
   const g = new THREE.Group();
   const M = (hex, name, r, m, ds) => {
@@ -55,115 +56,124 @@ export default function (THREE) {
   };
   const circ = (cx, cy, r, n) => { const p = []; for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return p; };
 
-  const W = 4.0, H = 2.4, T = 0.16, SK = 0.045, FOOT = 0.22, Y0 = 0.44;
+  const W = 4.0, H = 2.4, T = 0.15, SK = 0.045, FOOT = 0.21, Y0 = 0.40;
 
-  // ---- the spread foot: (z, y) profile, batter from 0.22 at 0.10 up to the plinth ledge at 0.36, in
-  //      three runs with two forklift slots 0.30 wide x 0.10 high through the base at x = +-1.0
+  // ---- the spread foot: (z, y) profile. Vertical kerb 0 to 0.14, batter in to the plinth at 0.38, a 3 cm
+  //      horizontal ledge (the plinth STEP), then the body face at +-T. Two forklift slots through the base.
   const footFull = [
-    [-FOOT, 0.00], [FOOT, 0.00], [FOOT, 0.10], [0.175, 0.34], [0.18, 0.36], [0.18, 0.42], [0.16, Y0],
-    [-0.16, Y0], [-0.18, 0.42], [-0.18, 0.36], [-0.175, 0.34], [-FOOT, 0.10],
+    [-FOOT, 0.00], [FOOT, 0.00], [FOOT, 0.14], [0.185, 0.37], [0.185, Y0], [T, Y0],
+    [-T, Y0], [-0.185, Y0], [-0.185, 0.37], [-FOOT, 0.14],
   ];
-  const footSlot = footFull.filter(([, y]) => y >= 0.10);
+  const footSlot = [[-0.185, 0.12], [0.185, 0.12], [0.185, 0.37], [0.185, Y0], [T, Y0], [-T, Y0], [-0.185, Y0], [-0.185, 0.37]];
   for (const [x0, x1] of [[-W / 2, -1.15], [-0.85, 0.85], [1.15, W / 2]]) sweep(footFull, x1 - x0, stain, x0);
   for (const x0 of [-1.15, 0.85]) sweep(footSlot, 0.30, stainD, x0);
+  // the slot backs, dark
+  for (const x0 of [-1.15, 0.85]) box(0.30, 0.12, 0.005, holeM, x0 + 0.15, 0.06, 0);
 
   // ---- the body: one chipped outline, three slabs ----
-  // right top corner: a big chip 0.32 wide x 0.26 down in three wedge cuts; left top corner a small one
-  const chipR = [[W / 2, 2.14], [1.93, 2.19], [1.86, 2.16], [1.78, 2.30], [1.72, 2.33], [1.68, H]];
-  const chipL = [[-1.86, H], [-1.90, 2.34], [-1.96, 2.36], [-W / 2, 2.27]];
-  const EYES = [1.3, -1.3], EYE_W = 0.07, EYE_D = 0.06;
+  // right top corner: a big wedge missing, 0.46 wide x 0.30 down, in five rough cuts; left corner a small nick
+  const chipR = [[W / 2, H - 0.30], [W / 2 - 0.10, H - 0.25], [W / 2 - 0.19, H - 0.27], [W / 2 - 0.28, H - 0.12], [W / 2 - 0.36, H - 0.08], [W / 2 - 0.46, H]];
+  const chipL = [[-W / 2 + 0.14, H], [-W / 2 + 0.08, H - 0.05], [-W / 2, H - 0.07]];
+  const EYES = [1.25, -1.25], EYE_W = 0.075, EYE_D = 0.13;
   const outline = (eyes) => {
     const pts = [[-W / 2, Y0], [W / 2, Y0], ...chipR];
     if (eyes) for (const ex of EYES) pts.push([ex + EYE_W, H], [ex + EYE_W, H - EYE_D], [ex - EYE_W, H - EYE_D], [ex - EYE_W, H]);
     pts.push(...chipL);
     return pts;
   };
-  // spall pocket, south face low right, irregular rim; bullet holes chest height, one stray on the north
-  const spall = [[1.28, 0.70], [1.36, 0.64], [1.52, 0.66], [1.62, 0.74], [1.60, 0.86], [1.50, 0.92], [1.38, 0.90], [1.30, 0.82]];
-  const holesS = [[0.55, 1.35], [0.72, 1.22], [0.86, 1.44], [0.98, 1.28], [0.64, 1.05], [1.12, 1.12], [0.80, 0.90], [-1.35, 1.72]];
-  const holesN = [[-0.9, 1.55], [0.3, 1.2]];
-  slab(outline(true), [], 2 * (T - SK), -(T - SK), conc);                                         // core with the eye pockets
-  slab(outline(false), [spall, ...holesS.map(([x, y]) => circ(x, y, 0.021, 6))], SK, T - SK, concS); // south skin, cut
-  slab(outline(false), holesN.map(([x, y]) => circ(x, y, 0.021, 6)), SK, -T, concN);               // north skin, cut
+  const sq = (x, y, s) => [[x - s, y - s], [x + s, y - s], [x + s, y + s], [x - s, y + s]];
+  // spall pocket, south face low right, irregular rim; bullet cluster chest height on the south face only
+  const spall = [[1.30, 0.74], [1.40, 0.68], [1.56, 0.70], [1.66, 0.78], [1.64, 0.92], [1.52, 0.98], [1.38, 0.96], [1.30, 0.86]];
+  const holesS = [[0.42, 1.42], [0.55, 1.30], [0.66, 1.50], [0.78, 1.36], [0.50, 1.16], [0.90, 1.24], [0.70, 1.08], [0.84, 1.55]];
+  slab(outline(true), [], 2 * (T - SK), -(T - SK), conc);                                        // core with the eye pockets
+  slab(outline(false), [spall, ...holesS.map(([x, y]) => sq(x, y, 0.016))], SK, T - SK, concS);  // south skin, cut
+  slab(outline(false), [], SK, -T, concN);                                                        // north skin
 
-  // chip faces: a darker strip along every cut edge, set 4 mm into the concrete so the silhouette is the cut
-  const strip = (a, b) => {
+  // chip faces: a rough strip along every cut edge, set 4 mm into the concrete so the silhouette is the cut
+  const strip = (a, b, mat, th) => {
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy), nx = -dy / L, ny = dx / L;
-    const mm = box(L + 0.006, 0.012, 2 * T - 0.006, chipM, (a[0] + b[0]) / 2 + nx * 0.005, (a[1] + b[1]) / 2 + ny * 0.005, 0);
+    const mm = box(L + 0.006, th, 2 * T - 0.006, mat, (a[0] + b[0]) / 2 + nx * (th / 2 - 0.001), (a[1] + b[1]) / 2 + ny * (th / 2 - 0.001), 0);
     mm.rotation.z = Math.atan2(dy, dx); return mm;
   };
-  for (let i = 0; i < chipR.length - 1; i++) strip(chipR[i], chipR[i + 1]);
-  for (let i = 0; i < chipL.length - 1; i++) strip(chipL[i], chipL[i + 1]);
-  // a rebar end sticking out of the big chip, and dust settling in it
-  cyl(0.007, 0.16, 5, rustD, 1.86, 2.24, 0.02, 0, Math.PI / 2 - 0.25);
-  box(0.06, 0.006, 0.20, dust, 1.90, 2.192, 0.0);
-  box(0.06, 0.03, 0.005, rust, 1.83, 2.16, T + 0.0025);
+  for (let i = 0; i < chipR.length - 1; i++) strip(chipR[i], chipR[i + 1], chipM, 0.014);
+  for (let i = 0; i < chipL.length - 1; i++) strip(chipL[i], chipL[i + 1], chipM, 0.012);
+  // exposed aggregate lumps and a rebar end in the big chip, dust settling on its shelf
+  for (const [px, py, a] of [[1.86, 2.16, 0.4], [1.76, 2.22, -0.3], [1.68, 2.32, 0.9], [1.94, 2.13, -0.6]]) { const c = box(0.05, 0.02, 0.05, concL, px, py, 0.05); c.rotation.z = a; }
+  cyl(0.007, 0.18, 6, rustD, 1.80, 2.19, -0.03, 0, Math.PI / 2 - 0.35);
+  box(0.08, 0.006, 0.22, dust, 1.92, 2.106, 0.0);
+  box(0.06, 0.04, 0.005, rust, 1.80, 2.10, T + 0.0025);
 
-  // ---- lifting eye recesses: dark floor, the rebar loop standing in the pocket, rust bloom ----
+  // ---- lifting eye recesses: 0.15 m pockets, dark liner walls and floor, the loop standing in the pocket ----
   for (const ex of EYES) {
-    box(2 * EYE_W - 0.004, 0.004, 2 * (T - SK) - 0.004, groove, ex, H - EYE_D + 0.002, 0);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.008, 6, 12), eye);
-    ring.position.set(ex, H - EYE_D + 0.020, 0); g.add(ring);
-    box(0.09, 0.003, 0.05, rust, ex, H - EYE_D + 0.005, 0);
-    for (const sz of [-1, 1]) box(0.05, 0.012, 0.005, rust, ex + 0.01 * sz, H - 0.006, sz * (T + 0.0025));   // rust over the lip
+    const iw = 2 * EYE_W - 0.006, id = 2 * (T - SK) - 0.006;
+    box(iw, 0.004, id, holeM, ex, H - EYE_D + 0.002, 0);                                   // floor
+    for (const s of [-1, 1]) box(0.004, EYE_D - 0.006, id, holeM, ex + s * (iw / 2 - 0.002), H - EYE_D / 2 - 0.003, 0);          // x walls
+    for (const s of [-1, 1]) box(iw, EYE_D - 0.006, 0.004, holeM, ex, H - EYE_D / 2 - 0.003, s * (id / 2 - 0.002));            // z walls
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.034, 0.009, 6, 12), eye);
+    ring.position.set(ex, H - EYE_D + 0.045, 0); g.add(ring);
+    box(0.11, 0.003, 0.08, rust, ex, H - EYE_D + 0.006, 0);                                // rust bloom on the floor
+    for (const sz of [-1, 1]) box(0.09, 0.02, 0.006, rust, ex, H - 0.01, sz * (T + 0.003));   // rust over the lip
   }
-  // ---- face anchors: U loops of rebar standing proud, ends in the wall, long rust runs below ----
-  for (const [ex, sz] of [[-1.3, 1], [1.3, 1], [-0.2, -1]]) {
-    const u = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.01, 5, 8, Math.PI), rustD);
-    u.rotation.set(0, sz * Math.PI / 2, Math.PI / 2); u.position.set(ex, 1.9, sz * (T + 0.011)); g.add(u);
-    box(0.05, 0.03, 0.02, rust, ex, 1.9, sz * (T + 0.016));
-    box(0.045, 1.1, 0.006, rust, ex, 1.30, sz * (T + 0.003));
-    box(0.02, 0.6, 0.006, rustD, ex - 0.02, 0.95, sz * (T + 0.005));
-    box(0.02, 0.4, 0.006, rustD, ex + 0.025, 1.20, sz * (T + 0.005));
-  }
-  // ---- form seams: lift line at 1.22, vertical seams at +-1.0, joint grooves at the ends ----
-  box(W - 0.2, 0.025, 2 * T + 0.002, groove, 0, 1.22, 0);
-  for (const vx of [-1.0, 1.0]) box(0.02, H - Y0 - 0.34, 2 * T + 0.002, groove, vx, Y0 + (H - Y0 - 0.34) / 2, 0);
+  // ---- the three rust streaks from the eyes: long thin strips, a wide pale run and a dark core ----
+  const streak = (x, sz, len, w) => {
+    box(w * 2.2, len * 0.9, 0.004, stain, x + 0.01, H - 0.02 - len * 0.45, sz * (T + 0.002));   // pale wash halo
+    box(w, len, 0.005, rust, x, H - 0.02 - len / 2, sz * (T + 0.0025));
+    box(w * 0.4, len * 0.7, 0.005, rustD, x + 0.008, H - 0.02 - len * 0.35, sz * (T + 0.004));
+    box(w * 0.25, len * 0.45, 0.005, rustD, x - 0.012, H - 0.02 - len * 0.7, sz * (T + 0.004));
+  };
+  streak(1.25, 1, 1.50, 0.10); streak(-1.25, 1, 1.20, 0.08); streak(-1.25, -1, 1.35, 0.09);
+  // ---- joint grooves at the ends, a rebate for the next panel ----
   for (const sx of [-1, 1]) {
-    box(0.04, 1.62, 2 * T + 0.002, groove, sx * (W / 2 - 0.07), Y0 + 0.02 + 0.81, 0);
-    const top = sx > 0 ? 2.12 : 2.25;
-    box(0.018, top - 0.05, 2 * T + 0.004, endM, sx * (W / 2 + 0.001), (top + 0.05) / 2, 0);                    // end faces stained
-    // end connector plate with two bolts and a rust streak below
-    box(0.012, 0.5, 0.12, eye, sx * (W / 2 + 0.008), 1.6, 0);
-    for (const by of [1.45, 1.75]) { const b = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.014, 6), rust); b.rotation.z = -sx * Math.PI / 2; b.position.set(sx * (W / 2 + 0.019), by, 0); g.add(b); }
-    box(0.006, 0.45, 0.06, rust, sx * (W / 2 + 0.012), 1.1, 0.01);
+    box(0.05, H - Y0 - 0.36, 2 * T + 0.002, groove, sx * (W / 2 - 0.09), Y0 + 0.03 + (H - Y0 - 0.36) / 2, 0);
+    const top = sx > 0 ? H - 0.30 : H - 0.07;
+    box(0.02, top - Y0 - 0.02, 2 * T + 0.004, endM, sx * (W / 2 + 0.002), (top + Y0) / 2, 0);   // end faces stained
   }
-  // ---- the spall: dark back, two rebar rods and a stirrup INSIDE the recess, chipped rim, rust run below ----
+  // ---- the spall: dark back with two rebar rods INSIDE, chipped rim, rust run below; plus two spall PLATES ----
   {
     const zb = T - SK;
-    box(0.22, 0.16, 0.004, holeM, 1.45, 0.78, zb + 0.002);
-    for (const ry of [0.72, 0.83]) cyl(0.007, 0.34, 5, rustD, 1.45, ry, zb + 0.014, 0, Math.PI / 2);
-    cyl(0.006, 0.26, 5, rust, 1.40, 0.78, zb + 0.020, 0, 0);
-    for (const [px, py, a] of [[1.31, 0.66, 0.6], [1.58, 0.69, -0.5], [1.62, 0.82, 1.2], [1.44, 0.92, 0.1], [1.34, 0.88, -0.8]]) {
-      const c = box(0.045, 0.014, 0.012, concL, px, py, T - 0.004); c.rotation.z = a;
+    box(0.30, 0.24, 0.004, holeM, 1.48, 0.83, zb + 0.002);
+    for (const ry of [0.76, 0.88]) cyl(0.007, 0.34, 6, rustD, 1.48, ry, zb + 0.014, 0, Math.PI / 2);
+    for (const [px, py, a] of [[1.33, 0.70, 0.6], [1.62, 0.72, -0.5], [1.66, 0.86, 1.2], [1.48, 0.98, 0.1], [1.35, 0.93, -0.8]]) {
+      const c = box(0.05, 0.014, 0.012, concL, px, py, T - 0.004); c.rotation.z = a;
     }
-    box(0.10, 0.19, 0.005, rust, 1.47, 0.535, T + 0.0025);
-    box(0.03, 0.14, 0.005, rustD, 1.42, 0.56, T + 0.004);
+    box(0.12, 0.22, 0.005, rust, 1.50, 0.56, T + 0.0025);
+    box(0.03, 0.16, 0.005, rustD, 1.45, 0.58, T + 0.004);
+    // spall plates: one slightly proud (an old patch of render), one a shallow dark scab
+    box(0.34, 0.26, 0.010, concL, -0.55, 1.05, T + 0.004);
+    box(0.24, 0.18, 0.006, stain, 0.35, 0.72, T + 0.003);
+    box(0.20, 0.14, 0.008, concL, -1.05, 1.75, -T - 0.003);
   }
-  // ---- bullet holes: dark back disc set into the core, light chipped rim on the face ----
-  const pock = (x, y, sz) => {
-    const d = new THREE.Mesh(new THREE.CircleGeometry(0.02, 6), holeM);
-    d.position.set(x, y, sz * (T - SK + 0.001)); if (sz < 0) d.rotation.y = Math.PI; g.add(d);
-    const r = new THREE.Mesh(new THREE.RingGeometry(0.02, 0.036, 6), concL);
-    r.position.set(x, y, sz * (T + 0.001)); if (sz < 0) r.rotation.y = Math.PI; g.add(r);
+  // ---- bullet cluster: dark back set into the core behind each square hole, a light chipped rim on the face ----
+  for (const [x, y] of holesS) {
+    box(0.034, 0.034, 0.003, holeM, x, y, T - SK + 0.001);
+    box(0.06, 0.06, 0.003, concL, x, y, T + 0.0015);
+    box(0.02, 0.02, 0.004, holeM, x, y, T + 0.002);
+  }
+  // ---- stencil number plate: a pale painted rectangle with a dark stencilled "17" and a drip ----
+  {
+    const px = -1.6, py = 1.55, z = T + 0.003;
+    box(0.36, 0.24, 0.006, concL, px, py, z);
+    const ink = (w, h, x, y) => box(w, h, 0.004, holeM, px + x, py + y, z + 0.004);
+    ink(0.03, 0.15, -0.09, 0); ink(0.05, 0.03, -0.11, 0.06);                      // 1
+    ink(0.11, 0.03, 0.05, 0.065); ink(0.03, 0.06, 0.09, 0.03); ink(0.03, 0.09, 0.055, -0.04); // 7
+    ink(0.30, 0.012, 0, -0.10);
+    box(0.02, 0.18, 0.005, rustD, px + 0.10, py - 0.22, T + 0.0025);
+  }
+  // ---- dust on the top (clear of the pockets and the chips) and on the plinth ledge ----
+  for (const [x0, x1] of [[-1.80, -1.35], [-1.15, 1.15], [1.35, 1.52]]) box(x1 - x0, 0.010, 0.26, dust, (x0 + x1) / 2, H + 0.004, 0);
+  for (const sz of [-1, 1]) box(W - 0.4, 0.006, 0.03, dust, 0.1, Y0 + 0.003, sz * 0.168);
+  // ---- sand: a drift WEDGE at the foot on the north side swept as a (z, y) profile in three runs of
+  //      different height, a low fillet on the south, both broken at the forklift slots ----
+  const wedge = (h, r, x0, x1, sz) => {
+    const z1 = FOOT - 0.002, z0 = FOOT + 0.010 + r;
+    const pts = [[sz * z0, 0], [sz * z1, 0], [sz * (z1 - 0.015), h], [sz * (z0 - 0.005), 0.02]];
+    if (sz > 0) pts.reverse();
+    sweep(pts, x1 - x0, sand, x0);
   };
-  for (const [x, y] of holesS) pock(x, y, 1);
-  for (const [x, y] of holesN) pock(x, y, -1);
-  // ---- safety yellow plate near the left end with two bolts and a drip ----
-  box(0.3, 0.2, 0.01, yellow, -1.55, 1.5, T + 0.005);
-  for (const bx of [-1.66, -1.44]) { const b = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.014, 6), rust); b.rotation.x = Math.PI / 2; b.position.set(bx, 1.5, T + 0.017); g.add(b); }
-  box(0.04, 0.25, 0.006, rust, -1.62, 1.28, T + 0.003);
-  // ---- dust on the top (broken around the eye pockets and clear of the chips) and on the plinth ledge ----
-  for (const [x0, x1] of [[-1.80, -1.40], [-1.20, 1.20], [1.40, 1.66]]) box(x1 - x0, 0.012, 0.25, dust, (x0 + x1) / 2, H + 0.005, 0);
-  for (const sz of [-1, 1]) box(W - 0.3, 0.008, 0.02, dust, 0.1, 0.424, sz * 0.176);
-  // ---- sand against the foot on both sides, higher on the north; the inner skins ride up the batter ----
-  for (const sz of [-1, 1]) {
-    // broken at the two forklift slots so the slots read as holes with sand piled either side
-    for (const [x0, x1] of [[-W / 2, -1.17], [-0.83, 0.83], [1.17, W / 2]]) box(x1 - x0, 0.05, 0.045, sand, (x0 + x1) / 2, 0.025, sz * 0.20);
-    for (const [x0, x1] of [[-1.85, -1.19], [-0.81, 0.81]]) box(x1 - x0, 0.06, 0.045, sand, (x0 + x1) / 2, 0.08, sz * 0.20);
-    const b = box(W - 2.0, 0.04, 0.04, sand, 0.5, 0.15, sz * 0.195); b.rotation.x = sz * 0.2;
-    if (sz < 0) { const d = box(1.6, 0.04, 0.04, dust, -0.6, 0.22, sz * 0.185); d.rotation.x = sz * 0.2; }
-  }
+  for (const [x0, x1, h] of [[-W / 2, -1.17, 0.30], [-0.83, 0.83, 0.36], [1.17, W / 2, 0.24]]) wedge(h, 0.004, x0, x1, -1);
+  for (const [x0, x1, h] of [[-W / 2, -1.17, 0.12], [-0.83, 0.83, 0.16], [1.17, W / 2, 0.10]]) wedge(h, 0.004, x0, x1, 1);
+  // sand piled in the mouth of each slot on the north side
+  for (const x0 of [-1.15, 0.85]) box(0.30, 0.06, 0.05, sand, x0 + 0.15, 0.03, -0.17);
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by

@@ -5,7 +5,7 @@
  * other module reads them through `tier.density`, `tier.pointLights` and so on
  * rather than re-deciding what a phone can do.
  *
- *   import { TIERS, detectTier, getTier } from './src/render/quality.js?v=r12-202608291139';
+ *   import { TIERS, detectTier, getTier } from './src/render/quality.js?v=r13-202608291158';
  *   const tierName = detectTier();          // 'high' | 'phone'
  *   const tier = getTier(tierName);         // the TIERS entry, with .name attached
  */

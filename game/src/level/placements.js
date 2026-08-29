@@ -1152,6 +1152,44 @@ export const DECALS = (() => {
   }
   for (const e of by('pipe_rack_stack')) { const F = frame(e); for (const lx of [-1.6, 1.6]) { const [x, z] = F.toWorld(lx, 1.9); G('cable_on_ground', x, z, e.rot + 90 + rr(-10, 10), 2.6, 2.6); } }
 
+  // ---- round 12 item 5 (audit): the big flat faces carry seepage, drain stains, rust blooms, cracks, a
+  // notice and the odd spill, so a 12 m wall is not one clean tile repeated. Snap 'try': a face with no
+  // collider (the buildings' upper walls) still takes the decal at the asset face.
+  for (const e of [...by('pump_house_building'), ...by('bunkhouse_building')]) {
+    for (const f of faces(e)) {
+      if (f.len > 5) {
+        for (const u of [rr(-0.72, -0.5), rr(0.5, 0.72)]) wallOn('seepage_streak', e, f, u, 3.55, rr(0.6, 0.8), rr(1.9, 2.3), 'try');
+        if (rnd() < 0.7) wallOn('drain_stain', e, f, rr(-0.3, 0.3), 3.9, rr(0.9, 1.1), rr(1.1, 1.3), 'try');
+        if (rnd() < 0.8) wallOn('concrete_crack', e, f, rr(-0.4, 0.4), rr(0.9, 1.6), rr(1.4, 1.8), rr(0.45, 0.6), 'try');
+        if (rnd() < 0.5) wallOn('notice_poster', e, f, rr(-0.2, 0.2), 1.6, 0.44, 0.62, 'try', 1);
+        if (rnd() < 0.5) wallOn('rust_bloom', e, f, rr(-0.45, 0.45), rr(2.6, 3.4), rr(0.3, 0.45), rr(0.3, 0.45), 'try');
+      } else {
+        if (rnd() < 0.7) wallOn('seepage_streak', e, f, rr(-0.4, 0.4), 3.55, 0.7, 2.1, 'try');
+        if (rnd() < 0.5) wallOn('concrete_crack', e, f, rr(-0.3, 0.3), rr(1.0, 1.6), 1.5, 0.5, 'try');
+      }
+    }
+  }
+  for (const e of by('compound_wall_panel')) {
+    for (const f of faces(e).filter((f) => f.len > 2)) {
+      if (rnd() < 0.45) wallOn('concrete_crack', e, f, rr(-0.35, 0.35), rr(1.0, 1.7), rr(1.2, 1.6), rr(0.4, 0.55), 'try');
+      if (rnd() < 0.5) wallOn('rust_bloom', e, f, rr(-0.5, 0.5), 2.2, 0.32, 0.32, 'try');
+      if (rnd() < 0.18) wallOn('spill_wall', e, f, rr(-0.4, 0.4), 0.5, rr(0.9, 1.2), rr(0.9, 1.2), 'try');
+    }
+  }
+  for (const e of by('corrugated_wall_panel')) { const f = faces(e)[rnd() < 0.5 ? 0 : 1]; if (rnd() < 0.6) wallOn('rust_bloom', e, f, rr(-0.5, 0.5), rr(0.8, 1.9), 0.3, 0.3, 'try'); }
+  for (const e of [...by('shipping_container_blue'), ...by('shipping_container_rust_red'), ...by('shipping_container_tan'), ...by('shipping_container_open')]) {
+    for (const f of faces(e).filter((f) => f.len > 5)) {
+      for (let i = 0; i < 2; i++) if (rnd() < 0.7) wallOn('rust_bloom', e, f, rr(-0.8, 0.8), rr(0.5, 2.2), rr(0.25, 0.4), rr(0.25, 0.4), 'try');
+      if (rnd() < 0.25) wallOn('notice_poster', e, f, rr(-0.5, 0.5), 1.55, 0.44, 0.62, 'try', 1);
+    }
+  }
+  for (const e of [...by('oil_storage_tank'), ...by('oil_storage_tank_open')]) {
+    const r = 4 * (e.scale || 1);
+    for (let i = 0; i < 3; i++) wallRound('drain_stain', e, rr(0, 6.28), r, 3.7, rr(0.8, 1.0), rr(1.0, 1.2));
+    for (let i = 0; i < 4; i++) wallRound('rust_bloom', e, rr(0, 6.28), r, rr(0.8, 3.6), 0.3, 0.3);
+    if (rnd() < 0.6) wallRound('spill_wall', e, rr(0, 6.28), r, 0.55, 1.1, 1.1);
+  }
+
   // ---- wall: hazard stripes on jersey barriers, generator sets, control cabinets and the tank stair
   for (const e of by('jersey_barrier')) { const fs = faces(e).filter((f) => f.len > 2); for (const f of fs) if (rnd() < 0.8) wallOn('hazard_stripe', e, f, rr(-0.45, 0.45), 0.42, 1.2, 0.25, 'need', 1); }
   for (const e of by('generator_set')) for (const f of faces(e).filter((f) => f.len > 2)) wallOn('hazard_stripe', e, f, rr(-0.5, 0.5), 0.32, 1.2, 0.25, 'need', 1);

@@ -1,7 +1,9 @@
-// corrugated_wall_panel candidate 1: profile extrusion. The corrugation is a
-// sine profile Shape extruded UP (along y); the run is three overlapping sheets
-// of different heights so the top edge steps, and the posts are extruded
-// I-section profiles as the reference shows. Rails, screws, rust, sand drift.
+// corrugated_wall_panel (round 13 rebuild): the sheet is a CONTINUOUS corrugated surface, one indexed
+// BufferGeometry per sheet (front skin, back skin, wavy top lip, wavy bottom lip) with analytic smooth
+// normals from the sine profile, so the shading rolls over each rib instead of facetting into a row of
+// rods. 76 mm pitch, 18 mm depth. Three sheets lap by one pitch so the top edge steps; the left sheet's
+// bottom corner is cut and bent back (0.08 m: the 0.15 m depth envelope caps the spec's 0.2 m). I-section posts, timber rails behind, screw heads on the
+// crests over the rails with rust runs below, a dust line along the foot and a sand drift.
 export default function (THREE) {
   const g = new THREE.Group();
   const M = (hex, name, r, m, ds) => {
@@ -10,10 +12,12 @@ export default function (THREE) {
     if (name) mat.name = name;
     return mat;
   };
-  const galv = M(0x9ea3a1, 'metal', 0.72, 0.55, true);
-  const galvB = M(0xa7aba9, 'metal', 0.72, 0.55, true);
-  const post = M(0x8d8b84, 'metal', 0.80, 0.30, true);
+  const galv = M(0x9ea3a1, 'metal', 0.72, 0.55);
+  const galvB = M(0xa7aba9, 'metal', 0.72, 0.55);
+  const galvC = M(0x989d9b, 'metal', 0.72, 0.55);
+  const post = M(0x8d8b84, 'metal', 0.80, 0.30);
   const steel = M(0x4f5257, 'metal', 0.75, 0.35);
+  const steelB = M(0x565a5e, 'metal', 0.78, 0.35);
   const timber = M(0xa07a4f, 'timber', 0.90, 0.0);
   const timberS = M(0xab8453, 'timber', 0.90, 0.0);
   const rust = M(0x6b4426, 'metal', 0.85, 0.2);
@@ -26,107 +30,153 @@ export default function (THREE) {
     const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     mm.position.set(x, y, z); (parent || g).add(mm); return mm;
   };
-  const W = 3.0, PITCH = 0.076, AMP = 0.012, TH = 0.004;
-
-  // a corrugated sheet as a closed thin profile (front wave, back wave) extruded along y
-  const corrSheet = (len, height, mat, spp) => {
-    const n = Math.round(len / PITCH) * (spp || 4);
-    const s = new THREE.Shape();
-    for (let i = 0; i <= n; i++) {
-      const x = -len / 2 + (i / n) * len;
-      const z = AMP * Math.sin((x + len / 2) / PITCH * Math.PI * 2);
-      if (i === 0) s.moveTo(x, z + TH / 2); else s.lineTo(x, z + TH / 2);
-    }
-    for (let i = n; i >= 0; i--) {
-      const x = -len / 2 + (i / n) * len;
-      const z = AMP * Math.sin((x + len / 2) / PITCH * Math.PI * 2);
-      s.lineTo(x, z - TH / 2);
-    }
-    s.closePath();
-    const geo = new THREE.ExtrudeGeometry(s, { depth: height, bevelEnabled: false, curveSegments: 1, steps: height > 1 ? 2 : 1 });
-    const mm = new THREE.Mesh(geo, mat);
-    mm.rotation.x = -Math.PI / 2;           // extrude axis z -> +y, shape y -> -z... fix below
-    return mm;
+  const cyl = (r, h, seg, mat, x, y, z, rx) => {
+    const mm = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), mat);
+    if (rx) mm.rotation.x = rx; mm.position.set(x, y, z); g.add(mm); return mm;
   };
-  // three sheets lapping by one pitch, heights 2.40, 2.32, 2.37 so the top steps; the middle sheet laps 4 mm in front
-  const sheets = [[-1.0, 1.08, 2.40, galv, -0.02], [0.0, 1.08, 2.31, galvB, -0.016], [1.0, 1.08, 2.37, galv, -0.02]];
-  for (const [cx, len, h, mat, z] of sheets) {
-    const mm = corrSheet(len, h, mat);
-    // after rotation.x = -PI/2: local (x, y, z) -> (x, z, -y): the shape's y (rib depth) maps to -z, extrude depth maps to +y
-    mm.position.set(cx, 0, z);
-    g.add(mm);
-  }
-  // the rib under a given x: which sheet, the pitch cell it falls in, and where that cell's front crest is.
-  // Everything fixed to the sheet (screws, rust runs, patch) is placed from this so nothing floats over a trough.
+  const W = 3.0, PITCH = 0.076, DEPTH = 0.018, AMP = DEPTH / 2, TH = 0.0012, SPP = 6;
   let seed = 5; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed & 0xffff) / 0x10000; };
-  const ribAt = (x) => {
-    const s = x < -0.5 ? sheets[0] : x > 0.5 ? sheets[2] : sheets[1];
-    const left = s[0] - s[1] / 2, k = Math.max(0, Math.min(Math.round(s[1] / PITCH) - 1, Math.round((x - left) / PITCH - 0.5)));
-    const X = left + (k + 0.5) * PITCH; return { X, crest: X + PITCH / 4, z: s[4] };
-  };
-  // a rust run that follows the wave: one pitch wide, the sheet's own profile, set 3.5 mm proud of its front (dz > 0) or back (dz < 0)
-  const rustRun = (x, y0, h, mat, dz) => { const r = ribAt(x); const mm = corrSheet(PITCH, h, mat, 3); mm.position.set(r.X, y0, r.z + dz); g.add(mm); return r; };
-  // bent bottom corner: a short curled strip in front of the left sheet's foot
-  const curl = new THREE.Group(); curl.position.set(-W / 2 + 0.1, 0.02, -0.005); g.add(curl);
-  const c1 = corrSheet(0.30, 0.30, galvB); c1.rotation.x = -Math.PI / 2 + 0.12; c1.position.set(0.05, 0.0, -0.015); curl.add(c1);
-  box(0.30, 0.03, 0.006, rustD, 0.05, 0.31, 0.025, curl);   // torn edge, rusted
-  // sand on the foot of the sheet is a vertex colour band now (WEATHER_OPTS.sand), not two extra corrugated skins
 
-  // ---- I-section posts (0.08 square envelope) as extruded profiles ----
+  // ---- a corrugated sheet: x from -len/2..len/2 (local), profile z = AMP sin(2 pi x / PITCH) measured from
+  //      the sheet's left edge so every sheet starts on the same phase; top(x) and bot(x) give the ragged
+  //      edges. Front skin ROWS rows, back skin BROWS rows, lips one quad per column. Smooth normals from
+  //      the derivative, hard edge at the lips.
+  // profile of one pitch, as fractions of the pitch: flat trough, flank up, flat crest, flank down. Corners are
+  // duplicated columns so the crest and trough edges stay crisp; the flanks sit at about 47 degrees so the
+  // shader's edge wear lightens them the way a real rolled edge polishes.
+  const FL = Math.hypot(0.22 * PITCH, DEPTH), FNX = DEPTH / FL, FNZ = 0.22 * PITCH / FL;
+  const PROF = [
+    [0.00, -AMP, 0, 1], [0.28, -AMP, 0, 1],
+    [0.28, -AMP, FNX, FNZ], [0.50, AMP, FNX, FNZ],
+    [0.50, AMP, 0, 1], [0.78, AMP, 0, 1],
+    [0.78, AMP, -FNX, FNZ], [1.00, -AMP, -FNX, FNZ],
+  ];
+  const corrSheet = (len, top, bot, mat, rows, brows) => {
+    const np = Math.round(len / PITCH), cols = [];   // [x, z, nx, nz, joined-to-previous]
+    for (let k = 0; k < np; k++) for (let j = 0; j < PROF.length; j++) {
+      const [u, z, nx, nz] = PROF[j];
+      cols.push([(k + u) * PITCH - len / 2, z, nx, nz, j % 2 === 1]);
+    }
+    const P = [], N = [], I = [];
+    const skin = (R, sign, off) => {
+      const base = P.length / 3;
+      cols.forEach((c) => {
+        const y0 = bot(c[0]), y1 = top(c[0]);
+        for (let r = 0; r <= R; r++) { P.push(c[0], y0 + (y1 - y0) * r / R, c[1] + off); N.push(c[2] * sign, 0, c[3] * sign); }
+      });
+      for (let i = 1; i < cols.length; i++) {
+        if (!cols[i][4]) continue;
+        for (let r = 0; r < R; r++) {
+          const a = base + (i - 1) * (R + 1) + r, b = a + R + 1;
+          if (sign > 0) I.push(a, b, a + 1, b, b + 1, a + 1); else I.push(a, a + 1, b, b, a + 1, b + 1);
+        }
+      }
+    };
+    const lip = (isTop) => {
+      const base = P.length / 3, ny = isTop ? 1 : -1;
+      cols.forEach((c) => { const y = isTop ? top(c[0]) : bot(c[0]); P.push(c[0], y, c[1] + TH / 2, c[0], y, c[1] - TH / 2); N.push(0, ny, 0, 0, ny, 0); });
+      for (let i = 1; i < cols.length; i++) {
+        if (!cols[i][4]) continue;
+        const a = base + (i - 1) * 2, b = a + 2;
+        if (isTop) I.push(a, a + 1, b, b, a + 1, b + 1); else I.push(a, b, a + 1, b, b + 1, a + 1);
+      }
+    };
+    skin(rows, 1, TH / 2); skin(brows, -1, -TH / 2); lip(true); lip(false);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Array((P.length / 3) * 2).fill(0), 2));
+    geo.setIndex(I);
+    return new THREE.Mesh(geo, mat);
+  };
+  // three sheets lapping by one pitch: [centre x, length, nominal height, material, z of the sheet mid plane]
+  // the middle sheet laps in front of the two outer ones. The top edge wanders +-3 cm on top of the step.
+  const SH = [[-1.0, 1.08, 2.40, galv, -0.020], [0.0, 1.08, 2.32, galvB, -0.014], [1.0, 1.08, 2.37, galvC, -0.020]];
+  const CUT_W = 0.30, CUT_H = 0.30;   // bent corner: left sheet, bottom left
+  const sheetMeshes = [];
+  SH.forEach(([cx, len, h, mat, z], si) => {
+    const top = (x) => h + 0.03 * Math.sin((x + cx) * 5.3 + si) + 0.015 * Math.sin((x + cx) * 17.1);
+    const bot = si === 0 ? (x) => (x < -len / 2 + CUT_W ? CUT_H : 0) : () => 0;
+    const mm = corrSheet(len, top, bot, mat, 3, 1);
+    mm.position.set(cx, 0, z); g.add(mm); sheetMeshes.push(mm);
+  });
+  // rib under a given world x: which sheet, and the front crest of that pitch cell
+  const ribAt = (x) => {
+    const s = x < -0.5 ? SH[0] : x > 0.5 ? SH[2] : SH[1];
+    const left = s[0] - s[1] / 2, k = Math.max(0, Math.min(Math.round(s[1] / PITCH) - 1, Math.floor((x - left) / PITCH)));
+    const X = left + k * PITCH; return { X, crest: X + PITCH * 0.64, trough: X + PITCH * 0.14, z: s[4] };
+  };
+  // a rust run down a crest: thin box sat on the crest, proud by 1.5 mm; dz > 0 front, < 0 back (back sits in the trough)
+  const rustRun = (x, y0, h, mat, front) => {
+    const r = ribAt(x);
+    if (front) box(0.014, h, 0.002, mat, r.crest, y0 + h / 2, r.z + AMP + TH / 2 + 0.0005);
+    else box(0.014, h, 0.002, mat, r.crest, y0 + h / 2, r.z - AMP - TH / 2 - 0.0005);
+  };
+
+  // ---- bent bottom corner: the cut piece of the left sheet, hinged at its top edge and bent BACK ----
+  {
+    const s = SH[0], left = s[0] - s[1] / 2;
+    const piece = corrSheet(CUT_W, () => CUT_H, () => 0, galv, 2, 1);
+    const hinge = new THREE.Group(); hinge.position.set(left + CUT_W / 2, CUT_H, s[4]); g.add(hinge);
+    piece.position.set(0, -CUT_H, 0); hinge.add(piece);
+    hinge.rotation.x = 0.26;                                   // bottom swings back ~0.1 m (the 0.15 m envelope caps it) and up
+    hinge.rotation.z = 0.12;                                   // and twists a little
+    box(CUT_W, 0.02, 0.004, rustD, 0, -0.005, AMP + 0.004, hinge);   // torn hinge line, rusted
+    box(CUT_W - 0.04, 0.012, 0.004, rust, 0.01, -0.02, AMP + 0.003, hinge);
+    box(0.012, CUT_H, 0.004, rust, CUT_W / 2 - 0.004, -CUT_H / 2, AMP + 0.003, hinge);   // torn vertical edge
+  }
+
+  // ---- I-section posts (0.08 square envelope), flanges front and back of the sheet, base plates with bolts ----
   const iProfile = new THREE.Shape([
-    [-0.04, -0.04], [0.04, -0.04], [0.04, -0.03], [0.006, -0.03], [0.006, 0.03], [0.04, 0.03], [0.04, 0.04],
-    [-0.04, 0.04], [-0.04, 0.03], [-0.006, 0.03], [-0.006, -0.03], [-0.04, -0.03],
+    [-0.04, -0.04], [0.04, -0.04], [0.04, -0.032], [0.005, -0.032], [0.005, 0.032], [0.04, 0.032], [0.04, 0.04],
+    [-0.04, 0.04], [-0.04, 0.032], [-0.005, 0.032], [-0.005, -0.032], [-0.04, -0.032],
   ].map(([a, b]) => new THREE.Vector2(a, b)));
-  for (const px of [-W / 2 + 0.04, 0, W / 2 - 0.04]) {
+  const POSTS = [-W / 2 + 0.04, 0, W / 2 - 0.04];
+  for (const px of POSTS) {
     const geo = new THREE.ExtrudeGeometry(iProfile, { depth: 2.45, bevelEnabled: false });
     const mm = new THREE.Mesh(geo, post); mm.rotation.x = -Math.PI / 2; mm.rotation.z = Math.PI / 2;
-    mm.position.set(px, 0.012, -0.06); g.add(mm);
-    box(0.16, 0.012, 0.10, steel, px, 0.006, -0.06);
-    for (const [bx, bz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.014, 4), rust);
-      b.position.set(px + bx * 0.06, 0.019, -0.06 + bz * 0.035); g.add(b);
-    }
-    box(0.03, 0.22, 0.006, rust, px - 0.018, 0.14, -0.017);
-    box(0.07, 0.05, 0.006, rustD, px, 0.04, -0.017);
-    box(0.03, 0.22, 0.006, rust, px + 0.018, 0.14, -0.103);
-    box(0.06, 0.008, 0.07, dust, px, 2.466, -0.06);
-    box(0.02, 0.10, 0.006, rust, px + 0.02, 2.36, -0.017);
-    box(0.02, 0.10, 0.006, rust, px - 0.02, 2.36, -0.103);
+    mm.position.set(px, 0.012, -0.022); g.add(mm);   // front flange 2 cm proud of the sheet, as the reference
+    box(0.16, 0.012, 0.11, steel, px, 0.006, -0.03);
+    for (const [bx, bz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) cyl(0.008, 0.014, 6, rust, px + bx * 0.06, 0.019, -0.03 + bz * 0.04);
+    // paint loss and rust on the flanges: at the foot, and a run below the rail fixings
+    box(0.03, 0.22, 0.004, rust, px - 0.016, 0.14, 0.02);
+    box(0.07, 0.05, 0.004, rustD, px, 0.04, 0.02);
+    box(0.03, 0.22, 0.004, rust, px + 0.016, 0.14, -0.064);
+    box(0.06, 0.006, 0.07, dust, px, 2.465, -0.022);
+    box(0.02, 0.10, 0.004, rust, px + 0.02, 2.36, 0.02);
+    box(0.02, 0.10, 0.004, rust, px - 0.02, 2.36, -0.064);
+    box(0.024, 0.7, 0.003, sandL, px - 0.01, 0.9, 0.0205);   // dust film on the sun side flange
   }
-  // ---- timber rails at 0.7 and 1.9 behind the sheet between the posts; screw
-  //      heads and rust runs on the front face, screw tips on the rail backs ----
+  // ---- timber rails at 0.7 and 1.9 behind the sheet between the posts; screw heads on the crests every 0.3 m
+  //      with rust runs below, screw tips out of the rail backs ----
   for (const ry of [0.7, 1.9]) {
     for (const [x0, x1] of [[-W / 2 + 0.08, -0.04], [0.04, W / 2 - 0.08]]) {
       const len = x1 - x0, cx = (x0 + x1) / 2;
       box(len, 0.10, 0.05, timber, cx, ry, -0.058);
       box(len - 0.04, 0.04, 0.004, timberS, cx, ry + 0.025, -0.085);
-      box(len, 0.008, 0.05, dust, cx, ry + 0.054, -0.058);
-      let n = 0;
-      for (let sx = x0 + 0.15; sx < x1 - 0.05; sx += 0.30, n++) {
+      box(len, 0.006, 0.05, dust, cx, ry + 0.053, -0.058);
+      for (let sx = x0 + 0.15, n = 0; sx < x1 - 0.05; sx += 0.30, n++) {
         const r = ribAt(sx);
-        const s = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.01, 4), steel);
-        s.rotation.x = Math.PI / 2; s.position.set(r.crest, ry, r.z + AMP + TH / 2 + 0.004); g.add(s);   // screw head on the crest
-        const h1 = 0.1 + 0.3 * rnd(); if (rnd() < 0.5) rustRun(sx, ry - 0.01 - h1, h1, rust, 0.0035);   // run down the rib below it, uneven
-        if (rnd() < 0.25) { const h2 = 0.1 + 0.2 * rnd(); rustRun(sx, ry - 0.2 - h2, h2, rustD, 0.0035); }
-        const t = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.012, 4), rust);
-        t.rotation.x = Math.PI / 2; t.position.set(r.crest, ry, -0.088); g.add(t);                          // tip out of the rail back
+        const zf = r.z + AMP + TH / 2;
+        cyl(0.009, 0.008, 6, steel, r.crest, ry, zf + 0.004, Math.PI / 2);                    // hex head on the crest
+        const h1 = 0.10 + 0.30 * rnd(); rustRun(sx, ry - 0.02 - h1, h1, n % 3 === 1 ? rustD : rust, true);   // run below every screw, uneven
+        if (rnd() < 0.35) { const h2 = 0.08 + 0.2 * rnd(); rustRun(sx, ry - 0.25 - h2, h2, rustD, true); }
+        cyl(0.004, 0.012, 4, rust, r.crest, ry, -0.088, Math.PI / 2);                          // tip out of the rail back
         box(0.012, 0.09, 0.004, rust, r.crest, ry - 0.075, -0.086);
-        if (n % 2 === 0) rustRun(sx, ry - 0.38, 0.3, rust, -0.0035);                                        // and down the back of the sheet
+        if (n % 2 === 0) rustRun(sx, ry - 0.4, 0.3, rust, false);                             // and down the back of the sheet
       }
     }
-    for (let sx = -1.05; sx < 1.3; sx += 0.9) rustRun(sx, ry - 0.26, 0.15, rustD, -0.0035);
+    for (let sx = -1.05; sx < 1.3; sx += 0.9) rustRun(sx, ry - 0.26, 0.15, rustD, false);
   }
-  // ---- back: X bracing of 40 x 5 flat bar bolted to the rails in each bay with a centre plate, a steel angle along the
-  //      top holding the uneven sheet edges, and a bolted patch sheet over a hole; all inside the 0.15 m envelope ----
-  const steelB = M(0x565a5e, 'metal', 0.78, 0.35);
+  // ---- back: X bracing of 40 x 5 flat bar bolted to the rails in each bay with a centre plate, a steel angle
+  //      along the top holding the uneven sheet edges, and a bolted patch sheet over a hole ----
   const brace = (x0, y0, x1, y1, mat) => {
     const dx = x1 - x0, dy = y1 - y0;
     const b = box(0.04, Math.hypot(dx, dy), 0.005, mat, (x0 + x1) / 2, (y0 + y1) / 2, -0.0885);
     b.rotation.z = -Math.atan2(dx, dy); return b;
   };
   const boltB = (x, y, z, len) => {
-    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.008, 4), steel);
-    b.rotation.x = Math.PI / 2; b.position.set(x, y, z); g.add(b);
+    cyl(0.008, 0.008, 6, steel, x, y, z, Math.PI / 2);
     box(0.014, len, 0.004, rust, x + 0.01, y - len / 2 - 0.01, z + 0.0015);
   };
   for (const [x0, x1] of [[-1.38, -0.08], [0.08, 1.38]]) {
@@ -136,25 +186,28 @@ export default function (THREE) {
   }
   for (const [x0, x1] of [[-W / 2 + 0.08, -0.04], [0.04, W / 2 - 0.08]]) {
     const len = x1 - x0, cx = (x0 + x1) / 2;
-    box(len, 0.04, 0.004, steelB, cx, 2.26, -0.036);
-    box(len, 0.004, 0.04, steelB, cx, 2.282, -0.056);
-    for (let sx = x0 + 0.2; sx < x1; sx += 0.4) boltB(ribAt(sx).crest - PITCH / 2, 2.26, -0.04, 0.08);
+    box(len, 0.04, 0.004, steelB, cx, 2.26, -0.034);
+    box(len, 0.004, 0.04, steelB, cx, 2.282, -0.054);
+    for (let sx = x0 + 0.2; sx < x1; sx += 0.4) boltB(ribAt(sx).trough, 2.26, -0.036, 0.08);
   }
   {
-    const r = ribAt(-1.3), left = r.X - PITCH / 2, wP = 6 * PITCH, zP = -0.02 - 0.006;
-    const pm = corrSheet(wP, 0.62, M(0x8f9492, 'metal', 0.74, 0.5, true)); pm.position.set(left + wP / 2, 1.0, zP); g.add(pm);
+    const r = ribAt(-1.3), left = r.X, wP = 6 * PITCH, zP = -0.02 - 0.004;
+    const pm = corrSheet(wP, () => 1.62, () => 1.0, M(0x8f9492, 'metal', 0.74, 0.5), 2, 1); pm.position.set(left + wP / 2, 0, zP); g.add(pm);
     for (const [bx, by] of [[left + PITCH * 0.75, 1.07], [left + PITCH * 4.75, 1.07], [left + PITCH * 0.75, 1.55], [left + PITCH * 4.75, 1.55]]) boltB(bx, by, zP - AMP - TH / 2 - 0.004, 0.1);
   }
   // dirt and rust on the sheet back: at the two laps, and splash above the drift
-  for (const lx of [-0.5, 0.5]) { box(0.03, 2.2, 0.004, rustD, lx, 1.2, -0.036); box(0.06, 0.4, 0.004, rust, lx + 0.03, 0.6, -0.037); }
-  for (let sx = -1.3; sx < 1.4; sx += 0.35) box(0.12, 0.08 + 0.05 * Math.abs(Math.sin(sx * 3)), 0.004, sandL, sx, 0.34, -0.036);
-  // ---- sand drift, front berm and back skin ----
-  box(W, 0.05, 0.04, sand, 0, 0.025, 0.01);
-  box(W - 0.8, 0.06, 0.03, sand, -0.1, 0.075, 0.005);
-  box(1.4, 0.06, 0.02, dust, 0.3, 0.13, 0.0);
-  box(0.7, 0.05, 0.015, dust, 0.6, 0.18, -0.003);
+  for (const lx of [-0.5, 0.5]) { box(0.03, 2.2, 0.004, rustD, lx, 1.2, -0.034); box(0.06, 0.4, 0.004, rust, lx + 0.03, 0.6, -0.035); }
+  for (let sx = -1.3; sx < 1.4; sx += 0.35) box(0.12, 0.08 + 0.05 * Math.abs(Math.sin(sx * 3)), 0.004, sandL, sx, 0.34, -0.034);
+  // ---- dust line along the foot of the front, sand drift front berm and back skin ----
+  for (const [dx, dw, dy] of [[-0.75, 0.5, 0.31], [-0.1, 0.7, 0.295], [0.55, 0.45, 0.32], [1.15, 0.4, 0.30]]) box(dw, 0.012, 0.002, dust, dx, dy, -0.0095);   // dust line where the drift met the sheet, broken, in the troughs
+  box(W - 0.2, 0.05, 0.05, sand, 0.05, 0.025, 0.015);
+  box(W - 0.8, 0.07, 0.035, sand, -0.1, 0.075, 0.008);
+  box(1.4, 0.07, 0.025, dust, 0.3, 0.14, 0.003);
+  box(0.7, 0.06, 0.018, dust, 0.6, 0.20, -0.001);
+  box(0.5, 0.05, 0.03, sandL, -1.1, 0.025, -0.06);                         // sand blown through the cut corner
   box(W, 0.05, 0.02, sand, 0, 0.025, -0.10);
   box(1.2, 0.06, 0.015, sandL, 0.7, 0.075, -0.098);
+  const WEATHER_OPTS = { sand: 0.32 };   // vertex colour: the bottom 0.3 m of the sheet goes sand coloured
   // ---- DERRICK material pass (round 2): weathering as a per vertex colour attribute. No extra draw
   // calls, no extra triangles except long single segment boxes, which are re-cut along their length
   // so the mottle, the streaks and the rust to paint gradient have vertices to live on. Rules by
