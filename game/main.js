@@ -13,33 +13,33 @@
  * Everything loads relative to this folder: ./assets, ./assetlib.js, ./src/...
  */
 import * as THREE from 'three';
-import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r19-202608291932';
-import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r19-202608291932';
-import { createSky } from './src/render/sky.js?v=r19-202608291932';
-import { createPost } from './src/render/post.js?v=r19-202608291932';
-import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r19-202608291932';
-import { createSkirt } from './src/world/skirt.js?v=r19-202608291932';   // round 17 item 5: ground beyond the map edge
-import { World } from './src/world/collision.js?v=r19-202608291932';
-import { buildLevel } from './src/level/build.js?v=r19-202608291932';
-import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r19-202608291932';
-import { Player } from './src/player/controller.js?v=r19-202608291932';
-import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r19-202608291932';
-import { Viewmodel } from './src/player/viewmodel.js?v=r19-202608291932';
-import { FX } from './src/player/fx.js?v=r19-202608291932';
-import { NavGrid } from './src/ai/navgrid.js?v=r19-202608291932';
-import { Bot } from './src/ai/bot.js?v=r19-202608291932';
-import { SquadManager } from './src/ai/squad.js?v=r19-202608291932';
-import { Input, RAD_PER_PX } from './src/ui/input.js?v=r19-202608291932';
-import { TouchControls } from './src/ui/touch.js?v=r19-202608291932';
-import { HUD } from './src/ui/hud.js?v=r19-202608291932';
-import { Screens } from './src/ui/screens.js?v=r19-202608291932';
-import { Events } from './src/game/events.js?v=r19-202608291932';
-import { TDM } from './src/game/mode.js?v=r19-202608291932';
-import { createTelemetry } from './src/game/telemetry.js?v=r19-202608291932';
-import { Audio } from './src/game/audio.js?v=r19-202608291932';
-import { ASSET } from './assetlib.js?v=r19-202608291932';
-import { vertexiseMaterials } from './src/game/bake.js?v=r19-202608291932';
-import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r19-202608291932';   // materials r3
+import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r19-202608291944';
+import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r19-202608291944';
+import { createSky } from './src/render/sky.js?v=r19-202608291944';
+import { createPost } from './src/render/post.js?v=r19-202608291944';
+import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r19-202608291944';
+import { createSkirt } from './src/world/skirt.js?v=r19-202608291944';   // round 17 item 5: ground beyond the map edge
+import { World } from './src/world/collision.js?v=r19-202608291944';
+import { buildLevel } from './src/level/build.js?v=r19-202608291944';
+import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r19-202608291944';
+import { Player } from './src/player/controller.js?v=r19-202608291944';
+import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r19-202608291944';
+import { Viewmodel } from './src/player/viewmodel.js?v=r19-202608291944';
+import { FX } from './src/player/fx.js?v=r19-202608291944';
+import { NavGrid } from './src/ai/navgrid.js?v=r19-202608291944';
+import { Bot } from './src/ai/bot.js?v=r19-202608291944';
+import { SquadManager } from './src/ai/squad.js?v=r19-202608291944';
+import { Input, RAD_PER_PX } from './src/ui/input.js?v=r19-202608291944';
+import { TouchControls } from './src/ui/touch.js?v=r19-202608291944';
+import { HUD } from './src/ui/hud.js?v=r19-202608291944';
+import { Screens } from './src/ui/screens.js?v=r19-202608291944';
+import { Events } from './src/game/events.js?v=r19-202608291944';
+import { TDM } from './src/game/mode.js?v=r19-202608291944';
+import { createTelemetry } from './src/game/telemetry.js?v=r19-202608291944';
+import { Audio } from './src/game/audio.js?v=r19-202608291944';
+import { ASSET } from './assetlib.js?v=r19-202608291944';
+import { vertexiseMaterials } from './src/game/bake.js?v=r19-202608291944';
+import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r19-202608291944';   // materials r3
 
 const ROUND = 'r6';
 const DEG = Math.PI / 180;
@@ -469,8 +469,31 @@ let lastT = performance.now();
 let prevYaw = player.yaw, prevPitch = player.pitch;
 let lastWeapon = null, lastGrenades = -1, lastHpShown = -1;
 
+// round 19b: '?stats=1' on screen counter for real hardware measurements (Ben's phone and laptop): fps average and
+// worst over the last five seconds, frame time, draws, triangles, the GPU name. Every fps number before this came
+// from the software renderer in the gate.
+const STATS = params.get('stats') === '1';
+let statsEl = null, statsFrames = [], statsLast = 0;
+if (STATS) {
+  statsEl = document.createElement('div');
+  statsEl.style.cssText = 'position:fixed;left:8px;top:8px;z-index:9999;background:rgba(0,0,0,.72);color:#fff;font:13px/1.35 monospace;padding:8px 10px;border-radius:4px;pointer-events:none;white-space:pre';
+  document.body.appendChild(statsEl);
+  let gpu = '?'; try { const gl = renderer.getContext(); const ext = gl.getExtension('WEBGL_debug_renderer_info'); gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { /* no gpu name */ }
+  statsEl.dataset.gpu = String(gpu).slice(0, 60);
+}
 function frame() {
   requestAnimationFrame(frame);
+  if (STATS) {
+    const now = performance.now();
+    statsFrames.push(now); while (statsFrames.length && statsFrames[0] < now - 5000) statsFrames.shift();
+    if (now - statsLast > 500 && statsFrames.length > 2) {
+      statsLast = now;
+      let worst = 0; for (let i = 1; i < statsFrames.length; i++) worst = Math.max(worst, statsFrames[i] - statsFrames[i - 1]);
+      const avg = (statsFrames[statsFrames.length - 1] - statsFrames[0]) / (statsFrames.length - 1);
+      const inf = renderer.info.render;
+      statsEl.textContent = `fps ${(1000 / avg).toFixed(0)} avg  ${(1000 / worst).toFixed(0)} worst (5 s)\nframe ${avg.toFixed(1)} ms  worst ${worst.toFixed(0)} ms\ndraws ${inf.calls}  tris ${(inf.triangles / 1e6).toFixed(2)}M\n${innerWidth}x${innerHeight} dpr ${devicePixelRatio.toFixed(2)} tier ${tier.name}\n${statsEl.dataset.gpu}`;
+    }
+  }
   const now = performance.now();
   const real = (now - lastT) / 1000;
   lastT = now;
