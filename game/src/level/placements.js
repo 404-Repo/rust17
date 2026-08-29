@@ -402,7 +402,7 @@ for (let i = 0; i < 4; i++) P('barbed_wire_fence_section', -69, -4.5 + i * 3, 90
     P('dead_shrub', +x.toFixed(2), +z.toFixed(2), (i * 37) % 360, { density: true });
   }
   // debris in the wadi bed and in the open, to make 20 with the ones listed above
-  many('debris_scatter', [[-6, -36, 20], [17, 22, 140], [-44, -8, 60], [-52, 26, 200], [24, -14, 300], [52, 6, 90], [-20, 30, 170]], 0, { density: true });
+  many('debris_scatter', [[-6, -36, 20], [17, 22, 140], [-44, -8, 60], /* round 23b (Ben's photo): [-52, 26, 200] removed, it lay across a dune crest with its far half in the air */ [24, -14, 300], [52, 6, 90], [-20, 30, 170]], 0, { density: true });
   // ammo crates beyond the five the plan lists, to reach the TSV count
   many('ammo_crate', [[-63, -8, 20], [-63, 6, 100], [63, -8, 200], [63, 6, 280], [26.6, -47.2, 10], [1.5, -14.2, 30], [43.6, 35.2, 90]], 0);
   // drums in the wadi bed (5.4) beside the debris
