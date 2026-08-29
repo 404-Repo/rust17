@@ -44,7 +44,7 @@
  *   rig.update(camera);
  */
 import { CSM } from 'three/addons/csm/CSM.js';
-import { getTier } from './quality.js?v=r16-202608291520';
+import { getTier } from './quality.js?v=r16-202608291533';
 
 /** Sun placement, MAP-PLAN section 1: azimuth 250 degrees, elevation 22. */
 export const SUN_AZIMUTH_DEG = 250;
@@ -93,6 +93,8 @@ export const ATMOS = {
   // (work/sky/atmos_new.json: sky read off two level shots at 3, 12 and 30 degrees away from the sun, inverted
   // through the ACES curve at EXPOSURE 0.82; high and zenith scaled from the panorama by the same ratio as mid).
   // The aerial perspective, the far hills and the fill now fade toward the sky that is actually behind them.
+  // 16b (Ben: "the mountains on the horizon seem very white"): `below`, what the far sand fades toward, is a
+  // tan a step darker than the horizon band (was the same brightness), so the edge dunes stop reading as white.
   // round 2, solved for EXPOSURE 0.88 (work/fix2_render/NOTES.md): the horizon band is warmer
   // and paler than before, the top of a level frame stays pale (the reference frames measure
   // 222,216,197 at 37 degrees), and the sky turns blue above 40 degrees so a frame pitched up
@@ -101,13 +103,13 @@ export const ATMOS = {
   // and warm in twelve reference frames (median -31, range -14 to -58: work/r4/render/ref_eyedrops.txt), so the low
   // and mid stops warm up. The frame's brightest quarter is sky and lit sand; a neutral sky there was half of
   // the missing warm side of claim 10. Solved with work/r4/render/solve_atmos.py.
-  horizon: [1.859, 1.012, 0.441],   // 240,226,200 pale warm, 0 degrees
+  horizon: [1.600, 0.880, 0.390],   // 240,226,200 pale warm, 0 degrees
   low:     [0.572, 0.472, 0.329],   // 232,219,192 at 12 degrees (was 228,220,204)
   mid:     [0.316, 0.314, 0.289],   // 212,203,182 at 35 degrees, the top of a level frame (was 210,209,202; reference 222,216,197 at 37 and warmer still in most frames)
   high:    [0.210, 0.241, 0.257],   // 176,186,204 at 55 degrees, the blue starts (was 170,184,207)
   zenith:  [0.151, 0.189, 0.221],   // 104,134,188 overhead
-  haze:    [1.952, 1.063, 0.463],   // 244,233,212 the dust band, thickest at the horizon, gone by 9 degrees
-  below:   [1.711, 0.931, 0.406],   // 228,214,194 the dome under the horizon: a little darker than the haze so the far ground edge is not a bright seam
+  haze:    [1.450, 0.800, 0.360],   // 244,233,212 the dust band, thickest at the horizon, gone by 9 degrees
+  below:   [1.150, 0.630, 0.290],   // 228,214,194 the dome under the horizon: a little darker than the haze so the far ground edge is not a bright seam
   sunGlow: [1.0, 0.72, 0.42],
   cloud:   [1.790, 1.322, 1.009],   // 238,231,224 thin high cloud
 };

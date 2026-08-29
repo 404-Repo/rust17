@@ -22,8 +22,8 @@
  * Colours are mixed in linear space and pushed through the renderer's ACES
  * curve and output colour space in the fragment shader.
  */
-import { sunDirection, SUN_COLOR, ATMOS_UNIFORMS_GLSL, ATMOS_GLSL, atmosUniforms } from './lighting.js?v=r16-202608291520';
-import { getTier } from './quality.js?v=r16-202608291520';
+import { sunDirection, SUN_COLOR, ATMOS_UNIFORMS_GLSL, ATMOS_GLSL, atmosUniforms } from './lighting.js?v=r16-202608291533';
+import { getTier } from './quality.js?v=r16-202608291533';
 
 export const ZENITH_COLOR = 0x6987b9;    // documentary: the linear values live in lighting.js ATMOS
 export const HORIZON_COLOR = 0xeee0c8;
@@ -78,7 +78,7 @@ void main() {
   float az = max(dot(normalize(vec3(d.x, 0.0, d.z)), normalize(vec3(uAtmSunDir.x, 0.0, uAtmSunDir.z))), 0.0);
   vec3 rock = mix(uHillShade, uHillLit, 1.0 - az * 0.6);
   // the sky colour just above the horizon is what the haze mixes toward
-  vec3 sky = atmosSky(vec3(d.x, max(d.y, 0.012), d.z), 0.0);
+  vec3 sky = atmosSky(normalize(vec3(d.x, max(d.y, 0.012) + 0.07, d.z)), 0.0);   // round 16b: the sky 4 degrees up, so a hazed ridge is darker than the dust band it stands in
   vec3 col = mix(rock, sky, vHaze);
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
@@ -137,8 +137,8 @@ function buildHills(THREE, atm) {
   // nothing at the horizon; now 0.42 and 0.64, the near ridge a warm grey brown silhouette,
   // the far one paler behind it, both taking the dust band colour of the sky they stand in.
   const rings = [
-    { r: 700, haze: 0.42, layer: 0 },
-    { r: 1100, haze: 0.64, layer: 1 },
+    { r: 700, haze: 0.36, layer: 0 },   // round 16b (Ben: "the mountains on the horizon seem very white"): 0.42 -> 0.30
+    { r: 1100, haze: 0.55, layer: 1 },  // 0.64 -> 0.48, and the haze now mixes toward the sky a few degrees UP, not the bright dust band
   ];
   const N = 480;
   const pos = [], haze = [], idx = [];
