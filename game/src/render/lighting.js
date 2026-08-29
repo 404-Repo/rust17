@@ -44,7 +44,7 @@
  *   rig.update(camera);
  */
 import { CSM } from 'three/addons/csm/CSM.js';
-import { getTier } from './quality.js?v=r15-202608291450';
+import { getTier } from './quality.js?v=r16-202608291520';
 
 /** Sun placement, MAP-PLAN section 1: azimuth 250 degrees, elevation 22. */
 export const SUN_AZIMUTH_DEG = 250;
@@ -71,7 +71,7 @@ export const SUN_INTENSITY = 5.6;   // round 2: was 5.6 at EXPOSURE 1.15, and li
  */
 export const SKY_COLOR = 0x8797c2;   // round 15: 0x8c98b8 -> 0x8797c2, warmCool measured 15 against the reference median 42 (shade a notch cooler)   // hemisphere sky term: a desaturated blue grey (round 3: 0x7d9de8 blue; the cyan leaning contract value 0x8fb0d8 went green on sand; iterations 1 to 3: 0x8c9bc0, 0x929cb4). Shade on sand should land a little warm of neutral, the reference's is (134,122,105) to (46,37,30), B minus R -16 to -28; iteration 3 measured -22 to -29 on the shadowed frames
 export const GROUND_COLOR = 0x6e6c68;   // the ground an underside sees: its own shadow, near neutral, dim. Round 4 iteration 1 tried warm (0x7c6a54) and the frame's darkest quarter went as warm as its brightest (warmCool +5); the reference's deep shade is neutral (B minus R -5 to -12), so the underside terms are neutral and only the wall bounce is warm
-export const SKY_INTENSITY = 0.36;   // round 15: 0.40 -> 0.36, shadowRatio measured 0.46 against the CoD median 0.35 (docs/CLAIMS.md 2)  // round 4: 0.50 -> 0.40 with the sky colour desaturated: shade on sand was 0.41 to 0.5 of lit sand and blue; the bar is 0.35 to 0.45 and neutral
+export const SKY_INTENSITY = 0.33;   // round 16: 0.36 -> 0.33 after the atmosphere refit lifted shade (shadowRatio 0.38 -> 0.45); round 15: 0.40 -> 0.36, shadowRatio measured 0.46 against the CoD median 0.35 (docs/CLAIMS.md 2)  // round 4: 0.50 -> 0.40 with the sky colour desaturated: shade on sand was 0.41 to 0.5 of lit sand and blue; the bar is 0.35 to 0.45 and neutral
 /** Lit sand bounce onto vertical faces, linear irradiance: the sun on flat sand is (2.1, 1.5, 1.0) x sand albedo (0.61, 0.48, 0.27) / pi = (0.41, 0.23, 0.09) radiance; a wall sees half that hemisphere, cut by the ground its own shadow covers. */
 export const BOUNCE_COLOR = [0.20, 0.14, 0.08];   // iteration 4: a touch less saturated than the pure sand bounce (0.21, 0.135, 0.062): the reference's shaded rust is (76,62,50), ours measured redder
 export const BOUNCE_UNDER = 0.25;   // fraction of the bounce an underside gets: the ground beneath a deck is that deck's shadow (0.35 in iteration 1: undersides read warm, the reference's are neutral dark)
@@ -89,6 +89,10 @@ export const EXPOSURE = 0.82;       // round 15: 0.85 -> 0.82 with the panorama 
  * is what a player looking up at the derrick crown sees.
  */
 export const ATMOS = {
+  // round 16 (Ben: "Do 2", sky to ground handshake): every stop below refitted to the RENDERED Atlas panorama
+  // (work/sky/atmos_new.json: sky read off two level shots at 3, 12 and 30 degrees away from the sun, inverted
+  // through the ACES curve at EXPOSURE 0.82; high and zenith scaled from the panorama by the same ratio as mid).
+  // The aerial perspective, the far hills and the fill now fade toward the sky that is actually behind them.
   // round 2, solved for EXPOSURE 0.88 (work/fix2_render/NOTES.md): the horizon band is warmer
   // and paler than before, the top of a level frame stays pale (the reference frames measure
   // 222,216,197 at 37 degrees), and the sky turns blue above 40 degrees so a frame pitched up
@@ -97,13 +101,13 @@ export const ATMOS = {
   // and warm in twelve reference frames (median -31, range -14 to -58: work/r4/render/ref_eyedrops.txt), so the low
   // and mid stops warm up. The frame's brightest quarter is sky and lit sand; a neutral sky there was half of
   // the missing warm side of claim 10. Solved with work/r4/render/solve_atmos.py.
-  horizon: [1.833, 1.099, 0.510],   // 240,226,200 pale warm, 0 degrees
-  low:     [1.329, 0.906, 0.456],   // 232,219,192 at 12 degrees (was 228,220,204)
-  mid:     [0.772, 0.636, 0.414],   // 212,203,182 at 35 degrees, the top of a level frame (was 210,209,202; reference 222,216,197 at 37 and warmer still in most frames)
-  high:    [0.390, 0.471, 0.669],   // 176,186,204 at 55 degrees, the blue starts (was 170,184,207)
-  zenith:  [0.134, 0.224, 0.511],   // 104,134,188 overhead
-  haze:    [2.355, 1.413, 0.652],   // 244,233,212 the dust band, thickest at the horizon, gone by 9 degrees
-  below:   [1.168, 0.799, 0.495],   // 228,214,194 the dome under the horizon: a little darker than the haze so the far ground edge is not a bright seam
+  horizon: [1.859, 1.012, 0.441],   // 240,226,200 pale warm, 0 degrees
+  low:     [0.572, 0.472, 0.329],   // 232,219,192 at 12 degrees (was 228,220,204)
+  mid:     [0.316, 0.314, 0.289],   // 212,203,182 at 35 degrees, the top of a level frame (was 210,209,202; reference 222,216,197 at 37 and warmer still in most frames)
+  high:    [0.210, 0.241, 0.257],   // 176,186,204 at 55 degrees, the blue starts (was 170,184,207)
+  zenith:  [0.151, 0.189, 0.221],   // 104,134,188 overhead
+  haze:    [1.952, 1.063, 0.463],   // 244,233,212 the dust band, thickest at the horizon, gone by 9 degrees
+  below:   [1.711, 0.931, 0.406],   // 228,214,194 the dome under the horizon: a little darker than the haze so the far ground edge is not a bright seam
   sunGlow: [1.0, 0.72, 0.42],
   cloud:   [1.790, 1.322, 1.009],   // 238,231,224 thin high cloud
 };
