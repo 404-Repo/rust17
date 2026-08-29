@@ -118,8 +118,9 @@ export class Audio {
   // ---------------------------------------------------------------- effects
   shot(pos, weapon = 'ar', own = false) {
     const { d } = this._pan(own ? null : pos);
-    if (!own && d > 70 && this._play('shot_far', pos, 0.45, { jitter: 80 })) return;
-    if (this._play('shot_' + (FILES['shot_' + weapon] ? weapon : 'ar'), own ? null : pos, own ? 0.55 : 0.5, { jitter: 50 })) return;
+    // round 22d (Ben: "all 3 gunshot sounds 50% louder"): 0.45/0.55/0.5 -> 0.68/0.83/0.75
+    if (!own && d > 70 && this._play('shot_far', pos, 0.68, { jitter: 80 })) return;
+    if (this._play('shot_' + (FILES['shot_' + weapon] ? weapon : 'ar'), own ? null : pos, own ? 0.83 : 0.75, { jitter: 50 })) return;
     this._shotProcedural(pos, weapon, own);
   }
   footstep(pos, surface, strength) {
