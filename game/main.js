@@ -13,33 +13,34 @@
  * Everything loads relative to this folder: ./assets, ./assetlib.js, ./src/...
  */
 import * as THREE from 'three';
-import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r23-202608292333';
-import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r23-202608292333';
-import { createSky } from './src/render/sky.js?v=r23-202608292333';
-import { createPost } from './src/render/post.js?v=r23-202608292333';
-import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r23-202608292333';
-import { createSkirt } from './src/world/skirt.js?v=r23-202608292333';   // round 17 item 5: ground beyond the map edge
-import { World } from './src/world/collision.js?v=r23-202608292333';
-import { buildLevel } from './src/level/build.js?v=r23-202608292333';
-import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r23-202608292333';
-import { Player } from './src/player/controller.js?v=r23-202608292333';
-import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r23-202608292333';
-import { Viewmodel } from './src/player/viewmodel.js?v=r23-202608292333';
-import { FX } from './src/player/fx.js?v=r23-202608292333';
-import { NavGrid } from './src/ai/navgrid.js?v=r23-202608292333';
-import { Bot } from './src/ai/bot.js?v=r23-202608292333';
-import { SquadManager } from './src/ai/squad.js?v=r23-202608292333';
-import { Input, RAD_PER_PX } from './src/ui/input.js?v=r23-202608292333';
-import { TouchControls } from './src/ui/touch.js?v=r23-202608292333';
-import { HUD } from './src/ui/hud.js?v=r23-202608292333';
-import { Screens } from './src/ui/screens.js?v=r23-202608292333';
-import { Events } from './src/game/events.js?v=r23-202608292333';
-import { TDM } from './src/game/mode.js?v=r23-202608292333';
-import { createTelemetry } from './src/game/telemetry.js?v=r23-202608292333';
-import { Audio } from './src/game/audio.js?v=r23-202608292333';
-import { ASSET } from './assetlib.js?v=r23-202608292333';
-import { vertexiseMaterials } from './src/game/bake.js?v=r23-202608292333';
-import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r23-202608292333';   // materials r3
+import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r24-202608300014';
+import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r24-202608300014';
+import { createSky } from './src/render/sky.js?v=r24-202608300014';
+import { createPost } from './src/render/post.js?v=r24-202608300014';
+import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r24-202608300014';
+import { createSkirt } from './src/world/skirt.js?v=r24-202608300014';   // round 17 item 5: ground beyond the map edge
+import { createFarBand } from './src/level/farband.js?v=r24-202608300014';   // round 24: oilfield landmarks at 150 to 400 m
+import { World } from './src/world/collision.js?v=r24-202608300014';
+import { buildLevel } from './src/level/build.js?v=r24-202608300014';
+import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r24-202608300014';
+import { Player } from './src/player/controller.js?v=r24-202608300014';
+import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r24-202608300014';
+import { Viewmodel } from './src/player/viewmodel.js?v=r24-202608300014';
+import { FX } from './src/player/fx.js?v=r24-202608300014';
+import { NavGrid } from './src/ai/navgrid.js?v=r24-202608300014';
+import { Bot } from './src/ai/bot.js?v=r24-202608300014';
+import { SquadManager } from './src/ai/squad.js?v=r24-202608300014';
+import { Input, RAD_PER_PX } from './src/ui/input.js?v=r24-202608300014';
+import { TouchControls } from './src/ui/touch.js?v=r24-202608300014';
+import { HUD } from './src/ui/hud.js?v=r24-202608300014';
+import { Screens } from './src/ui/screens.js?v=r24-202608300014';
+import { Events } from './src/game/events.js?v=r24-202608300014';
+import { TDM } from './src/game/mode.js?v=r24-202608300014';
+import { createTelemetry } from './src/game/telemetry.js?v=r24-202608300014';
+import { Audio } from './src/game/audio.js?v=r24-202608300014';
+import { ASSET } from './assetlib.js?v=r24-202608300014';
+import { vertexiseMaterials } from './src/game/bake.js?v=r24-202608300014';
+import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r24-202608300014';   // materials r3
 
 const ROUND = (globalThis.__BUILD_STAMP__ || 'r19-dev').split('-')[0];   // the round label on the HUD and screens comes from the publish stamp (was a hardcoded 'r6' for thirteen rounds)
 const DEG = Math.PI / 180;
@@ -126,6 +127,7 @@ for (const p of PLACEMENTS) if (!p.dy && /pipe_rack_stack|generator_set|control_
 }
 applyTerrainMaterial(terrain, tier, { disturb: DISTURB });   // materials r3: sand_sunlit and sand_packed tiles on the terrain's own material; r17: + sand_disturbed
 if (params.get('skirt') !== 'off') { const skirt = createSkirt(terrain); if (params.get('skirt') !== 'plain') applyMaterials(skirt, { asset: 'map_skirt' }); scene.add(skirt); }   // round 17 item 5 ('?skirt=off|plain' to debug)
+if (params.get('farband') !== 'off') { const fb = createFarBand(terrain); applyMaterials(fb, { asset: 'far_band' }); scene.add(fb); console.info(`[farband] ${fb.userData.tris} triangles`); }   // round 24
 const world = new World(terrain);
 // Shadow caster proxy for the ground: the 0.25 m tiles receive shadows but do not cast them
 // (that was ~0.5 M triangles per cascade); a 1 m sampling of the same heightfield, lowered
@@ -204,7 +206,7 @@ weapons.setScene(scene);
 const mode = new TDM({ events, target: 30, seconds: 420, respawnDelay: 4.0 });
 mode.register({ id: 'player', name: 'You', team: 'rangers' });
 const WEAPON_PLAN = ['ar', 'smg', 'ar', 'dmr', 'ar'];
-const mkBot = (name, team, i) => new Bot({ id: name.toLowerCase(), name, team, scene, world, nav, events, quality: tier, weaponKey: WEAPON_PLAN[i % WEAPON_PLAN.length] });
+const mkBot = (name, team, i) => new Bot({ id: name.toLowerCase(), name, team, scene, world, nav, events, quality: tier, weaponKey: WEAPON_PLAN[i % WEAPON_PLAN.length], fx });   // round 24: bots get the effects too
 mode.botNames.rangers.forEach((n, i) => bots.push(mkBot(n, 'rangers', i + 1)));
 mode.botNames.militia.forEach((n, i) => bots.push(mkBot(n, 'militia', i)));
 for (const b of bots) mode.register(b.entity());
@@ -603,7 +605,7 @@ window.__DIAG2__ = async (name) => {
   return { before, after };
 };
 window.__DBG__ = {
-  world, nav, audio,   // round 21: audio state for the tools   // hotfix_cyl probe: the collision world and nav grid, read only
+  world, nav, audio, fx, weapons,   // round 24: fx and the weapon system, so tools can fire a shot for a screenshot   // round 21: audio state for the tools   // hotfix_cyl probe: the collision world and nav grid, read only
   teleport(x, z, yawDeg, pitch = 0) { player.spawnAt(x, z, yawDeg * DEG); player.pitch = pitch; player.applyCamera(0); },
   botTo(id, x, z, yawDeg) { const b = botById(id); if (b) b.respawn(x, z, yawDeg * DEG); },
   freeze(on) { for (const b of bots) b.frozen = on; },

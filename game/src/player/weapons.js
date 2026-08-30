@@ -12,7 +12,7 @@
  * viewmodel gets the same kick through play('fire').
  */
 import * as THREE from 'three';
-import { ASSET } from '../../assetlib.js?v=r23-202608292333';
+import { ASSET } from '../../assetlib.js?v=r24-202608300014';
 
 export const WEAPONS = {
   ar:  { asset: 'assault_rifle',  name: 'M4 CARBINE',  damage: 28, headMult: 2.0, rpm: 720, mag: 30, reserve: 150, reload: 2.1, spread: 0.010, adsSpread: 0.003, recoil: [0.012, 0.004], range: 80,  auto: true,  adsFov: 55, sight: 0.075, switchTime: 0.45 },
@@ -220,6 +220,7 @@ export class WeaponSystem {
     const end = best ? best.point : origin.clone().addScaledVector(dir, MAXD);
     if (this.fx) {
       if (this.fx.muzzleFlash) this.fx.muzzleFlash(muzzle, dir);
+      if (this.fx.casing) this.fx.casing(muzzle, dir);   // round 24: brass
       if (this.fx.tracer && (!best || best.dist > 2.5)) this.fx.tracer(muzzle.clone(), end.clone());
     }
 

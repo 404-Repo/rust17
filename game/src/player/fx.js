@@ -338,6 +338,18 @@ export class FX {
 
   tracer(from, to) { this.tracers.add(from, to); }
 
+  /** round 24: a brass case flicked out to the right of the weapon, spinning, with a short life */
+  casing(pos, dir, right) {
+    const r = right || new THREE.Vector3(dir.z, 0, -dir.x).normalize();
+    this.dust.spawn({
+      x: pos.x + r.x * 0.06, y: pos.y - 0.02, z: pos.z + r.z * 0.06,
+      vx: r.x * rnd(1.6, 2.6) + rnd(-0.3, 0.3) - dir.x * 0.8,
+      vy: rnd(1.1, 1.9),
+      vz: r.z * rnd(1.6, 2.6) + rnd(-0.3, 0.3) - dir.z * 0.8,
+      size: 0.022, grow: 0, life: rnd(0.7, 1.0), color: 0xdcae52, alpha: 1, gravity: 11, drag: 0.35, fadeIn: 0, rotV: rnd(-14, 14),
+    });
+  }
+
   bloodHit(pos) {
     const c = this.colors.blood;
     for (let i = 0; i < 5; i++) {

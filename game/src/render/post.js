@@ -25,8 +25,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { getTier } from './quality.js?v=r23-202608292333';
-import { sunDirection, SUN_COLOR } from './lighting.js?v=r23-202608292333';
+import { getTier } from './quality.js?v=r24-202608300014';
+import { sunDirection, SUN_COLOR } from './lighting.js?v=r24-202608300014';
 
 const GRADE_VS = /* glsl */`varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 

@@ -10,11 +10,11 @@
  * 2x the player's hip spread; reaction time 0.35 s at point blank to 0.7 s at 60 m.
  */
 import * as THREE from 'three';
-import { ASSET } from '../../assetlib.js?v=r23-202608292333';
-import { loadGlbSoldier } from './glbsoldier.js?v=r23-202608292333';
-import { applyTeamLook, attachTeamMarks, teamLookEnabled } from './teamlook.js?v=r23-202608292333';   // round 10: abstract team colour figures   // round 8: skinned soldiers from Atlas (Titan v1 + rig_humanoid_mesh)
-import { SoldierRig } from './animation.js?v=r23-202608292333';
-import { applyMaterials } from '../render/materials.js?v=r23-202608292333';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
+import { ASSET } from '../../assetlib.js?v=r24-202608300014';
+import { loadGlbSoldier } from './glbsoldier.js?v=r24-202608300014';
+import { applyTeamLook, attachTeamMarks, teamLookEnabled } from './teamlook.js?v=r24-202608300014';   // round 10: abstract team colour figures   // round 8: skinned soldiers from Atlas (Titan v1 + rig_humanoid_mesh)
+import { SoldierRig } from './animation.js?v=r24-202608300014';
+import { applyMaterials } from '../render/materials.js?v=r24-202608300014';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
 
 export const BOT_WEAPONS = {
   // integrator: spread was 2x the player's HIP cone (0.020 / 0.032 / 0.012); a bot shoulders its rifle,
@@ -53,11 +53,12 @@ const _boxV = new THREE.Vector3();
 let SEQ = 0;
 
 export class Bot {
-  constructor({ id, name, team = 'militia', scene, world, nav, events, quality, weaponKey = 'ar' }) {
+  constructor({ id, name, team = 'militia', scene, world, nav, events, quality, weaponKey = 'ar', fx = null }) {
     this.id = id ?? `bot${++SEQ}`;
     this.name = name || this.id;
     this.team = team;
     this.scene = scene; this.world = world; this.nav = nav; this.events = events; this.quality = quality;
+    this.fx = fx;   // round 24: bots get the same muzzle flash, tracer and impact effects the player has
     this.weaponKey = BOT_WEAPONS[weaponKey] ? weaponKey : 'ar';
     this.weapon = BOT_WEAPONS[this.weaponKey];
     this.pos = new THREE.Vector3(); this.vel = new THREE.Vector3();
@@ -592,6 +593,14 @@ export class Bot {
       if (r && r.hit && r.dist < maxD) maxD = r.dist;
     }
     if (this.events) this.events.emit('shot', { by: this.entity(), weapon: this.weaponKey, from: from.clone(), dir: dir.clone(), to: from.clone().addScaledVector(dir, maxD) });
+    // round 24 (Ben: effects when you shoot): until now only the PLAYER's shots made light, tracers and impacts, so
+    // a firefight looked inert from the receiving end. A bot's muzzle now flashes and lights what is near it, its
+    // round leaves a tracer, and where the ray ends on geometry it kicks the same dust and sparks the player's does.
+    if (this.fx) {
+      const muz = from.clone().addScaledVector(dir, 0.35);
+      if (this.fx.muzzleFlash) this.fx.muzzleFlash(muz, dir);
+      if (this.fx.tracer) this.fx.tracer(muz, from.clone().addScaledVector(dir, maxD));
+    }
     // targets: every enemy's hitboxes, nearest wins
     _ray.set(from, dir);
     let hitE = null, hitPart = 'body', hitD = maxD;
@@ -611,12 +620,27 @@ export class Bot {
         if (db !== null && db < hitD) { hitD = db; hitE = e; hitPart = 'body'; }
       }
     }
-    if (!hitE) return;
+    if (!hitE) {
+      // round 24: the round hit the world, not a body: dust or sparks where it landed
+      if (this.fx && this.fx.impact && this.world && typeof this.world.raycast === 'function') {
+        const r = this.world.raycast(from, dir, maxD + 0.2, {});
+        if (r && r.hit) {
+          const tag = String(r.tag || '').toLowerCase();
+          const surf = /terrain|ground|sand|wadi|road/.test(tag) ? 'sand'
+            : /concrete|wall|bunker|pad|jersey|culvert|building|house|plinth/.test(tag) ? 'concrete'
+            : /rock|outcrop/.test(tag) ? 'rock' : /crate|pallet|timber|wood/.test(tag) ? 'wood' : 'metal';
+          this.fx.impact(r.point, r.normal, surf);
+          if (this.events) this.events.emit('impact', { pos: r.point, surface: surf, by: this.entity() });
+        }
+      }
+      return;
+    }
     let dmg = this.weapon.damage * (hitPart === 'head' ? this.weapon.headMult : 1);
     const isPlayer = !hitE.hitboxes;
     if (isPlayer) dmg *= BOT_DAMAGE_TO_PLAYER;
     const wasAlive = hitE.alive !== false && !(hitE.hp !== undefined && hitE.hp <= 0);
     if (typeof hitE.takeDamage === 'function') hitE.takeDamage(dmg, from.clone(), this.id);
+    if (this.fx && this.fx.bloodHit) this.fx.bloodHit(from.clone().addScaledVector(dir, hitD));   // round 24
     const victim = hitE.entity ? hitE.entity() : { id: hitE.id ?? 'player', name: hitE.name ?? 'You', team: hitE.team ?? 'rangers' };
     if (this.events) {
       this.events.emit('hit', { by: this.entity(), target: victim, part: hitPart, damage: dmg });
