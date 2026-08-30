@@ -13,34 +13,34 @@
  * Everything loads relative to this folder: ./assets, ./assetlib.js, ./src/...
  */
 import * as THREE from 'three';
-import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r24-202608300014';
-import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r24-202608300014';
-import { createSky } from './src/render/sky.js?v=r24-202608300014';
-import { createPost } from './src/render/post.js?v=r24-202608300014';
-import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r24-202608300014';
-import { createSkirt } from './src/world/skirt.js?v=r24-202608300014';   // round 17 item 5: ground beyond the map edge
-import { createFarBand } from './src/level/farband.js?v=r24-202608300014';   // round 24: oilfield landmarks at 150 to 400 m
-import { World } from './src/world/collision.js?v=r24-202608300014';
-import { buildLevel } from './src/level/build.js?v=r24-202608300014';
-import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r24-202608300014';
-import { Player } from './src/player/controller.js?v=r24-202608300014';
-import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r24-202608300014';
-import { Viewmodel } from './src/player/viewmodel.js?v=r24-202608300014';
-import { FX } from './src/player/fx.js?v=r24-202608300014';
-import { NavGrid } from './src/ai/navgrid.js?v=r24-202608300014';
-import { Bot } from './src/ai/bot.js?v=r24-202608300014';
-import { SquadManager } from './src/ai/squad.js?v=r24-202608300014';
-import { Input, RAD_PER_PX } from './src/ui/input.js?v=r24-202608300014';
-import { TouchControls } from './src/ui/touch.js?v=r24-202608300014';
-import { HUD } from './src/ui/hud.js?v=r24-202608300014';
-import { Screens } from './src/ui/screens.js?v=r24-202608300014';
-import { Events } from './src/game/events.js?v=r24-202608300014';
-import { TDM } from './src/game/mode.js?v=r24-202608300014';
-import { createTelemetry } from './src/game/telemetry.js?v=r24-202608300014';
-import { Audio } from './src/game/audio.js?v=r24-202608300014';
-import { ASSET } from './assetlib.js?v=r24-202608300014';
-import { vertexiseMaterials } from './src/game/bake.js?v=r24-202608300014';
-import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r24-202608300014';   // materials r3
+import { TIERS, detectTier, getTier, applyTierToRenderer } from './src/render/quality.js?v=r24-202608300019';
+import { createLightingRig, SUN_COLOR, SKY_COLOR, SUN_INTENSITY, SKY_INTENSITY, sunDirection } from './src/render/lighting.js?v=r24-202608300019';
+import { createSky } from './src/render/sky.js?v=r24-202608300019';
+import { createPost } from './src/render/post.js?v=r24-202608300019';
+import { TERRAIN_SPEC, buildTerrain } from './src/world/terrain.js?v=r24-202608300019';
+import { createSkirt } from './src/world/skirt.js?v=r24-202608300019';   // round 17 item 5: ground beyond the map edge
+import { createFarBand } from './src/level/farband.js?v=r24-202608300019';   // round 24: oilfield landmarks at 150 to 400 m
+import { World } from './src/world/collision.js?v=r24-202608300019';
+import { buildLevel } from './src/level/build.js?v=r24-202608300019';
+import { PLACEMENTS, LINKS, WALKABLES, SPAWNS, COVER_POINTS, BOUNDARY } from './src/level/placements.js?v=r24-202608300019';
+import { Player } from './src/player/controller.js?v=r24-202608300019';
+import { WeaponSystem, WEAPONS } from './src/player/weapons.js?v=r24-202608300019';
+import { Viewmodel } from './src/player/viewmodel.js?v=r24-202608300019';
+import { FX } from './src/player/fx.js?v=r24-202608300019';
+import { NavGrid } from './src/ai/navgrid.js?v=r24-202608300019';
+import { Bot } from './src/ai/bot.js?v=r24-202608300019';
+import { SquadManager } from './src/ai/squad.js?v=r24-202608300019';
+import { Input, RAD_PER_PX } from './src/ui/input.js?v=r24-202608300019';
+import { TouchControls } from './src/ui/touch.js?v=r24-202608300019';
+import { HUD } from './src/ui/hud.js?v=r24-202608300019';
+import { Screens } from './src/ui/screens.js?v=r24-202608300019';
+import { Events } from './src/game/events.js?v=r24-202608300019';
+import { TDM } from './src/game/mode.js?v=r24-202608300019';
+import { createTelemetry } from './src/game/telemetry.js?v=r24-202608300019';
+import { Audio } from './src/game/audio.js?v=r24-202608300019';
+import { ASSET } from './assetlib.js?v=r24-202608300019';
+import { vertexiseMaterials } from './src/game/bake.js?v=r24-202608300019';
+import { preloadMaterials, applyTerrainMaterial, applyMaterials } from './src/render/materials.js?v=r24-202608300019';   // materials r3
 
 const ROUND = (globalThis.__BUILD_STAMP__ || 'r19-dev').split('-')[0];   // the round label on the HUD and screens comes from the publish stamp (was a hardcoded 'r6' for thirteen rounds)
 const DEG = Math.PI / 180;
@@ -127,7 +127,9 @@ for (const p of PLACEMENTS) if (!p.dy && /pipe_rack_stack|generator_set|control_
 }
 applyTerrainMaterial(terrain, tier, { disturb: DISTURB });   // materials r3: sand_sunlit and sand_packed tiles on the terrain's own material; r17: + sand_disturbed
 if (params.get('skirt') !== 'off') { const skirt = createSkirt(terrain); if (params.get('skirt') !== 'plain') applyMaterials(skirt, { asset: 'map_skirt' }); scene.add(skirt); }   // round 17 item 5 ('?skirt=off|plain' to debug)
-if (params.get('farband') !== 'off') { const fb = createFarBand(terrain); applyMaterials(fb, { asset: 'far_band' }); scene.add(fb); console.info(`[farband] ${fb.userData.tris} triangles`); }   // round 24
+// round 24b (Ben: "roll back 2 - these objects in the distance don't look great"): the far band is OFF by default.
+// '?farband=on' brings it back (level/farband.js is untouched and still builds in one merged mesh).
+if (params.get('farband') === 'on') { const fb = createFarBand(terrain); applyMaterials(fb, { asset: 'far_band' }); scene.add(fb); console.info(`[farband] ${fb.userData.tris} triangles`); }
 const world = new World(terrain);
 // Shadow caster proxy for the ground: the 0.25 m tiles receive shadows but do not cast them
 // (that was ~0.5 M triangles per cascade); a 1 m sampling of the same heightfield, lowered
