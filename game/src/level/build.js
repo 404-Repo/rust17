@@ -16,13 +16,13 @@
  * before the bake because the bake leaves no individual objects behind.
  */
 import * as THREE from 'three';
-import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r24-202608300022';
-import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r24-202608300022';
-import { GLB_STATIC, loadGlbStatic } from './glbstatic.js?v=r24-202608300022';   // round 11: Atlas rocks
-import { applyMaterials } from '../render/materials.js?v=r24-202608300022';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
-import { collapsePerJoint } from '../ai/animation.js?v=r24-202608300022';
-import { buildDecals } from '../render/decals.js?v=r24-202608300022';   // decals r6: near field decals, built after the bake
-import { FILLET_ASSETS, makeFillet, STILT_ASSETS, makeStiltsFromObject } from './fillets.js?v=r24-202608300022';   // round 17: contact fillets; round 22i: stilts
+import { ASSET, preloadAssets, bakeStatic, assetSize } from '../../assetlib.js?v=r24-202608300023';
+import { PLACEMENTS, LINKS, WALKABLES, INTERIORS, SIGHTLINES, PADS, padAt } from './placements.js?v=r24-202608300023';
+import { GLB_STATIC, loadGlbStatic } from './glbstatic.js?v=r24-202608300023';   // round 11: Atlas rocks
+import { applyMaterials } from '../render/materials.js?v=r24-202608300023';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
+import { collapsePerJoint } from '../ai/animation.js?v=r24-202608300023';
+import { buildDecals } from '../render/decals.js?v=r24-202608300023';   // decals r6: near field decals, built after the bake
+import { FILLET_ASSETS, makeFillet, STILT_ASSETS, makeStiltsFromObject } from './fillets.js?v=r24-202608300023';   // round 17: contact fillets; round 22i: stilts
 // round 17 item 1: props that sit IN the sand (4 cm down) so the fillet has something to climb; nothing with a walkable
 const SINK = new Set(['crate_stack', 'wooden_pallet_stack', 'oil_drum', 'tyre_stack', 'ibc_tote', 'sandbag_wall', 'jersey_barrier', 'generator_set', 'control_cabinet', 'ammo_crate', 'locker_bank', 'steel_shelving', 'shipping_container_blue', 'shipping_container_rust_red', 'shipping_container_tan', 'shipping_container_open', 'fuel_truck_wreck', 'pickup_wreck', 'valve_manifold', 'wellhead_christmas_tree', 'compound_wall_panel', 'corrugated_wall_panel', 'bullet_tank_horizontal']);
 

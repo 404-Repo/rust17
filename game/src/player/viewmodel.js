@@ -33,11 +33,11 @@
  * left elbow pulled under the weapon in ADS so the sleeve leaves the frame.
  */
 import * as THREE from 'three';
-import { ASSET } from '../../assetlib.js?v=r24-202608300022';
-import { loadGlbWeapon } from './glbweapon.js?v=r24-202608300022';   // round 8: generated hero rifle (Atlas image_to_3d)
-import { loadGlbArm } from './glbarms.js?v=r24-202608300022';   // round 14: generated rigid arms (Ben: "I don't like the hand in the foreground")
-import { applyMaterials } from '../render/materials.js?v=r24-202608300022';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
-import { collapsePerJoint } from '../ai/animation.js?v=r24-202608300022';
+import { ASSET } from '../../assetlib.js?v=r24-202608300023';
+import { loadGlbWeapon } from './glbweapon.js?v=r24-202608300023';   // round 8: generated hero rifle (Atlas image_to_3d)
+import { loadGlbArm } from './glbarms.js?v=r24-202608300023';   // round 14: generated rigid arms (Ben: "I don't like the hand in the foreground")
+import { applyMaterials } from '../render/materials.js?v=r24-202608300023';   // materials r3: triplanar PBR sets, wraps vertexiseMaterials
+import { collapsePerJoint } from '../ai/animation.js?v=r24-202608300023';
 
 const WEAPON_ASSET = { ar: 'assault_rifle', smg: 'smg', dmr: 'marksman_rifle' };
 const SIGHT = { ar: 0.075, smg: 0.060, dmr: 0.090 };   // fallback sight height over the muzzle when an asset has no `sight` socket
