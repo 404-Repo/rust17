@@ -108,7 +108,7 @@ export class Screens {
     };
     this.load = get('load', `<div id="load"><div class="ttl">Rust <i>17</i></div><div class="sub">Oil lease. Late afternoon. Two teams.</div>
       <div class="bar"><div class="fill"></div></div><div class="lbl pix">Loading</div>
-      <div class="credit pix">404 GEN<br>Subnet 17<br>github.com/404-Repo/404-game-recipe</div></div>`);
+      <div class="credit pix">404—GEN<br>Subnet 17<br>github.com/404-Repo/404-game-recipe</div></div>`);
     const keys = isTouch()
       ? '<span class="pix">Move</span><span>Left thumb</span><span class="pix">Aim</span><span>Right thumb</span><span class="pix">Fire</span><span>Tap or hold</span><span class="pix">Sprint</span><span>Push the stick fully</span>'
       : '<span class="pix">Move</span><span>W A S D</span><span class="pix">Aim</span><span>Mouse, right click for sights</span><span class="pix">Fire</span><span>Left click</span><span class="pix">Sprint</span><span>Shift</span><span class="pix">Crouch, jump</span><span>C, Space</span><span class="pix">Reload, grenade</span><span>R, G</span><span class="pix">Weapons</span><span>1, 2, 3</span>';
