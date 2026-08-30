@@ -9,7 +9,7 @@
  * Lane waypoints are listed west to east; militia walk them in reverse.
  */
 import * as THREE from 'three';
-import { Bot } from './bot.js?v=r24-202608300031';   // fix4 ai: corpse ageing
+import { Bot } from './bot.js?v=r24-202608300033';   // fix4 ai: corpse ageing
 
 export const LANES = {
   north: [[-58, -16], [-44, -14], [-36, -26], [-22, -33], [-4, -33], [8, -30], [20, -30], [30, -24], [46, -36], [58, -16]],

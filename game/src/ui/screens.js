@@ -116,7 +116,7 @@ export class Screens {
       <div class="mode">Team deathmatch</div><div class="teams"><b>Rangers</b> vs <i>Militia</i></div>
       <div class="rules pix">First to 30. Seven minutes.</div><div class="keys">${keys}</div>
       <button id="startb" type="button">Deploy</button></div>
-      <div class="foot pix"><span>404 GEN</span><span>Build ${esc(round)}</span><span>Subnet 17</span></div></div>`);
+      <div class="foot pix"><span>404—GEN</span><span>Build ${esc(round)}</span><span>Subnet 17</span></div></div>`);
     this.over = get('over', `<div id="over"><div class="pan"></div></div>`);
     this.pan = this.over.querySelector('.pan');
     this.startb = this.start.querySelector('#startb');
